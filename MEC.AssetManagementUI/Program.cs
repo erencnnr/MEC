@@ -1,23 +1,34 @@
+using MEC.AssetManagementUI.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
+
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// MVC Servisleri
 builder.Services.AddControllersWithViews();
+
+// 1. Dependency Injection Tanýmlamasý
+// Ýleride veritabaný servisi yazýnca sadece "MockAuthService" kýsmýný "DbAuthService" yapacaksýnýz.
+builder.Services.AddScoped<IAuthService, MockAuthService>();
+
+// 2. Cookie Authentication Ayarlarý
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Account/Login"; // Giriþ yapmamýþ kullanýcý buraya atýlýr
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(20); // Oturum süresi
+    });
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    app.UseHsts();
-}
+// ... Diðer middleware ayarlarý (Hsts, HttpsRedirection vs.) ...
 
-app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
 
+// 3. Bu sýralama ÇOK ÖNEMLÝ: UseRouting'den sonra, UseAuthorization'dan önce olmalý.
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(
