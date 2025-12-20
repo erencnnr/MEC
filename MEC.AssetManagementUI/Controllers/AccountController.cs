@@ -1,7 +1,7 @@
 ﻿using MEC.AssetManagementUI.Models;
-using MEC.AssetManagementUI.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -9,14 +9,15 @@ namespace MEC.AssetManagementUI.Controllers
 {
     public class AccountController : Controller
     {
-        private readonly IAuthService _authService;
+        
 
         // Servisi Constructor (Yapıcı Metot) ile içeri alıyoruz
-        public AccountController(IAuthService authService)
+        public AccountController()
         {
-            _authService = authService;
+            
         }
 
+        [AllowAnonymous]
         [HttpGet]
         public IActionResult Login()
         {
@@ -28,13 +29,14 @@ namespace MEC.AssetManagementUI.Controllers
             return View();
         }
 
+        [AllowAnonymous]
         [HttpPost]
         public async Task<IActionResult> Login(LoginViewModel model)
         {
             if (ModelState.IsValid)
             {
                 // Servis üzerinden kontrol (Şu an Mock, ileride DB çalışacak)
-                if (_authService.ValidateLogin(model.Username, model.Password))
+                if (model.Username == "admin" && model.Password == "12345")
                 {
                     // Kullanıcı bilgilerini (Claims) oluştur
                     var claims = new List<Claim>

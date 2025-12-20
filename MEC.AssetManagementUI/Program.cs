@@ -1,15 +1,18 @@
-using MEC.AssetManagementUI.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
 
 
 var builder = WebApplication.CreateBuilder(args);
 
 // MVC Servisleri
-builder.Services.AddControllersWithViews();
-
-// 1. Dependency Injection Tanýmlamasý
-// Ýleride veritabaný servisi yazýnca sadece "MockAuthService" kýsmýný "DbAuthService" yapacaksýnýz.
-builder.Services.AddScoped<IAuthService, MockAuthService>();
+builder.Services.AddControllersWithViews(options =>
+{
+    var policy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser() // Herkes login olmak zorunda
+        .Build();
+    options.Filters.Add(new AuthorizeFilter(policy)); // Filtreyi ekle
+});
 
 // 2. Cookie Authentication Ayarlarý
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
