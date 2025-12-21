@@ -16,7 +16,7 @@ namespace MEC.AssetManagementUI.Controllers
         public async Task<IActionResult> GetSchools()
         {
             var schools = await _schoolService.GetSchoolListAsync();
-
+            
             // Veriyi JSON formatına çevirip döner
             return Json(new { data = schools });
         }
