@@ -18,10 +18,9 @@ namespace MEC.Application.Service.SchoolService
         }
         public async Task<List<School>> GetSchoolListAsync()
         {
-            // Generic Repository'deki GetAllAsync metodunu kullanıyoruz
+            
             var schools = await _repository.GetAllAsync();
 
-            // IEnumerable dönen veriyi List'e çevirip döndürüyoruz
             return schools.ToList();
         }
     }

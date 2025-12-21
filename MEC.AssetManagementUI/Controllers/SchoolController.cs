@@ -10,7 +10,6 @@ namespace MEC.AssetManagementUI.Controllers
         public SchoolController(ISchoolService schoolService)
         {
             _schoolService = schoolService;
-            _schoolService = schoolService;
         }
 
         [HttpGet]
