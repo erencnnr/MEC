@@ -6,4 +6,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\MEC.Application.Abstractions\MEC.Application.Abstractions.csproj" />
+    <ProjectReference Include="..\MEC.DAL\MEC.DAL.csproj" />
+    <ProjectReference Include="..\MEC.Domain\MEC.Domain.csproj" />
+  </ItemGroup>
+
 </Project>

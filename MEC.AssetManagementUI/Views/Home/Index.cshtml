@@ -10,41 +10,6 @@
         </div>
     </div>
 
-    <div class="row g-3">
-        <div class="col-md-3">
-            <div class="card text-white bg-primary h-100 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="bi bi-pc-display"></i> Toplam Cihaz</h5>
-                    <p class="card-text fs-2 fw-bold">124</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-success h-100 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="bi bi-check-circle"></i> Zimmetli</h5>
-                    <p class="card-text fs-2 fw-bold">98</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-warning text-dark h-100 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="bi bi-box-seam"></i> Depoda</h5>
-                    <p class="card-text fs-2 fw-bold">20</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-danger h-100 shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="bi bi-tools"></i> Arızalı/Serviste</h5>
-                    <p class="card-text fs-2 fw-bold">6</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="row mt-5">
         <div class="col-md-12">
             <div class="alert alert-info">
@@ -53,3 +18,19 @@
         </div>
     </div>
 </div>
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            $.ajax({
+                url: '/School/GetSchools', 
+                type: 'GET',
+                success: function (response) {
+                    console.log(response); 
+                },
+                error: function (err) {
+                    console.error("Veri çekilemedi", err);
+                }
+            });
+        });
+    </script>
+}

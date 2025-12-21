@@ -19,7 +19,7 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<School> Schools { get; set; }
         // ... diğerleri
 
-        // 1. GLOBAL AYAR: String uzunlukları (EF Core 6.0 ve sonrası için en modern yol)
+        
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Projedeki (aksi belirtilmeyen) TÜM string property'ler veritabanında varchar(255) olsun.
@@ -39,7 +39,7 @@ namespace MEC.DAL.Config.Contexts
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
                 // Entity'nin class adını (örn: Asset) alıp tablo adı yapar.
-                entityType.SetTableName(entityType.DisplayName());
+                entityType.SetTableName(entityType.DisplayName().ToLower());
             }
 
             base.OnModelCreating(modelBuilder);
