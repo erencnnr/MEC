@@ -18,19 +18,3 @@
         </div>
     </div>
 </div>
-@section Scripts {
-    <script>
-        $(document).ready(function () {
-            $.ajax({
-                url: '/School/GetSchools', 
-                type: 'GET',
-                success: function (response) {
-                    console.log(response); 
-                },
-                error: function (err) {
-                    console.error("Veri çekilemedi", err);
-                }
-            });
-        });
-    </script>
-}
