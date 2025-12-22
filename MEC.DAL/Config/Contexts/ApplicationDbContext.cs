@@ -46,12 +46,12 @@ namespace MEC.DAL.Config.Contexts
             modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
 
             // 3. GLOBAL AYAR: Tablo İsimlerini Tekil Yapma (Singular Table Names)
-            // Eski koddaki "Remove Pluralizing" yerine modern yöntem budur.
-            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-            {
-                // Entity'nin class adını (örn: Asset) alıp tablo adı yapar.
-                entityType.SetTableName(entityType.DisplayName().ToLower());
-            }
+            // 23.12.2025 tablo isimleri entitylerde tanımlandı bu blok kaldırıldı
+            //foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            //{
+            //    // Entity'nin class adını (örn: Asset) alıp tablo adı yapar.
+            //    entityType.SetTableName(entityType.DisplayName().ToLower());
+            //}
 
             base.OnModelCreating(modelBuilder);
         }

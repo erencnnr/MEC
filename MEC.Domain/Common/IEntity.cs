@@ -8,7 +8,7 @@ namespace MEC.Domain.Common
 {
     public interface IEntity
     {
-        public DateTime? CreateDate { get; set; }
+        public DateTime? CreatedDate { get; set; }
         public DateTime? UpdateDate { get; set; }
     }
 }

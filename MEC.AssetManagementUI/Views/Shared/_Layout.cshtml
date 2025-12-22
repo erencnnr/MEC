@@ -14,7 +14,9 @@
     <div class="wrapper">
         <nav id="sidebar">
             <div class="sidebar-header">
-                <img src="~/content/images/logo.png" alt="Logo" class="logo-img">
+                <a asp-controller="Home" asp-action="Index" class="d-inline-block">
+                    <img src="~/content/images/logo.png" alt="Logo" class="logo-img">
+                </a>
 
                 <button type="button" id="sidebarCollapse" title="Menüyü Daralt/Genişlet">
                     <i class="bi bi-list"></i>
@@ -23,7 +25,7 @@
 
             <ul class="list-unstyled components">
                 <li>
-                    <a asp-controller="Home" asp-action="Index">
+                    <a asp-controller="Asset" asp-action="Index">
                         <i class="bi bi-box-seam-fill"></i>
                         <span>Envanter</span>
                     </a>

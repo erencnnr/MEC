@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -26,9 +27,20 @@ namespace MEC.DAL.Config.Applicaiton.EntityFramework
             await _dbSet.AddAsync(entity);
         }
 
-        public async Task<IEnumerable<T>> GetAllAsync()
+        public async Task<IEnumerable<T>> GetAllAsync(params Expression<Func<T, object>>[] includes)
         {
-            return await _dbSet.ToListAsync();
+            IQueryable<T> query = _dbSet;
+
+            if (includes != null)
+            {
+                foreach (var include in includes)
+                {
+                    // Her bir tabloyu sorguya dahil et (JOIN işlemi)
+                    query = query.Include(include);
+                }
+            }
+
+            return await query.ToListAsync();
         }
 
         public async Task<T> GetByIdAsync(int id)

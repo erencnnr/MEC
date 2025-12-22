@@ -1,12 +1,14 @@
 ﻿using MEC.Domain.Common;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace MEC.Domain.Entity.Asset
 {
+    [Table("asset")]
     public class Asset : BaseEntity
     {
         public int Id { get; set; }
@@ -16,7 +18,7 @@ namespace MEC.Domain.Entity.Asset
         public DateTime? PurchaseDate { get; set; }
         public int SchoolId { get; set; }
         public School.School School { get; set; }
-        public int StatusId { get; set; }
+        public int AssetStatusId { get; set; }
         public AssetStatus AssetStatus { get; set; }
         public int AssetTypeId { get; set; }
         public AssetType AssetType { get; set; }

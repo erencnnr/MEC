@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace MEC.Domain.Entity.Loan
 {
+    [Table("loan")]
     public class Loan : BaseEntity
     {
         public int Id { get; set; }

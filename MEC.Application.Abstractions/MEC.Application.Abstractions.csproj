@@ -11,8 +11,4 @@
     <ProjectReference Include="..\MEC.Domain\MEC.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Service\AssetService\" />
-  </ItemGroup>
-
 </Project>
