@@ -9,16 +9,28 @@ using MEC.DAL.Config.Contexts;
 using Microsoft.EntityFrameworkCore;
 using MEC.Application.Abstractions.Service.AssetService;
 using MEC.Application.Service.AssetService;
+using MEC.Application.Abstractions.Service.InvoiceService;
+using MEC.Application.Abstractions.Service.LoanService;
+using MEC.Application.Service.InvoiceService;
+using MEC.Application.Service.LoanService;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+
+// Generic Repository ve Servis Kayýtlarý
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<ISchoolService, SchoolService>();
 builder.Services.AddScoped<IAssetService, AssetService>();
-
+builder.Services.AddScoped<IAssetTypeService, AssetTypeService>();
+builder.Services.AddScoped<IAssetStatusService, AssetStatusService>();
+builder.Services.AddScoped<IAssetImageService, AssetImageService>();
+builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+builder.Services.AddScoped<ILoanService, LoanService>();
+builder.Services.AddScoped<ILoanStatusService, LoanStatusService>();
+builder.Services.AddScoped<ISchoolClassService, SchoolClassService>();
 // MVC Servisleri
 builder.Services.AddControllersWithViews(options =>
 {
