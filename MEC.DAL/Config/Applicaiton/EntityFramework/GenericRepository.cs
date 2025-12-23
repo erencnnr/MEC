@@ -27,7 +27,7 @@ namespace MEC.DAL.Config.Applicaiton.EntityFramework
             await _dbSet.AddAsync(entity);
         }
 
-        public async Task<IEnumerable<T>> GetAllAsync(params Expression<Func<T, object>>[] includes)
+        public async Task<IEnumerable<T>> GetAllAsync(Expression<Func<T, bool>> predicate = null, params Expression<Func<T, object>>[] includes)
         {
             IQueryable<T> query = _dbSet;
 
@@ -35,9 +35,13 @@ namespace MEC.DAL.Config.Applicaiton.EntityFramework
             {
                 foreach (var include in includes)
                 {
-                    // Her bir tabloyu sorguya dahil et (JOIN işlemi)
                     query = query.Include(include);
                 }
+            }
+
+            if (predicate != null)
+            {
+                query = query.Where(predicate);
             }
 
             return await query.ToListAsync();

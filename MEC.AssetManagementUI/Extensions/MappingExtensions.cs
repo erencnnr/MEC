@@ -12,6 +12,7 @@ namespace MEC.AssetManagementUI.Extensions
                 Id = x.Id,
                 SerialNumber = x.SerialNumber ?? "-",
                 Description = x.Description ?? "-",
+                Name = x.Name ?? "-",
                 Cost = x.Cost,
                 PurchaseDate = x.PurchaseDate.HasValue ? x.PurchaseDate.Value.ToShortDateString() : "-",
                 SchoolName = x.School != null ? x.School.Name : "Tanımsız",

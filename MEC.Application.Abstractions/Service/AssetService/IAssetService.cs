@@ -1,4 +1,5 @@
 ﻿using MEC.Application.Abstractions.Application;
+using MEC.Application.Abstractions.Service.AssetService.Model;
 using MEC.Domain.Entity.Asset;
 using System;
 using System.Collections.Generic;
@@ -10,6 +11,6 @@ namespace MEC.Application.Abstractions.Service.AssetService
 {
     public interface IAssetService : IApplicationService
     {
-        Task<List<Asset>> GetAssetListAsync();
+        Task<List<Asset>> GetAssetListAsync(AssetFilterRequestModel request);
     }
 }

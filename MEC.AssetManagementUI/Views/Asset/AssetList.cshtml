@@ -1,82 +1,163 @@
-﻿@model List<MEC.AssetManagementUI.Models.AssetModel.AssetListViewModel>
+﻿@using MEC.Application.Abstractions.Service.AssetService.Model
+@using MEC.AssetManagementUI.Models.AssetModel
+@model List<AssetListViewModel>
 
 @{
     ViewData["Title"] = "Demirbaş Listesi";
+    // Filtreleri geri al
+    var filter = ViewBag.CurrentFilter as AssetFilterRequestModel;
 }
 
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="h3 mb-0 text-gray-800">
-            <i class="bi bi-pc-display-horizontal me-2"></i>Demirbaş Listesi
-        </h2>
-        <a href="#" class="btn btn-primary shadow-sm">
-            <i class="bi bi-plus-lg text-white-50"></i> Yeni Demirbaş Ekle
-        </a>
-    </div>
+    <h2 class="h3 mb-4 text-gray-800">Demirbaş Yönetimi</h2>
 
-    <div class="card shadow mb-4">
-        <div class="card-header py-3">
-            <h6 class="m-0 font-weight-bold text-primary">Kayıtlı Demirbaşlar</h6>
+    <form method="get" asp-action="Index" asp-controller="Asset" id="mainFilterForm">
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <a asp-action="Create" class="btn btn-primary shadow-sm">
+                <i class="bi bi-plus-lg"></i> Yeni Ekle
+            </a>
+
+            <div class="input-group" style="width: 300px;">
+                <input type="text" name="SearchText" class="form-control"
+                       placeholder="Seri No, Marka, Model..."
+                       value="@filter?.SearchText">
+                <button class="btn btn-primary" type="submit">
+                    <i class="bi bi-search"></i>
+                </button>
+                @if (!string.IsNullOrEmpty(filter?.SearchText) || filter?.SchoolId != null || filter?.AssetTypeId != null || filter?.AssetStatusId != null)
+                {
+                    <a asp-action="Index" class="btn btn-secondary" title="Filtreleri Temizle">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                }
+            </div>
         </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-bordered table-hover" width="100%" cellspacing="0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Seri No</th>
-                            <th>Tür</th>
-                            <th>Açıklama</th>
-                            <th>Konum (Okul)</th>
-                            <th>Durum</th>
-                            <th>Maliyet</th>
-                            <th>Alım Tarihi</th>
-                            <th style="width: 100px;">İşlemler</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if (Model != null && Model.Any())
-                        {
-                            @foreach (var item in Model)
+
+        <div class="card shadow mb-4">
+            <div class="card-body p-0">
+                <div class="table-responsive" style="min-height: 600px;">
+                    <table class="table table-bordered table-hover mb-0" width="100%">
+                        <thead class="table-light">
+                            <tr class="align-middle">
+
+                                <th>Seri No</th>
+                                <th>Demirbaş Adı</th>
+                                <th>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>Tür</span>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="bi bi-chevron-down @(filter?.AssetTypeId != null ? "text-primary fw-bold" : "text-muted")"></i>
+                                            </button>
+
+                                            <div class="dropdown-menu p-3 shadow border-0" style="min-width: 250px; z-index: 1050;">
+                                                <label class="form-label small fw-bold text-muted">Tür Filtrele</label>
+                                                <select name="AssetTypeId" class="form-select form-select-sm mb-2"
+                                                        asp-items="ViewBag.Types">
+                                                    <option value="">-- Tümü --</option>
+                                                </select>
+                                                <div class="d-grid">
+                                                    <button type="submit" class="btn btn-sm btn-primary">Uygula</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </th>
+
+                                <th>Açıklama</th>
+
+                                <th>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>Konum / Okul</span>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="bi bi-chevron-down @(filter?.SchoolId != null ? "text-primary fw-bold" : "text-muted")"></i>
+                                            </button>
+                                            <div class="dropdown-menu p-3 shadow border-0" style="min-width: 250px;">
+                                                <label class="form-label small fw-bold text-muted">Okul Filtrele</label>
+                                                <select name="SchoolId" class="form-select form-select-sm mb-2"
+                                                        asp-items="ViewBag.Schools">
+                                                    <option value="">-- Tümü --</option>
+                                                </select>
+                                                <div class="d-grid">
+                                                    <button type="submit" class="btn btn-sm btn-primary">Uygula</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </th>
+
+                                <th>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>Durum</span>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="bi bi-chevron-down @(filter?.AssetStatusId != null ? "text-primary fw-bold" : "text-muted")"></i>
+                                            </button>
+                                            <div class="dropdown-menu p-3 shadow border-0" style="min-width: 200px;">
+                                                <label class="form-label small fw-bold text-muted">Durum Filtrele</label>
+                                                <select name="AssetStatusId" class="form-select form-select-sm mb-2"
+                                                        asp-items="ViewBag.Statuses">
+                                                    <option value="">-- Tümü --</option>
+                                                </select>
+                                                <div class="d-grid">
+                                                    <button type="submit" class="btn btn-sm btn-primary">Uygula</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </th>
+
+                                <th>Maliyet</th>
+                                <th>Alım Tarihi</th>
+                                <th style="width: 100px;">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model != null && Model.Any())
+                            {
+                                @foreach (var item in Model)
+                                {
+                                    <tr>
+                                        <td class="fw-bold text-primary">@item.SerialNumber</td>
+                                        <td class="fw-bold">@item.Name</td>
+                                        <td>@item.AssetTypeName</td>
+                                        <td>@item.Description</td>
+                                        <td>@item.SchoolName</td>
+                                        <td class="text-center">
+                                            <span class="badge bg-@item.StatusColor rounded-pill">
+                                                @item.StatusName
+                                            </span>
+                                        </td>
+                                        <td>@(item.Cost.HasValue ? item.Cost.Value.ToString("C2") : "-")</td>
+                                        <td>@item.PurchaseDate</td>
+                                        <td>
+                                            <div class="btn-group">
+                                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </a>
+                                                <button class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
                             {
                                 <tr>
-                                    <td class="fw-bold text-primary">@item.SerialNumber</td>
-                                    <td>@item.AssetTypeName</td>
-                                    <td>@item.Description</td>
-                                    <td>
-                                        <i class="bi bi-building me-1 text-muted"></i>@item.SchoolName
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="badge bg-@item.StatusColor rounded-pill">
-                                            @item.StatusName
-                                        </span>
-                                    </td>
-                                    <td>@(item.Cost.HasValue ? item.Cost.Value.ToString("C2") : "-")</td>
-                                    <td>@item.PurchaseDate</td>
-                                    <td>
-                                        <div class="btn-group" role="group">
-                                            <button type="button" class="btn btn-sm btn-outline-primary" title="Düzenle">
-                                                <i class="bi bi-pencil-square"></i>
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-danger" title="Sil">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </div>
+                                    <td colspan="8" class="text-center py-5 text-muted">
+                                        <i class="bi bi-inbox fs-1 d-block mb-3 text-gray-300"></i>
+                                        <p>Kayıt bulunamadı.</p>
                                     </td>
                                 </tr>
                             }
-                        }
-                        else
-                        {
-                            <tr>
-                                <td colspan="8" class="text-center py-4 text-muted">
-                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                    Kayıtlı demirbaş bulunamadı.
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
+    </form>
 </div>
