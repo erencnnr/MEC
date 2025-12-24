@@ -13,6 +13,8 @@ using MEC.Application.Abstractions.Service.InvoiceService;
 using MEC.Application.Abstractions.Service.LoanService;
 using MEC.Application.Service.InvoiceService;
 using MEC.Application.Service.LoanService;
+using MEC.Application.Service.EmployeeService; 
+using MEC.Application.Abstractions.Service.EmployeeService; 
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +33,8 @@ builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<ILoanService, LoanService>();
 builder.Services.AddScoped<ILoanStatusService, LoanStatusService>();
 builder.Services.AddScoped<ISchoolClassService, SchoolClassService>();
+builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+
 // MVC Servisleri
 builder.Services.AddControllersWithViews(options =>
 {

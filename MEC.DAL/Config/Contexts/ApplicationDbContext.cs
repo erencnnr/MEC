@@ -10,6 +10,8 @@ using MEC.Domain.Entity.School;
 using MEC.Domain.Entity.Asset;
 using MEC.Domain.Entity.Invoice;
 using MEC.Domain.Entity.Loan;
+using MEC.Domain.Entity.Employee;
+
 
 namespace MEC.DAL.Config.Contexts
 {
@@ -28,6 +30,9 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<Loan> Loans { get; set; }
         public DbSet<LoanStatus> LoanStatuses { get; set; }
         public DbSet<SchoolClass> SchoolClasses { get; set; }
+        
+        public DbSet<Employee> Employees { get; set; }
+        public DbSet<EmployeeType> EmployeeTypes { get; set; }
         
 
 
