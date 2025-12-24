@@ -13,5 +13,7 @@ namespace MEC.Application.Abstractions.Service.EmployeeService
 
         // Bu metodun çalışması için yukarıdaki 'using MEC.Domain.Entity.Employee;' şarttır.
         Task<List<EmployeeType>> GetEmployeeTypesAsync();
+
+        Task DeleteEmployeeAsync(int id);
     }
 }

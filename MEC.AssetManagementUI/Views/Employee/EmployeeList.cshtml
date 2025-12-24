@@ -3,128 +3,120 @@
 
 @{
     ViewData["Title"] = "Çalışanlar";
+    // Listeyi View tarafında ikiye ayırıyoruz
+    var activeEmployees = Model.Where(x => !x.IsDeleted).ToList();
+    var passiveEmployees = Model.Where(x => x.IsDeleted).ToList();
 }
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2>Çalışan Listesi</h2>
-
         <div>
             <button class="btn btn-outline-info me-2" id="btnSync">
                 <i class="fa fa-refresh"></i> Senkronize Et
             </button>
-
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createEmployeeModal">
                 + Yeni Çalışan
             </button>
         </div>
     </div>
 
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Ad</th>
-                        <th>Soyad</th>
-                        <th>Email</th>
-                        <th>Telefon</th>
-                        <th>Kayıt Tarihi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (Model != null && Model.Any())
-                    {
-                        foreach (var item in Model)
-                        {
+    <ul class="nav nav-tabs mb-3" id="employeeTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="active-tab" data-bs-toggle="tab" data-bs-target="#active" type="button" role="tab" aria-controls="active" aria-selected="true">
+                Aktif Personeller (@activeEmployees.Count)
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="passive-tab" data-bs-toggle="tab" data-bs-target="#passive" type="button" role="tab" aria-controls="passive" aria-selected="false">
+                Pasif Personeller (@passiveEmployees.Count)
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="employeeTabsContent">
+
+        <div class="tab-pane fade show active" id="active" role="tabpanel" aria-labelledby="active-tab">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <table class="table table-hover align-middle">
+                        <thead>
                             <tr>
-                                <td>@item.FirstName</td>
-                                <td>@item.LastName</td>
-                                <td>@item.Email</td>
-                                <td>@item.Phone</td>
-                                <td>@(item.CreatedDate.HasValue? item.CreatedDate.Value.ToString("dd.MM.yyyy") : "-")</td>
+                                <th>Ad</th>
+                                <th>Soyad</th>
+                                <th>Email</th>
+                                <th>Telefon</th>
+                                <th>Kayıt Tarihi</th>
+                                <th class="text-end">İşlemler</th>
                             </tr>
-                        }
-                    }
-                    else
-                    {
-                        <tr>
-                            <td colspan="5" class="text-center">Kayıtlı çalışan bulunamadı.</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="createEmployeeModal" tabindex="-1" aria-labelledby="createEmployeeModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="createEmployeeModalLabel">Yeni Çalışan Ekle</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-
-            <form method="post" action="/Employee/Create">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Ad</label>
-                        <input type="text" class="form-control" name="FirstName" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Soyad</label>
-                        <input type="text" class="form-control" name="LastName" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" class="form-control" name="Email" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Telefon</label>
-                        <input type="text" class="form-control" name="Phone">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Çalışan Tipi</label>
-                        <select class="form-select" name="EmployeeTypeId" required>
-                            <option value="">Seçiniz...</option>
-                            @if (ViewBag.EmployeeTypes != null)
+                        </thead>
+                        <tbody>
+                            @if (activeEmployees.Any())
                             {
-                                foreach (var type in (List<MEC.Domain.Entity.Employee.EmployeeType>)ViewBag.EmployeeTypes)
+                                foreach (var item in activeEmployees)
                                 {
-                                    <option value="@type.Id">@type.Name</option>
+                                    <tr>
+                                        <td>@item.FirstName</td>
+                                        <td>@item.LastName</td>
+                                        <td>@item.Email</td>
+                                        <td>@item.Phone</td>
+                                        <td>@(item.CreatedDate.HasValue? item.CreatedDate.Value.ToString("dd.MM.yyyy") : "-")</td>
+                                        <td class="text-end">
+                                            <a href="/Employee/Delete/@item.Id"
+                                               class="btn btn-sm btn-danger"
+                                               onclick="return confirm('Bu kullanıcıyı pasife almak istediğinize emin misiniz?');"
+                                               title="Pasife Al">
+                                                <i class="fa fa-trash"></i> 🗑️
+                                            </a>
+                                        </td>
+                                    </tr>
                                 }
                             }
-                        </select>
-                    </div>
+                            else
+                            {
+                                <tr><td colspan="6" class="text-center text-muted">Aktif çalışan bulunamadı.</td></tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                    <button type="submit" class="btn btn-primary">Oluştur</button>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="passive" role="tabpanel" aria-labelledby="passive-tab">
+            <div class="card shadow-sm border-danger">
+                <div class="card-body">
+                    <table class="table table-hover table-secondary align-middle">
+                        <thead>
+                            <tr>
+                                <th>Ad</th>
+                                <th>Soyad</th>
+                                <th>Email</th>
+                                <th>Telefon</th>
+                                <th>Silinme Tarihi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (passiveEmployees.Any())
+                            {
+                                foreach (var item in passiveEmployees)
+                                {
+                                    <tr>
+                                        <td>@item.FirstName</td>
+                                        <td>@item.LastName</td>
+                                        <td>@item.Email</td>
+                                        <td>@item.Phone</td>
+                                        <td>@(item.UpdateDate.HasValue? item.UpdateDate.Value.ToString("dd.MM.yyyy HH:mm") : "-")</td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="5" class="text-center text-muted">Pasif çalışan bulunamadı.</td></tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 </div>
-
-<script>
-    document.getElementById('btnSync').addEventListener('click', function() {
-        // Basit bir alert ile mesaj gösteriyoruz
-        alert("Senkronizasyon Başarılı!");
-
-        // Veya daha şık görünmesi için butonun metnini geçici olarak değiştirebiliriz:
-        /*
-        var btn = this;
-        var originalText = btn.innerHTML;
-        btn.innerHTML = "Senkronize Edildi ✓";
-        btn.classList.remove("btn-outline-info");
-        btn.classList.add("btn-success");
-
-        setTimeout(function() {
-            btn.innerHTML = originalText;
-            btn.classList.remove("btn-success");
-            btn.classList.add("btn-outline-info");
-        }, 2000);
-        */
-    });
-</script>
