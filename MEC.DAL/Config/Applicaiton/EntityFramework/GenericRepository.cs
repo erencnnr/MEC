@@ -26,7 +26,10 @@ namespace MEC.DAL.Config.Applicaiton.EntityFramework
             await _dbSet.AddAsync(entity);
             await _context.SaveChangesAsync();
         }
-
+        public async Task<IEnumerable<T>> GetAllAsync()
+        {
+            return await _dbSet.ToListAsync();
+        }
         public async Task<IEnumerable<T>> GetAllAsync(Expression<Func<T, bool>> predicate = null, params Expression<Func<T, object>>[] includes)
         {
             IQueryable<T> query = _dbSet;
