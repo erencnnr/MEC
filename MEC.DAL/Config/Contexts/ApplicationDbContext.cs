@@ -7,6 +7,8 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using MEC.Domain.Entity.School;
+using MEC.Domain.Entity.Employee;
+
 
 namespace MEC.DAL.Config.Contexts
 {
@@ -17,9 +19,11 @@ namespace MEC.DAL.Config.Contexts
         }
 
         public DbSet<School> Schools { get; set; }
+        public DbSet<Employee> Employees { get; set; }
+        public DbSet<EmployeeType> EmployeeTypes { get; set; }
         // ... diğerleri
 
-        
+
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Projedeki (aksi belirtilmeyen) TÜM string property'ler veritabanında varchar(255) olsun.

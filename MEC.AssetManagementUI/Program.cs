@@ -7,6 +7,8 @@ using MEC.DAL.Config.Abstractions.Common;
 using MEC.DAL.Config.Applicaiton.EntityFramework;
 using MEC.DAL.Config.Contexts;
 using Microsoft.EntityFrameworkCore;
+using MEC.Application.Service.EmployeeService; // Ekleyin
+using MEC.Application.Abstractions.Service.EmployeeService; // Ekleyin
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +17,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<ISchoolService, SchoolService>();
+builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 
 // MVC Servisleri
 builder.Services.AddControllersWithViews(options =>

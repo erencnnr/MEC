@@ -1,12 +1,36 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using MEC.Application.Abstractions.Service.EmployeeService;
+using MEC.Domain.Entity.Employee; // <--- BU SATIR ÇOK ÖNEMLİ
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace MEC.AssetManagementUI.Controllers
 {
     public class EmployeeController : Controller
     {
-        public IActionResult Index()
+        private readonly IEmployeeService _employeeService;
+
+        public EmployeeController(IEmployeeService employeeService)
         {
-            return View("EmployeeList");
+            _employeeService = employeeService;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Index()
+        {
+            // Eğer Adım 1'i doğru yaptıysanız, buradaki kırmızılık gitmeli.
+            var types = await _employeeService.GetEmployeeTypesAsync();
+            ViewBag.EmployeeTypes = types;
+
+            var values = await _employeeService.GetEmployeeListAsync();
+            return View("EmployeeList", values);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Create(Employee employee)
+        {
+            await _employeeService.CreateEmployeeAsync(employee);
+            return RedirectToAction("Index");
         }
     }
 }

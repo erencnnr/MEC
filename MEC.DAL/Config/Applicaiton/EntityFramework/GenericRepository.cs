@@ -2,10 +2,7 @@
 using MEC.DAL.Config.Contexts;
 using MEC.Domain.Common;
 using Microsoft.EntityFrameworkCore;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace MEC.DAL.Config.Applicaiton.EntityFramework
@@ -18,12 +15,13 @@ namespace MEC.DAL.Config.Applicaiton.EntityFramework
         public GenericRepository(ApplicationDbContext context)
         {
             _context = context;
-            _dbSet = _context.Set<T>(); // Generic olarak tabloyu seçer
+            _dbSet = _context.Set<T>();
         }
 
         public async Task AddAsync(T entity)
         {
             await _dbSet.AddAsync(entity);
+            await _context.SaveChangesAsync(); // EKLENEN SATIR: Değişiklikleri veritabanına yazar.
         }
 
         public async Task<IEnumerable<T>> GetAllAsync()
@@ -39,11 +37,13 @@ namespace MEC.DAL.Config.Applicaiton.EntityFramework
         public void Delete(T entity)
         {
             _dbSet.Remove(entity);
+            _context.SaveChanges(); 
         }
 
         public void Update(T entity)
         {
             _dbSet.Update(entity);
+            _context.SaveChanges(); 
         }
     }
 }

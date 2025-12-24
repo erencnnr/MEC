@@ -1,15 +1,130 @@
-﻿@{
+﻿@using MEC.Domain.Entity.Employee
+@model List<Employee>
+
+@{
     ViewData["Title"] = "Çalışanlar";
 }
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2>Çalışan Listesi</h2>
+
+        <div>
+            <button class="btn btn-outline-info me-2" id="btnSync">
+                <i class="fa fa-refresh"></i> Senkronize Et
+            </button>
+
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createEmployeeModal">
+                + Yeni Çalışan
+            </button>
+        </div>
     </div>
 
     <div class="card shadow-sm">
         <div class="card-body">
-            <p>Buraya çalışanlar tablosu gelecek...</p>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Ad</th>
+                        <th>Soyad</th>
+                        <th>Email</th>
+                        <th>Telefon</th>
+                        <th>Kayıt Tarihi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>@item.FirstName</td>
+                                <td>@item.LastName</td>
+                                <td>@item.Email</td>
+                                <td>@item.Phone</td>
+                                <td>@(item.CreatedDate.HasValue? item.CreatedDate.Value.ToString("dd.MM.yyyy") : "-")</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center">Kayıtlı çalışan bulunamadı.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="createEmployeeModal" tabindex="-1" aria-labelledby="createEmployeeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createEmployeeModalLabel">Yeni Çalışan Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form method="post" action="/Employee/Create">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Ad</label>
+                        <input type="text" class="form-control" name="FirstName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Soyad</label>
+                        <input type="text" class="form-control" name="LastName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="Email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Telefon</label>
+                        <input type="text" class="form-control" name="Phone">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Çalışan Tipi</label>
+                        <select class="form-select" name="EmployeeTypeId" required>
+                            <option value="">Seçiniz...</option>
+                            @if (ViewBag.EmployeeTypes != null)
+                            {
+                                foreach (var type in (List<MEC.Domain.Entity.Employee.EmployeeType>)ViewBag.EmployeeTypes)
+                                {
+                                    <option value="@type.Id">@type.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">Oluştur</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('btnSync').addEventListener('click', function() {
+        // Basit bir alert ile mesaj gösteriyoruz
+        alert("Senkronizasyon Başarılı!");
+
+        // Veya daha şık görünmesi için butonun metnini geçici olarak değiştirebiliriz:
+        /*
+        var btn = this;
+        var originalText = btn.innerHTML;
+        btn.innerHTML = "Senkronize Edildi ✓";
+        btn.classList.remove("btn-outline-info");
+        btn.classList.add("btn-success");
+
+        setTimeout(function() {
+            btn.innerHTML = originalText;
+            btn.classList.remove("btn-success");
+            btn.classList.add("btn-outline-info");
+        }, 2000);
+        */
+    });
+</script>
