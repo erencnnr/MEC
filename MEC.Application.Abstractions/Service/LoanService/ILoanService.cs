@@ -10,6 +10,11 @@ namespace MEC.Application.Abstractions.Service.LoanService
 {
     public interface ILoanService : IApplicationService
     {
+        Task AddLoanAsync(Loan loan);
         Task<List<Loan>> GetLoanListAsync();
+        Task<List<Loan>> GetLoansByAssetIdAsync(int assetId);
+        Task<bool> HasActiveLoanAsync(int assetId);
+        Task ReturnLoanAsync(int loanId, DateTime returnDate);
+        Task UpdateLoanAsync(Loan loan);
     }
 }

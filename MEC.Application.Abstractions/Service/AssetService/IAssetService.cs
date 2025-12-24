@@ -11,6 +11,9 @@ namespace MEC.Application.Abstractions.Service.AssetService
 {
     public interface IAssetService : IApplicationService
     {
+        Task AddAssetAsync(Asset asset);
+        Task<Asset> GetAssetByIdAsync(int id);
         Task<List<Asset>> GetAssetListAsync(AssetFilterRequestModel request);
+        Task UpdateAssetAsync(Asset asset);
     }
 }

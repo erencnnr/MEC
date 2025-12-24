@@ -10,5 +10,6 @@ namespace MEC.Application.Abstractions.Service.AssetService
     public interface IAssetImageService : IApplicationService
     {
         Task<List<AssetImage>> GetAssetImageListAsync();
+        Task<List<AssetImage>> GetImagesByAssetIdAsync(int assetId);
     }
 }

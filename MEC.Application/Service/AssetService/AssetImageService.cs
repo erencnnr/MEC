@@ -23,5 +23,10 @@ namespace MEC.Application.Service.AssetService
             var assetImages = await _repository.GetAllAsync();
             return assetImages.ToList();
         }
+        public async Task<List<AssetImage>> GetImagesByAssetIdAsync(int assetId)
+        {
+            var images = await _repository.GetAllAsync(x => x.AssetId == assetId);
+            return images.ToList();
+        }
     }
 }
