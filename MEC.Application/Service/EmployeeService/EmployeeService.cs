@@ -1,6 +1,7 @@
 ﻿using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.DAL.Config.Abstractions.Common;
 using MEC.Domain.Entity.Employee;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -18,39 +19,58 @@ namespace MEC.Application.Service.EmployeeService
             _typeRepository = typeRepository;
         }
 
+        // --- Employee Metotları ---
         public async Task<List<Employee>> GetEmployeeListAsync()
         {
             var employees = await _repository.GetAllAsync();
             return employees.ToList();
         }
 
-        // Yeni eklenen metot
         public async Task CreateEmployeeAsync(Employee employee)
         {
-
             employee.CreatedDate = DateTime.Now;
-            // Burada iş kuralları (validasyon vb.) olabilir.
-
             await _repository.AddAsync(employee);
         }
 
+        public async Task DeleteEmployeeAsync(int id)
+        {
+            var employee = await _repository.GetByIdAsync(id);
+            if (employee != null)
+            {
+                employee.IsDeleted = true;
+                employee.UpdateDate = DateTime.Now; // UpdateDate -> UpdatedDate kontrolü yapın (Entity'nize göre)
+                _repository.Update(employee);
+            }
+        }
+
+        // --- YENİ EKLENEN EmployeeType İŞLEMLERİ ---
         public async Task<List<EmployeeType>> GetEmployeeTypesAsync()
         {
             var types = await _typeRepository.GetAllAsync();
             return types.ToList();
         }
 
-        // YENİ EKLENEN METOT İMPLEMENTASYONU:
-        public async Task DeleteEmployeeAsync(int id)
+        public async Task<EmployeeType> GetEmployeeTypeByIdAsync(int id)
         {
-            var employee = await _repository.GetByIdAsync(id);
-            if (employee != null)
-            {
-                employee.IsDeleted = true; // Pasife çekiyoruz
-                                           // UpdateDate'i de güncelleyelim
-                employee.UpdateDate = DateTime.Now;
+            return await _typeRepository.GetByIdAsync(id);
+        }
 
-                _repository.Update(employee); // GenericRepository'de SaveChanges olduğu için DB'ye yansır.
+        public async Task CreateEmployeeTypeAsync(EmployeeType employeeType)
+        {
+            await _typeRepository.AddAsync(employeeType);
+        }
+
+        public async Task UpdateEmployeeTypeAsync(EmployeeType employeeType)
+        {
+            _typeRepository.Update(employeeType);
+        }
+
+        public async Task DeleteEmployeeTypeAsync(int id)
+        {
+            var type = await _typeRepository.GetByIdAsync(id);
+            if (type != null)
+            {
+                _typeRepository.Delete(type);
             }
         }
     }

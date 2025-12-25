@@ -1,0 +1,104 @@
+﻿@using MEC.Domain.Entity.School
+@model List<SchoolClass>
+
+@{
+    // Controller'dan gelen okul adını alıyoruz
+    ViewData["Title"] = ViewBag.SchoolName + " - Sınıflar";
+    int schoolId = ViewBag.SchoolId;
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <a href="/School/Index" class="btn btn-outline-secondary btn-sm me-2">
+                <i class="bi bi-arrow-left"></i> Okullara Dön
+            </a>
+            <h3 class="d-inline align-middle">@ViewBag.SchoolName - Sınıf Listesi</h3>
+        </div>
+
+        <button class="btn btn-success" onclick="openClassModal(0, '', @schoolId)">
+            <i class="bi bi-plus-lg"></i> Yeni Sınıf Ekle
+        </button>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Sınıf Adı</th>
+                        <th class="text-end" style="width: 150px;">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>@item.Name</td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-warning me-1" onclick="openClassModal(@item.Id, '@item.Name', @schoolId)">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                    <a href="/SchoolClass/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Bu sınıfı silmek istediğinize emin misiniz?');">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="2" class="text-center text-muted">Bu okula kayıtlı sınıf bulunamadı.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="classModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="classModalTitle">Sınıf Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="/SchoolClass/CreateOrUpdate">
+                <div class="modal-body">
+                    <input type="hidden" id="classId" name="Id" value="0" />
+                    <input type="hidden" id="schoolIdInput" name="SchoolId" value="@schoolId" />
+
+                    <div class="mb-3">
+                        <label class="form-label">Sınıf Adı (Örn: 9-A)</label>
+                        <input type="text" class="form-control" id="className" name="Name" required />
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Grade parametresi fonksiyon imzasından kaldırıldı
+    function openClassModal(id, name, schoolId) {
+        document.getElementById('classId').value = id;
+        document.getElementById('className').value = name;
+        // document.getElementById('classGrade').value = grade; // Kaldırıldı
+        document.getElementById('schoolIdInput').value = schoolId;
+
+        var title = id === 0 ? "Yeni Sınıf Ekle" : "Sınıf Düzenle";
+        document.getElementById('classModalTitle').innerText = title;
+
+        var myModal = new bootstrap.Modal(document.getElementById('classModal'));
+        myModal.show();
+    }
+</script>

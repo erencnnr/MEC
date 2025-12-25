@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using MEC.Application.Abstractions.Service.EmployeeService;
-using MEC.Domain.Entity.Employee; // <--- BU SATIR ÇOK ÖNEMLİ
+using MEC.Domain.Entity.Employee;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
@@ -8,18 +8,22 @@ namespace MEC.AssetManagementUI.Controllers
 {
     public class EmployeeController : Controller
     {
+        // 1. TANIMLAMA: Servisleri burada tanımlıyoruz
         private readonly IEmployeeService _employeeService;
+        private readonly IEmployeeTypeService _employeeTypeService; // <-- EKSİK OLAN KISIM BURASIYDI
 
-        public EmployeeController(IEmployeeService employeeService)
+        // 2. CONSTRUCTOR: Servisleri burada içeri alıyoruz (Dependency Injection)
+        public EmployeeController(IEmployeeService employeeService, IEmployeeTypeService employeeTypeService)
         {
             _employeeService = employeeService;
+            _employeeTypeService = employeeTypeService; // <-- VE BURADA EŞLEŞTİRİYORUZ
         }
 
         [HttpGet]
         public async Task<IActionResult> Index()
         {
-            // Eğer Adım 1'i doğru yaptıysanız, buradaki kırmızılık gitmeli.
-            var types = await _employeeService.GetEmployeeTypesAsync();
+            // Türleri artık yeni servisten çekiyoruz
+            var types = await _employeeTypeService.GetEmployeeTypeListAsync();
             ViewBag.EmployeeTypes = types;
 
             var values = await _employeeService.GetEmployeeListAsync();
@@ -33,7 +37,6 @@ namespace MEC.AssetManagementUI.Controllers
             return RedirectToAction("Index");
         }
 
-        // YENİ EKLENEN ACTION:
         public async Task<IActionResult> Delete(int id)
         {
             await _employeeService.DeleteEmployeeAsync(id);

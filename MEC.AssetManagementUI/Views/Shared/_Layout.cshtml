@@ -17,7 +17,6 @@
                 <a asp-controller="Home" asp-action="Index" class="d-inline-block">
                     <img src="~/content/images/logo.png" alt="Logo" class="logo-img">
                 </a>
-
                 <button type="button" id="sidebarCollapse" title="Menüyü Daralt/Genişlet">
                     <i class="bi bi-list"></i>
                 </button>
@@ -39,10 +38,40 @@
                 </li>
 
                 <li>
-                    <a asp-controller="Settings" asp-action="Index">
-                        <i class="bi bi-gear-fill"></i>
-                        <span>Ayarlar</span>
+                    <a href="#settingsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle d-flex align-items-center justify-content-between">
+                        <div>
+                            <i class="bi bi-gear-fill"></i>
+                            <span>Ayarlar</span>
+                        </div>
                     </a>
+
+                    <ul class="collapse list-unstyled ps-3" id="settingsSubmenu">
+                        <li>
+                            <a asp-controller="School" asp-action="Index">
+                                <i class="bi bi-building me-2"></i> Okullar
+                            </a>
+                        </li>
+                        <li>
+                            <a asp-controller="EmployeeType" asp-action="Index">
+                                <i class="bi bi-person-badge me-2"></i> Çalışan Türleri
+                            </a>
+                        </li>
+                        <li>
+                            <a asp-controller="AssetType" asp-action="Index">
+                                <i class="bi bi-tags-fill me-2"></i> Eşya Türleri
+                            </a>
+                        </li>
+                        <li>
+                            <a asp-controller="AssetStatus" asp-action="Index">
+                                <i class="bi bi-heart-pulse-fill me-2"></i> Eşya Durumu
+                            </a>
+                        </li>
+                        <li>
+                            <a asp-controller="LoanStatus" asp-action="Index">
+                                <i class="bi bi-clipboard-check-fill me-2"></i> Zimmet Durumu
+                            </a>
+                        </li>
+                    </ul>
                 </li>
             </ul>
         </nav>

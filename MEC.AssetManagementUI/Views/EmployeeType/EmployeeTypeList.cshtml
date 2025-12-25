@@ -1,0 +1,100 @@
+﻿@using MEC.Domain.Entity.Employee
+@model List<EmployeeType>
+
+@{
+    ViewData["Title"] = "Çalışan Türleri";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3>Çalışan Türleri</h3>
+        <button class="btn btn-primary" onclick="openModal(0, '')">
+            <i class="bi bi-plus-lg"></i> Yeni Tür Ekle
+        </button>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Tür Adı</th>
+                        <th class="text-end" style="width: 150px;">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>@item.Name</td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-warning me-1" onclick="openModal(@item.Id, '@item.Name')">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                    <a href="/EmployeeType/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Bu türü silmek istediğinize emin misiniz?');">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="2" class="text-center text-muted">Kayıtlı çalışan türü bulunamadı.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="typeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Tür Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="/EmployeeType/CreateOrUpdate">
+                <div class="modal-body">
+                    <input type="hidden" id="typeId" name="Id" value="0" />
+
+                    <div class="mb-3">
+                        <label class="form-label">Tür Adı</label>
+                        <input type="text" class="form-control" id="typeName" name="Name" required />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openModal(id, name) {
+        document.getElementById('typeId').value = id;
+        document.getElementById('typeName').value = name;
+
+        var title = id === 0 ? "Yeni Tür Ekle" : "Türü Düzenle";
+        document.getElementById('modalTitle').innerText = title;
+
+        var myModal = new bootstrap.Modal(document.getElementById('typeModal'));
+        myModal.show();
+    }
+</script>
+@if (TempData["ErrorMessage"] != null)
+{
+    <script>
+        // Sayfa yüklendiğinde uyarı ver
+        window.onload = function() {
+            alert('@TempData["ErrorMessage"]');
+        };
+    </script>
+}

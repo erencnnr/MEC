@@ -34,6 +34,7 @@ builder.Services.AddScoped<ILoanService, LoanService>();
 builder.Services.AddScoped<ILoanStatusService, LoanStatusService>();
 builder.Services.AddScoped<ISchoolClassService, SchoolClassService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+builder.Services.AddScoped<IEmployeeTypeService, EmployeeTypeService>();
 
 // MVC Servisleri
 builder.Services.AddControllersWithViews(options =>

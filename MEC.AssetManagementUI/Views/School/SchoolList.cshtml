@@ -1,0 +1,91 @@
+﻿@using MEC.Domain.Entity.School
+@model List<School>
+
+@{
+    ViewData["Title"] = "Okullar";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3>Okul Listesi</h3>
+        <button class="btn btn-primary" onclick="openModal(0, '')">
+            <i class="bi bi-plus-lg"></i> Yeni Okul Ekle
+        </button>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Okul Adı</th>
+                        <th class="text-end" style="width: 250px;">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>@item.Name</td>
+                                <td class="text-end">
+                                    <a href="/SchoolClass/Index?schoolId=@item.Id" class="btn btn-sm btn-info me-1 text-white" title="Sınıfları Yönet">
+                                        <i class="bi bi-people"></i> Sınıflar
+                                    </a>
+                                    <button class="btn btn-sm btn-warning me-1" onclick="openModal(@item.Id, '@item.Name')">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                    <a href="/School/Delete/@item.Id" class="btn btn-sm btn-danger" onclick="return confirm('Bu okulu silmek istediğinize emin misiniz?');">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="2" class="text-center text-muted">Kayıtlı okul bulunamadı.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="schoolModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Okul Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="/School/CreateOrUpdate">
+                <div class="modal-body">
+                    <input type="hidden" id="schoolId" name="Id" value="0" />
+                    <div class="mb-3">
+                        <label class="form-label">Okul Adı</label>
+                        <input type="text" class="form-control" id="schoolName" name="Name" required />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openModal(id, name) {
+        document.getElementById('schoolId').value = id;
+        document.getElementById('schoolName').value = name;
+        var title = id === 0 ? "Yeni Okul Ekle" : "Okul Düzenle";
+        document.getElementById('modalTitle').innerText = title;
+        var myModal = new bootstrap.Modal(document.getElementById('schoolModal'));
+        myModal.show();
+    }
+</script>

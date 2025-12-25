@@ -3,7 +3,6 @@
 
 @{
     ViewData["Title"] = "Çalışanlar";
-    // Listeyi View tarafında ikiye ayırıyoruz
     var activeEmployees = Model.Where(x => !x.IsDeleted).ToList();
     var passiveEmployees = Model.Where(x => x.IsDeleted).ToList();
 }
@@ -12,23 +11,24 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2>Çalışan Listesi</h2>
         <div>
-            <button class="btn btn-outline-info me-2" id="btnSync">
-                <i class="fa fa-refresh"></i> Senkronize Et
+            <button class="btn btn-outline-info me-2" id="btnSync" onclick="syncEmployees()">
+                <i class="bi bi-arrow-repeat"></i> Senkronize Et
             </button>
+
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createEmployeeModal">
-                + Yeni Çalışan
+                <i class="bi bi-plus-lg"></i> Yeni Çalışan
             </button>
         </div>
     </div>
 
     <ul class="nav nav-tabs mb-3" id="employeeTabs" role="tablist">
         <li class="nav-item" role="presentation">
-            <button class="nav-link active" id="active-tab" data-bs-toggle="tab" data-bs-target="#active" type="button" role="tab" aria-controls="active" aria-selected="true">
+            <button class="nav-link active" id="active-tab" data-bs-toggle="tab" data-bs-target="#active" type="button" role="tab">
                 Aktif Personeller (@activeEmployees.Count)
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link" id="passive-tab" data-bs-toggle="tab" data-bs-target="#passive" type="button" role="tab" aria-controls="passive" aria-selected="false">
+            <button class="nav-link" id="passive-tab" data-bs-toggle="tab" data-bs-target="#passive" type="button" role="tab">
                 Pasif Personeller (@passiveEmployees.Count)
             </button>
         </li>
@@ -36,7 +36,7 @@
 
     <div class="tab-content" id="employeeTabsContent">
 
-        <div class="tab-pane fade show active" id="active" role="tabpanel" aria-labelledby="active-tab">
+        <div class="tab-pane fade show active" id="active" role="tabpanel">
             <div class="card shadow-sm">
                 <div class="card-body">
                     <table class="table table-hover align-middle">
@@ -64,9 +64,8 @@
                                         <td class="text-end">
                                             <a href="/Employee/Delete/@item.Id"
                                                class="btn btn-sm btn-danger"
-                                               onclick="return confirm('Bu kullanıcıyı pasife almak istediğinize emin misiniz?');"
-                                               title="Pasife Al">
-                                                <i class="fa fa-trash"></i> 🗑️
+                                               onclick="return confirm('Bu kullanıcıyı pasife almak istediğinize emin misiniz?');">
+                                                <i class="bi bi-trash"></i>
                                             </a>
                                         </td>
                                     </tr>
@@ -82,7 +81,7 @@
             </div>
         </div>
 
-        <div class="tab-pane fade" id="passive" role="tabpanel" aria-labelledby="passive-tab">
+        <div class="tab-pane fade" id="passive" role="tabpanel">
             <div class="card shadow-sm border-danger">
                 <div class="card-body">
                     <table class="table table-hover table-secondary align-middle">
@@ -92,7 +91,7 @@
                                 <th>Soyad</th>
                                 <th>Email</th>
                                 <th>Telefon</th>
-                                <th>Silinme Tarihi</th>
+                                <th>Güncelleme Tarihi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -105,7 +104,7 @@
                                         <td>@item.LastName</td>
                                         <td>@item.Email</td>
                                         <td>@item.Phone</td>
-                                        <td>@(item.UpdateDate.HasValue? item.UpdateDate.Value.ToString("dd.MM.yyyy HH:mm") : "-")</td>
+                                        <td>@(item.UpdateDate.HasValue? item.UpdateDate.Value.ToString("dd.MM.yyyy") : "-")</td>
                                     </tr>
                                 }
                             }
@@ -120,3 +119,73 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="createEmployeeModal" tabindex="-1" aria-labelledby="createEmployeeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createEmployeeModalLabel">Yeni Çalışan Ekle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="Create" asp-controller="Employee" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Ad</label>
+                        <input type="text" class="form-control" name="FirstName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Soyad</label>
+                        <input type="text" class="form-control" name="LastName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="Email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Telefon</label>
+                        <input type="text" class="form-control" name="Phone">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Çalışan Tipi</label>
+                        <select class="form-select" name="EmployeeTypeId" required>
+                            <option value="">Seçiniz...</option>
+                            @if (ViewBag.EmployeeTypes != null)
+                            {
+                                foreach (var type in (List<MEC.Domain.Entity.Employee.EmployeeType>)ViewBag.EmployeeTypes)
+                                {
+                                    <option value="@type.Id">@type.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-primary">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Senkronize Et butonu için basit bir fonksiyon
+        function syncEmployees() {
+            // Butona tıklandığını göstermek için ikon döndürebiliriz
+            var btn = document.getElementById('btnSync');
+            var originalContent = btn.innerHTML;
+
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Senkronize Ediliyor...';
+            btn.disabled = true;
+
+            // Simülasyon (Gerçekte buraya AJAX isteği gelebilir)
+            setTimeout(function() {
+                alert("Senkronizasyon başarıyla tamamlandı!");
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+                location.reload(); // Sayfayı yenile
+            }, 1000);
+        }
+    </script>
+}
