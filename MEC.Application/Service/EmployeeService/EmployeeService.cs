@@ -39,5 +39,19 @@ namespace MEC.Application.Service.EmployeeService
             var types = await _typeRepository.GetAllAsync();
             return types.ToList();
         }
+
+        // YENİ EKLENEN METOT İMPLEMENTASYONU:
+        public async Task DeleteEmployeeAsync(int id)
+        {
+            var employee = await _repository.GetByIdAsync(id);
+            if (employee != null)
+            {
+                employee.IsDeleted = true; // Pasife çekiyoruz
+                                           // UpdateDate'i de güncelleyelim
+                employee.UpdateDate = DateTime.Now;
+
+                _repository.Update(employee); // GenericRepository'de SaveChanges olduğu için DB'ye yansır.
+            }
+        }
     }
 }

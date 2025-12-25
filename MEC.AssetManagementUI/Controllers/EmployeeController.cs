@@ -32,5 +32,12 @@ namespace MEC.AssetManagementUI.Controllers
             await _employeeService.CreateEmployeeAsync(employee);
             return RedirectToAction("Index");
         }
+
+        // YENİ EKLENEN ACTION:
+        public async Task<IActionResult> Delete(int id)
+        {
+            await _employeeService.DeleteEmployeeAsync(id);
+            return RedirectToAction("Index");
+        }
     }
 }
