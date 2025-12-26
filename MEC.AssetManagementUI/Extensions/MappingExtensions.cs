@@ -15,6 +15,7 @@ namespace MEC.AssetManagementUI.Extensions
                 Name = x.Name ?? "-",
                 Cost = x.Cost,
                 PurchaseDate = x.PurchaseDate.HasValue ? x.PurchaseDate.Value.ToShortDateString() : "-",
+                WarrantyEndDate = x.WarrantyEndDate.HasValue ? x.WarrantyEndDate.Value.ToShortDateString() : "-",
                 SchoolName = x.School != null ? x.School.Name : "Tanımsız",
                 AssetTypeName = x.AssetType != null ? x.AssetType.Name : "Tanımsız",
                 StatusName = x.AssetStatus != null ? x.AssetStatus.Name : "Belirsiz",

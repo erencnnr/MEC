@@ -25,5 +25,6 @@ namespace MEC.Domain.Entity.Asset
         public AssetType AssetType { get; set; }
         public int? InvoiceId { get; set; }
         public Invoice.Invoice Invoice { get; set; }
+        public DateTime? WarrantyEndDate { get; set; }
     }
 }

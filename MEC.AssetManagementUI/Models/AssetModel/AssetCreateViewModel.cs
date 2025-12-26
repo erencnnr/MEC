@@ -21,6 +21,9 @@ namespace MEC.AssetManagementUI.Models.AssetModel
 
         [Required(ErrorMessage = "Lütfen bir tür seçiniz.")]
         public int AssetTypeId { get; set; }
+        [Display(Name = "Garanti Bitiş Tarihi")]
+        [DataType(DataType.Date)]
+        public DateTime? WarrantyEndDate { get; set; }
 
     }
 }

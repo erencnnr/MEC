@@ -19,6 +19,7 @@ namespace MEC.AssetManagementUI.Models.AssetModel
 
         // Badge (Etiket) rengi için
         public string StatusName { get; set; }
-        public string StatusColor { get; set; } // "success", "danger" vb.
+        public string StatusColor { get; set; }
+        public string WarrantyEndDate { get; set; }
     }
 }

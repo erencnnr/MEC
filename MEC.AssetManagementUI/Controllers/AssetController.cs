@@ -112,7 +112,7 @@ namespace MEC.AssetManagementUI.Controllers
                 Description = asset.Description,
                 SchoolId = asset.SchoolId,
                 AssetTypeId = asset.AssetTypeId,
-
+                WarrantyEndDate = asset.WarrantyEndDate,
                 // Yeni Alanlar
                 Invoice = asset.Invoice,
                 Images = assetImages,
@@ -142,7 +142,7 @@ namespace MEC.AssetManagementUI.Controllers
                 asset.Description = model.Description;
                 asset.SchoolId = model.SchoolId;
                 asset.AssetTypeId = model.AssetTypeId;
-
+                asset.WarrantyEndDate = model.WarrantyEndDate;
                 await _assetService.UpdateAssetAsync(asset);
 
                 // Başarılı olursa listeye veya aynı sayfaya dönebilirsin
