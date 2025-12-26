@@ -3,7 +3,6 @@
 
 @{
     ViewData["Title"] = "Demirbaş Kartı";
-
     // Aktif zimmet var mı kontrolü (Buton davranışı için)
     bool hasActiveLoan = Model.Loans != null && Model.Loans.Any(x => x.ReturnDate == null);
 }
@@ -91,9 +90,14 @@
             <div class="card shadow mb-4">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold text-primary">Demirbaş Görselleri</h6>
-                    <button class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-upload"></i> Yeni Resim Yükle
-                    </button>
+
+                    <div>
+                        <input type="file" id="imageInput" style="display: none;" accept="image/*" />
+                        <button class="btn btn-sm btn-outline-primary" onclick="document.getElementById('imageInput').click()">
+                            <i class="bi bi-upload"></i> Yeni Resim Yükle
+                        </button>
+                    </div>
+
                 </div>
                 <div class="card-body">
                     @if (Model.Images != null && Model.Images.Any())
@@ -105,7 +109,9 @@
                                     <div class="card h-100">
                                         <img src="@img.Url" class="card-img-top" alt="Asset Image" style="object-fit: cover; height: 150px;">
                                         <div class="card-body text-center p-2">
-                                            <button class="btn btn-xs btn-danger"><i class="bi bi-trash"></i> Sil</button>
+                                            <button class="btn btn-xs btn-danger" onclick="deleteImage(@img.Id)">
+                                                <i class="bi bi-trash"></i> Sil
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -306,54 +312,145 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-<script>
-    // 1. İade Modalına ID Taşıma
-    function setReturnModal(loanId) {
-        document.getElementById('returnLoanId').value = loanId;
-    }
+@section Scripts {
+    <script>
+        // ----------------------------------------------------
+        // 1. RESİM YÜKLEME (API İsteği + DB Kaydı)
+        // ----------------------------------------------------
+        document.getElementById('imageInput').addEventListener('change', function () {
+            var file = this.files[0];
+            if (!file) return;
 
-    // 2. Aktif Zimmet Uyarısı (Butona basılınca)
-    function showActiveLoanError() {
-        Swal.fire({
-            icon: 'warning',
-            title: 'İşlem Engellendi',
-            text: 'Bu demirbaş üzerinde zaten aktif bir zimmet bulunuyor. Yeni zimmet yapabilmek için önce mevcut zimmeti iade almalısınız.',
-            confirmButtonText: 'Tamam'
+            // Asset ID'yi alıyoruz
+            var assetId = '@Model.Id';
+
+            var formData = new FormData();
+            formData.append('File', file);       // API'deki IFormFile File
+            formData.append('AssetId', assetId); // API'deki int AssetId
+
+            Swal.fire({
+                title: 'Yükleniyor...',
+                text: 'Resim sunucuya yükleniyor, lütfen bekleyin.',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading() }
+            });
+
+            // LÜTFEN PORT NUMARASINI KONTROL EDİN (Örn: 7152)
+            var apiUrl = 'https://localhost:7103/api/Image/Upload';
+
+            $.ajax({
+                url: apiUrl,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function (response) {
+                    if (response.success) {
+                        // Başarılı olursa Veritabanına kaydet
+                        // Gelen dosya adı: "isim_id.uzanti" formatındadır.
+                        saveImageToDb(response.fileName);
+                    } else {
+                        Swal.fire('Hata', 'Yükleme başarısız: ' + response.message, 'error');
+                    }
+                },
+                error: function (xhr) {
+                    Swal.fire('Hata', 'API ile iletişim kurulamadı. Port ve CORS ayarlarını kontrol edin.', 'error');
+                }
+            });
         });
-    }
 
-    // 3. Sayfa Yüklendiğinde Çalışacak Kodlar
-    document.addEventListener("DOMContentLoaded", function () {
-
-        // A) Hangi Sekme Açılacak? (Controller'dan gelen TempData)
-        var activeTab = '@TempData["ActiveTab"]';
-        if (activeTab === 'loans') {
-            // Bootstrap 5 ile sekmeyi açma
-            var triggerEl = document.querySelector('#loans-tab');
-            var tab = new bootstrap.Tab(triggerEl);
-            tab.show();
-        }
-
-        // B) Başarı Mesajı Var mı?
-        var successMsg = '@TempData["Success"]';
-        if (successMsg) {
-            Swal.fire({
-                icon: 'success',
-                title: 'Başarılı!',
-                text: successMsg,
-                timer: 2000,
-                showConfirmButton: false
+        // Veritabanı Kayıt Fonksiyonu
+        function saveImageToDb(fileName) {
+            var assetId = '@Model.Id';
+            $.post('/Asset/AddImage', { assetId: assetId, fileName: fileName }, function (res) {
+                if (res.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Başarılı',
+                        text: 'Resim başarıyla eklendi!',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire('Hata', 'Veritabanına kayıt yapılamadı.', 'error');
+                }
             });
         }
 
-        // C) Hata Mesajı Var mı?
-        var errorMsg = '@TempData["Error"]';
-        if (errorMsg) {
+        // ----------------------------------------------------
+        // 2. RESİM SİLME (Onaylı)
+        // ----------------------------------------------------
+        function deleteImage(id) {
             Swal.fire({
-                icon: 'error',
-                title: 'Hata!',
-                text: errorMsg
+                title: 'Emin misiniz?',
+                text: "Bu resmi silmek istediğinize emin misiniz?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Evet, Sil!',
+                cancelButtonText: 'İptal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+
+                    // AssetController > DeleteImage aksiyonuna istek atıyoruz
+                    $.post('/Asset/DeleteImage', { id: id }, function (response) {
+                        if (response.success) {
+                            Swal.fire(
+                                'Silindi!',
+                                'Resim başarıyla silindi.',
+                                'success'
+                            ).then(() => {
+                                location.reload();
+                            });
+                        } else {
+                            Swal.fire('Hata', 'Silme işlemi başarısız: ' + (response.message || ''), 'error');
+                        }
+                    }).fail(function() {
+                        Swal.fire('Hata', 'Sunucu ile iletişim kurulamadı.', 'error');
+                    });
+                }
             });
         }
-    });
-</script>
+
+        // ----------------------------------------------------
+        // 3. YARDIMCI FONKSİYONLAR
+        // ----------------------------------------------------
+        function setReturnModal(loanId) {
+            document.getElementById('returnLoanId').value = loanId;
+        }
+
+        function showActiveLoanError() {
+            Swal.fire({
+                icon: 'warning',
+                title: 'İşlem Engellendi',
+                text: 'Bu demirbaş üzerinde zaten aktif bir zimmet bulunuyor.',
+                confirmButtonText: 'Tamam'
+            });
+        }
+
+        // Sayfa yüklendiğinde yapılacaklar
+        document.addEventListener("DOMContentLoaded", function () {
+            // Hangi sekme aktif olacak?
+            var activeTab = '@TempData["ActiveTab"]';
+            if (activeTab === 'loans') {
+                var triggerEl = document.querySelector('#loans-tab');
+                var tab = new bootstrap.Tab(triggerEl);
+                tab.show();
+            }
+
+            // Bildirim mesajları
+            var successMsg = '@TempData["Success"]';
+            if (successMsg) {
+                Swal.fire({ icon: 'success', title: 'Başarılı!', text: successMsg, timer: 2000, showConfirmButton: false });
+            }
+
+            var errorMsg = '@TempData["Error"]';
+            if (errorMsg) {
+                Swal.fire({ icon: 'error', title: 'Hata!', text: errorMsg });
+            }
+        });
+    </script>
+}

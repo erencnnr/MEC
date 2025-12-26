@@ -3,6 +3,7 @@ using MEC.Application.Abstractions.Service.AssetService.Model;
 using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.LoanService;
 using MEC.Application.Abstractions.Service.SchoolService;
+using MEC.Application.Service.AssetService;
 using MEC.Application.Service.LoanService;
 using MEC.Application.Service.SchoolService;
 using MEC.AssetManagementUI.Extensions;
@@ -25,6 +26,7 @@ namespace MEC.AssetManagementUI.Controllers
         private readonly IAssetImageService _imageService;
         private readonly IEmployeeService _employeeService;
         
+
         public AssetController(IAssetService assetService, ISchoolService schoolService, IAssetTypeService assetTypeService, IAssetStatusService assetStatusService,
             ILoanService loanService, IAssetImageService imageService, IEmployeeService employeeService, ILoanStatusService loanStatusService)
         {
@@ -36,6 +38,7 @@ namespace MEC.AssetManagementUI.Controllers
             _imageService = imageService;
             _employeeService = employeeService;
             _loanStatusService = loanStatusService;
+            
         }
         [HttpGet]
         public async Task<IActionResult> Index([FromQuery] AssetFilterRequestModel request)
@@ -230,6 +233,50 @@ namespace MEC.AssetManagementUI.Controllers
             }
 
             return RedirectToAction("AssetInfo", new { id = assetId });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> AddImage(int assetId, string fileName)
+        {
+            try
+            {
+                // API adresiniz (Portu kendi çalışan portunuzla değiştirmeyi unutmayın)
+                string apiBaseUrl = "https://localhost:7152/static/";
+
+                var assetImage = new MEC.Domain.Entity.Asset.AssetImage
+                {
+                    AssetId = assetId,
+                    Url = apiBaseUrl + fileName, // Tarayıcının erişeceği URL
+                    Path = fileName             // Dosya adı veya fiziksel yol (İsteğinize göre)
+                                                // IsDeleted = false;       // BU SATIRI SİLDİK
+                };
+
+                await _imageService.CreateAsync(assetImage);
+
+                return Json(new { success = true });
+            }
+            catch (Exception)
+            {
+                return Json(new { success = false });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> DeleteImage(int id)
+        {
+            try
+            {
+                // Not: Şimdilik sadece veritabanından kaydı siliyoruz.
+                // Fiziksel dosyayı (C:\Images) silmek için API'ye ayrı bir istek atılması gerekir.
+                // Ancak DB'den silmek UI'dan kaybolması için yeterlidir.
+
+                await _imageService.DeleteAsync(id);
+                return Json(new { success = true });
+            }
+            catch (Exception)
+            {
+                return Json(new { success = false, message = "Silme işlemi sırasında hata oluştu." });
+            }
         }
     }
 }

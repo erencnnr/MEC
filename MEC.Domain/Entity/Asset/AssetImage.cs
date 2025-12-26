@@ -17,5 +17,6 @@ namespace MEC.Domain.Entity.Asset
 
         public int AssetId { get; set; }
         public Asset Asset { get; set; }
+       
     }
 }
