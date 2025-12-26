@@ -7,6 +7,20 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// --- 1. CORS Servisini Ekle ---
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowUI",
+        policy =>
+        {
+            // Güvenlik için sadece kendi UI adresinize izin verebilirsiniz
+            // veya geliþtirme ortamý için AllowAnyOrigin kullanabilirsiniz.
+            policy.WithOrigins("https://localhost:7255") // UI projenizin adresi
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        });
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -17,6 +31,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// --- 2. CORS Middleware'ini Kullan ---
+app.UseCors("AllowUI");
 
 app.UseAuthorization();
 
