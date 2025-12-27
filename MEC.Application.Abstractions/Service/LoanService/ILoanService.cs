@@ -2,8 +2,6 @@
 using MEC.Domain.Entity.Loan;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace MEC.Application.Abstractions.Service.LoanService
@@ -12,6 +10,8 @@ namespace MEC.Application.Abstractions.Service.LoanService
     {
         Task AddLoanAsync(Loan loan);
         Task<List<Loan>> GetLoanListAsync();
+        // Yeni eklediğimiz metod:
+        Task<List<Loan>> GetActiveLoansAsync();
         Task<List<Loan>> GetLoansByAssetIdAsync(int assetId);
         Task<bool> HasActiveLoanAsync(int assetId);
         Task ReturnLoanAsync(int loanId, DateTime returnDate);

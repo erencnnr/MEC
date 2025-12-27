@@ -22,13 +22,26 @@ namespace MEC.Application.Service.AssetService
 
         public async Task<List<Asset>> GetAssetListAsync(AssetFilterRequestModel request)
         {
+            // Repository'e gönderilecek sorgu şartı (Predicate)
             Expression<Func<Asset, bool>> predicate = x =>
-                (string.IsNullOrEmpty(request.SearchText) || x.Description.Contains(request.SearchText) || x.Name.Contains(request.SearchText)) &&
+                // 1. Arama Metni (Boşsa geç, doluysa İsim veya Seri No içinde ara)
+                (string.IsNullOrEmpty(request.SearchText) || x.Name.Contains(request.SearchText) || x.SerialNumber.Contains(request.SearchText)) &&
+
+                // 2. Okul ID (Boşsa geç, doluysa eşleşeni getir)
                 (!request.SchoolId.HasValue || x.SchoolId == request.SchoolId) &&
+
+                // 3. Demirbaş Tipi (Bilgisayar, Yazıcı vb.)
                 (!request.AssetTypeId.HasValue || x.AssetTypeId == request.AssetTypeId) &&
+
+                // 4. Durum (Zimmetli, Hurda vb.)
                 (!request.AssetStatusId.HasValue || x.AssetStatusId == request.AssetStatusId);
 
-            var assets = await _repository.GetAllAsync(predicate,x => x.School,x => x.AssetType,x => x.AssetStatus);
+            // Repository çağrısı (Include'lar ile birlikte)
+            var assets = await _repository.GetAllAsync(predicate,
+                                                       x => x.School,
+                                                       x => x.AssetType,
+                                                       x => x.AssetStatus);
+
             return assets.ToList();
         }
         public async Task AddAssetAsync(Asset asset)

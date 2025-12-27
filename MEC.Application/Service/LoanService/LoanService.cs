@@ -60,5 +60,19 @@ namespace MEC.Application.Service.LoanService
                 _repository.Update(loan);
             }
         }
+        // Yeni eklediğimiz metodun implementasyonu:
+        public async Task<List<Loan>> GetActiveLoansAsync()
+        {
+            // ReturnDate'i null olanları getir
+            // Ayrıca Eşya (Asset) ve Personel (AssignedTo) bilgilerini de dahil et (Include)
+            var activeLoans = await _repository.GetAllAsync(
+                x => x.ReturnDate == null,
+                x => x.Asset,
+                x => x.AssignedTo
+            );
+
+            // Tarihe göre yeniden eskiye sıralayalım
+            return activeLoans.OrderByDescending(x => x.LoanDate).ToList();
+        }
     }
 }

@@ -1,0 +1,112 @@
+﻿@model List<MEC.Domain.Entity.Loan.Loan>
+
+@{
+    ViewData["Title"] = "Aktif Zimmetler";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="card mb-4">
+    <div class="card-header">Filtreleme Seçenekleri</div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3">
+                <label>Arama</label>
+                <input type="text" id="txtSearch" class="form-control" placeholder="Demirbaş Adı veya Seri No">
+            </div>
+
+            <div class="col-md-3">
+                <label>Okul</label>
+                <select id="ddlSchool" class="form-control">
+                    <option value="">Tümü</option>
+                    @foreach (var school in ViewBag.Schools as List<SelectListItem>)
+                    {
+                        <option value="@school.Value">@school.Text</option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label>Durum</label>
+                <select id="ddlStatus" class="form-control">
+                    <option value="">Tümü</option>
+                    <option value="1">Aktif</option>
+                    <option value="2">Pasif</option>
+                </select>
+            </div>
+
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="button" class="btn btn-primary w-100" onclick="loadAssets()">
+                    <i class="fa fa-filter"></i> Filtrele
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<table id="tblAssets" class="table table-bordered">
+</table>
+        </div>
+    </div>
+</div>
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            // Sayfa ilk açıldığında otomatik olarak tüm listeyi getirir
+            loadAssets();
+        });
+
+        function loadAssets() {
+            // 1. Inputlardaki değerleri alıyoruz
+            var searchText = $('#txtSearch').val(); // Arama kutusu
+            var schoolId = $('#ddlSchool').val();   // Okul seçimi
+            var statusId = $('#ddlStatus').val();   // Durum seçimi (Varsa)
+
+            // 2. Modele uygun veri objesini hazırlıyoruz
+            var filterRequest = {
+                SearchText: searchText,
+                SchoolId: schoolId,
+                AssetStatusId: statusId
+            };
+
+            // 3. AJAX isteği atıyoruz
+            $.ajax({
+                url: '/Asset/GetAssets', // Controller adresin
+                type: 'GET',
+                data: filterRequest, // Verileri burada gönderiyoruz
+                success: function (response) {
+                    // Önce tabloyu temizle
+                    $('#tblAssets tbody').empty();
+
+                    if (!response || response.length === 0) {
+                        $('#tblAssets tbody').append('<tr><td colspan="5" class="text-center">Kayıt bulunamadı.</td></tr>');
+                        return;
+                    }
+
+                    // Gelen verileri tabloya ekle
+                    $.each(response, function (index, item) {
+                        // Not: item.school veya item.assetStatus null gelebilir, kontrol ediyoruz.
+                        var schoolName = item.school ? item.school.name : '-';
+                        var statusName = item.assetStatus ? item.assetStatus.name : '-';
+
+                        var row = `<tr>
+                                    <td>${item.serialNumber}</td>
+                                    <td>${item.name}</td>
+                                    <td>${schoolName}</td>
+                                    <td>${statusName}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary">Düzenle</button>
+                                    </td>
+                                   </tr>`;
+
+                        $('#tblAssets tbody').append(row);
+                    });
+                },
+                error: function (xhr, status, error) {
+                    console.error("Hata Detayı:", error);
+                    // Kullanıcıyı çok sıkmamak için alert'i silebilirsin istersen
+                    // alert("Veriler yüklenirken hata oluştu.");
+                }
+            });
+        }
+    </script>
+}

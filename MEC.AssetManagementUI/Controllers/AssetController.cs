@@ -3,10 +3,6 @@ using MEC.Application.Abstractions.Service.AssetService.Model;
 using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.LoanService;
 using MEC.Application.Abstractions.Service.SchoolService;
-using MEC.Application.Service.AssetService;
-using MEC.Application.Service.LoanService;
-using MEC.Application.Service.SchoolService;
-using MEC.AssetManagementUI.Extensions;
 using MEC.AssetManagementUI.Models.AssetModel;
 using MEC.AssetManagementUI.Models.LoanModel;
 using MEC.Domain.Entity.Asset;
@@ -22,10 +18,9 @@ namespace MEC.AssetManagementUI.Controllers
         private readonly IAssetTypeService _assetTypeService;
         private readonly IAssetStatusService _assetStatusService;
         private readonly ILoanService _loanService;
-        private ILoanStatusService _loanStatusService;
+        private readonly ILoanStatusService _loanStatusService;
         private readonly IAssetImageService _imageService;
         private readonly IEmployeeService _employeeService;
-        
 
         public AssetController(IAssetService assetService, ISchoolService schoolService, IAssetTypeService assetTypeService, IAssetStatusService assetStatusService,
             ILoanService loanService, IAssetImageService imageService, IEmployeeService employeeService, ILoanStatusService loanStatusService)
@@ -38,31 +33,54 @@ namespace MEC.AssetManagementUI.Controllers
             _imageService = imageService;
             _employeeService = employeeService;
             _loanStatusService = loanStatusService;
-            
         }
+
+        // -------------------------------------------------------------------------
+        // LISTELEME (INDEX)
+        // -------------------------------------------------------------------------
         [HttpGet]
         public async Task<IActionResult> Index([FromQuery] AssetFilterRequestModel request)
         {
             var assets = await _assetService.GetAssetListAsync(request);
 
-            var model = assets.Select(x => x.ToViewModel()).ToList();
+            // Eğer ToViewModel extension metodun varsa kullanabilirsin, yoksa bu şekilde kalsın.
+            var model = assets.Select(x => new AssetViewModel
+            {
+                Id = x.Id,
+                Name = x.Name,
+                SerialNumber = x.SerialNumber,
+                SchoolName = x.School != null ? x.School.Name : "",
+                AssetStatusName = x.AssetStatus != null ? x.AssetStatus.Name : ""
+            }).ToList();
 
-            ViewBag.Schools = new SelectList(await _schoolService.GetSchoolListAsync(), "Id", "Name", request.SchoolId);
-            ViewBag.Types = new SelectList(await _assetTypeService.GetAssetTypeListAsync(), "Id", "Name", request.AssetTypeId);
-            ViewBag.Statuses = new SelectList(await _assetStatusService.GetAssetStatusListAsync(), "Id", "Name", request.AssetStatusId);
+            // *** DÜZELTME BURADA YAPILDI ***
+            // "SelectList" yerine doğrudan "List<SelectListItem>" gönderiyoruz.
+            // Çünkü View tarafında "as List<SelectListItem>" dönüşümü yapıyorsun.
+            ViewBag.Schools = GetSchoolList();
+
+            // Diğerleri SelectList olabilir çünkü foreach ile dönmüyor, asp-items ile kullanılıyor olabilir.
+            var types = await _assetTypeService.GetAssetTypeListAsync();
+            ViewBag.Types = new SelectList(types, "Id", "Name", request.AssetTypeId);
+
+            var statuses = await _assetStatusService.GetAssetStatusListAsync();
+            ViewBag.Statuses = new SelectList(statuses, "Id", "Name", request.AssetStatusId);
+
             ViewBag.CurrentFilters = request;
 
-            return View("AssetList",model);
+            return View("AssetList", model);
         }
+
+        // -------------------------------------------------------------------------
+        // YENİ EKLEME (CREATE)
+        // -------------------------------------------------------------------------
         [HttpGet]
         public async Task<IActionResult> CreateAsset()
         {
-            
-            ViewBag.Schools = new SelectList(await _schoolService.GetSchoolListAsync(), "Id", "Name");
+            ViewBag.Schools = new SelectList(GetSchoolList(), "Value", "Text");
             ViewBag.Types = new SelectList(await _assetTypeService.GetAssetTypeListAsync(), "Id", "Name");
-
             return View();
         }
+
         [HttpPost]
         public async Task<IActionResult> CreateAsset(AssetCreateViewModel model)
         {
@@ -70,10 +88,9 @@ namespace MEC.AssetManagementUI.Controllers
             {
                 var statusList = await _assetStatusService.GetAssetStatusListAsync();
                 var activeStatus = statusList.FirstOrDefault(x => x.Name == "Aktif" || x.Name == "Active");
-
                 int defaultStatusId = activeStatus != null ? activeStatus.Id : statusList.First().Id;
 
-                var asset = new MEC.Domain.Entity.Asset.Asset
+                var asset = new Asset
                 {
                     Name = model.Name,
                     SerialNumber = model.SerialNumber,
@@ -81,7 +98,7 @@ namespace MEC.AssetManagementUI.Controllers
                     SchoolId = model.SchoolId,
                     AssetTypeId = model.AssetTypeId,
                     AssetStatusId = defaultStatusId,
-                    Cost = 0, 
+                    Cost = 0,
                     PurchaseDate = DateTime.Now
                 };
 
@@ -89,24 +106,25 @@ namespace MEC.AssetManagementUI.Controllers
                 return RedirectToAction("Index");
             }
 
-            ViewBag.Schools = new SelectList(await _schoolService.GetSchoolListAsync(), "Id", "Name", model.SchoolId);
+            ViewBag.Schools = new SelectList(GetSchoolList(), "Value", "Text", model.SchoolId);
             ViewBag.Types = new SelectList(await _assetTypeService.GetAssetTypeListAsync(), "Id", "Name", model.AssetTypeId);
 
             return View(model);
         }
 
+        // -------------------------------------------------------------------------
+        // DETAY / DÜZENLEME (ASSET INFO)
+        // -------------------------------------------------------------------------
         [HttpGet]
         public async Task<IActionResult> AssetInfo(int id)
         {
-            // 1. Varlık bilgisini (Fatura dahil) çek
             var asset = await _assetService.GetAssetByIdAsync(id);
             if (asset == null) return NotFound();
 
-            // 2. Resim ve Zimmet listelerini servislerden çek
             var assetImages = await _imageService.GetImagesByAssetIdAsync(id);
             var assetLoans = await _loanService.GetLoansByAssetIdAsync(id);
             var employees = await _employeeService.GetEmployeeListAsync();
-            // 3. ViewModel'i Doldur
+
             var model = new AssetInfoViewModel
             {
                 Id = asset.Id,
@@ -116,14 +134,14 @@ namespace MEC.AssetManagementUI.Controllers
                 SchoolId = asset.SchoolId,
                 AssetTypeId = asset.AssetTypeId,
                 WarrantyEndDate = asset.WarrantyEndDate,
-                // Yeni Alanlar
                 Invoice = asset.Invoice,
                 Images = assetImages,
                 Loans = assetLoans
             };
 
-            // 4. Dropdownları Hazırla
-            ViewBag.Schools = new SelectList(await _schoolService.GetSchoolListAsync(), "Id", "Name", asset.SchoolId);
+            // *** DÜZELTME: Burada da Liste formatında gönderiyoruz ***
+            ViewBag.Schools = GetSchoolList();
+
             ViewBag.Types = new SelectList(await _assetTypeService.GetAssetTypeListAsync(), "Id", "Name", asset.AssetTypeId);
             ViewBag.Employees = new SelectList(employees.Where(x => !x.IsDeleted), "Id", "FirstName", "LastName");
             ViewBag.AssetId = id;
@@ -139,37 +157,38 @@ namespace MEC.AssetManagementUI.Controllers
                 var asset = await _assetService.GetAssetByIdAsync(id);
                 if (asset == null) return NotFound();
 
-                // Sadece düzenlenebilir alanları güncelle
                 asset.Name = model.Name;
                 asset.SerialNumber = model.SerialNumber;
                 asset.Description = model.Description;
                 asset.SchoolId = model.SchoolId;
                 asset.AssetTypeId = model.AssetTypeId;
                 asset.WarrantyEndDate = model.WarrantyEndDate;
-                await _assetService.UpdateAssetAsync(asset);
 
-                // Başarılı olursa listeye veya aynı sayfaya dönebilirsin
+                await _assetService.UpdateAssetAsync(asset);
                 return RedirectToAction("Index");
             }
 
-            // Hata durumunda verileri tekrar yükle (Dropdownlar vb.)
-            ViewBag.Schools = new SelectList(await _schoolService.GetSchoolListAsync(), "Id", "Name", model.SchoolId);
+            // Hata durumunda ViewBag doldurma
+            ViewBag.Schools = GetSchoolList();
             ViewBag.Types = new SelectList(await _assetTypeService.GetAssetTypeListAsync(), "Id", "Name", model.AssetTypeId);
             ViewBag.AssetId = id;
 
-            // Listeler null gitmesin diye tekrar çekiyoruz (Opsiyonel, view null check yapıyorsa gerekmeyebilir)
             model.Images = await _imageService.GetImagesByAssetIdAsync(id);
             model.Loans = await _loanService.GetLoansByAssetIdAsync(id);
 
             return View(model);
         }
+
+        // -------------------------------------------------------------------------
+        // ZİMMET İŞLEMLERİ
+        // -------------------------------------------------------------------------
         [HttpPost]
         public async Task<IActionResult> AssignAsset(AssignAssetViewModel model)
         {
             if (model.LoanDate.Date > DateTime.Now.Date)
             {
                 TempData["Error"] = "Zimmet tarihi bugünden ileri bir tarih olamaz.";
-                TempData["ActiveTab"] = "loans"; // <--- Hata olsa da Zimmet sekmesinde kal
+                TempData["ActiveTab"] = "loans";
                 return RedirectToAction("AssetInfo", new { id = model.AssetId });
             }
 
@@ -177,29 +196,29 @@ namespace MEC.AssetManagementUI.Controllers
             if (hasActiveLoan)
             {
                 TempData["Error"] = "Bu demirbaş üzerinde zaten aktif bir zimmet bulunmaktadır! Önce iade almalısınız.";
-                TempData["ActiveTab"] = "loans"; // <--- Zimmet sekmesinde kal
+                TempData["ActiveTab"] = "loans";
                 return RedirectToAction("AssetInfo", new { id = model.AssetId });
             }
 
             var statuses = await _loanStatusService.GetLoanStatusListAsync();
             var assignedStatus = statuses.FirstOrDefault(x => x.Name == "Zimmetli");
-            int statusId = assignedStatus != null ? assignedStatus.Id : 1; 
+            int statusId = assignedStatus != null ? assignedStatus.Id : 1;
 
-            var loan = new MEC.Domain.Entity.Loan.Loan
+            var loan = new Domain.Entity.Loan.Loan
             {
                 AssetId = model.AssetId,
                 AssignedToId = model.AssignedToId,
-                AssignedById = 1, 
+                AssignedById = 1,
                 LoanDate = model.LoanDate,
                 Notes = model.Notes,
                 LoanStatusId = statusId,
-                ReturnDate = null 
+                ReturnDate = null
             };
 
             await _loanService.AddLoanAsync(loan);
 
             TempData["Success"] = "Zimmetleme işlemi başarıyla tamamlandı.";
-            TempData["ActiveTab"] = "loans"; 
+            TempData["ActiveTab"] = "loans";
 
             return RedirectToAction("AssetInfo", new { id = model.AssetId });
         }
@@ -213,17 +232,14 @@ namespace MEC.AssetManagementUI.Controllers
                 return RedirectToAction("AssetInfo", new { id = assetId });
             }
 
-            // 1. Zimmet Kaydını Getir
-            var loans = await _loanService.GetLoanListAsync(); // veya GetByIdAsync
+            var loans = await _loanService.GetLoanListAsync();
             var loan = loans.FirstOrDefault(x => x.Id == loanId);
 
             if (loan != null)
             {
-                // 2. "İade Alındı" Durumunu Bul
                 var statuses = await _loanStatusService.GetLoanStatusListAsync();
                 var returnStatus = statuses.FirstOrDefault(x => x.Name == "İade Alındı");
 
-                // 3. Güncelle
                 loan.ReturnDate = returnDate;
                 loan.LoanStatusId = returnStatus != null ? returnStatus.Id : loan.LoanStatusId;
 
@@ -235,24 +251,23 @@ namespace MEC.AssetManagementUI.Controllers
             return RedirectToAction("AssetInfo", new { id = assetId });
         }
 
+        // -------------------------------------------------------------------------
+        // RESİM İŞLEMLERİ (AJAX)
+        // -------------------------------------------------------------------------
         [HttpPost]
         public async Task<IActionResult> AddImage(int assetId, string fileName)
         {
             try
             {
-                // API adresiniz (Portu kendi çalışan portunuzla değiştirmeyi unutmayın)
-                string apiBaseUrl = "https://localhost:7152/static/";
-
-                var assetImage = new MEC.Domain.Entity.Asset.AssetImage
+                string apiBaseUrl = "https://localhost:7152/static/"; // Portu kontrol et
+                var assetImage = new AssetImage
                 {
                     AssetId = assetId,
-                    Url = apiBaseUrl + fileName, // Tarayıcının erişeceği URL
-                    Path = fileName             // Dosya adı veya fiziksel yol (İsteğinize göre)
-                                                // IsDeleted = false;       // BU SATIRI SİLDİK
+                    Url = apiBaseUrl + fileName,
+                    Path = fileName
                 };
 
                 await _imageService.CreateAsync(assetImage);
-
                 return Json(new { success = true });
             }
             catch (Exception)
@@ -266,10 +281,6 @@ namespace MEC.AssetManagementUI.Controllers
         {
             try
             {
-                // Not: Şimdilik sadece veritabanından kaydı siliyoruz.
-                // Fiziksel dosyayı (C:\Images) silmek için API'ye ayrı bir istek atılması gerekir.
-                // Ancak DB'den silmek UI'dan kaybolması için yeterlidir.
-
                 await _imageService.DeleteAsync(id);
                 return Json(new { success = true });
             }
@@ -277,6 +288,38 @@ namespace MEC.AssetManagementUI.Controllers
             {
                 return Json(new { success = false, message = "Silme işlemi sırasında hata oluştu." });
             }
+        }
+
+        // -------------------------------------------------------------------------
+        // API / AJAX GET METOTLARI
+        // -------------------------------------------------------------------------
+        [HttpGet]
+        public async Task<IActionResult> GetAssets([FromQuery] AssetFilterRequestModel request)
+        {
+            var assets = await _assetService.GetAssetListAsync(request);
+            var result = assets.Select(x => new
+            {
+                x.Id,
+                x.Name,
+                x.SerialNumber,
+                School = x.School != null ? new { x.School.Name } : null,
+                AssetStatus = x.AssetStatus != null ? new { x.AssetStatus.Name } : null
+            });
+
+            return Json(result);
+        }
+
+        // -------------------------------------------------------------------------
+        // YARDIMCI METOT (MANUEL OKUL LİSTESİ)
+        // -------------------------------------------------------------------------
+        private List<SelectListItem> GetSchoolList()
+        {
+            return new List<SelectListItem>
+            {
+                new SelectListItem { Text = "Merkez İlkokulu", Value = "1" },
+                new SelectListItem { Text = "Cumhuriyet Lisesi", Value = "2" },
+                new SelectListItem { Text = "Atatürk Ortaokulu", Value = "3" }
+            };
         }
     }
 }
