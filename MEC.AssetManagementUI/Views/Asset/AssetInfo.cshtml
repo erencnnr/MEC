@@ -451,13 +451,13 @@
             }
 
             // Bildirim mesajları
-            var successMsg = '@TempData["Success"]';
+            var successMsg = '@Html.Raw(TempData["Success"])';
             if (successMsg) {
                 Swal.fire({ icon: 'success', title: 'Başarılı!', text: successMsg, timer: 2000, showConfirmButton: false });
             }
 
         // C) Hata Mesajı Var mı?
-        var errorMsg = '@TempData["Error"]';
+            var errorMsg = '@Html.Raw(TempData["Error"])';
         if (errorMsg) {
             Swal.fire({
                 icon: 'error',
@@ -523,3 +523,4 @@
         }
     }
 </script>
+}

@@ -33,13 +33,31 @@ namespace MEC.AssetManagementUI.Controllers
         [HttpPost]
         public async Task<IActionResult> Create(Employee employee)
         {
-            await _employeeService.CreateEmployeeAsync(employee);
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    TempData["Error"] = "Eksik veya hatalı bilgiler var, lütfen kontrol edin.";
+                    return RedirectToAction("Index");
+                }
+                await _employeeService.CreateEmployeeAsync(employee);
+                TempData["Success"] = "Çalışan başarıyla kaydedildi/güncellendi.";
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = "İşlem başarısız oldu! Hata: " + ex.Message;
+            }
             return RedirectToAction("Index");
         }
 
         public async Task<IActionResult> Delete(int id)
         {
             await _employeeService.DeleteEmployeeAsync(id);
+            return RedirectToAction("Index");
+        }
+        public async Task<IActionResult> Activate(int id)
+        {
+            await _employeeService.ActivateEmployeeAsync(id);
             return RedirectToAction("Index");
         }
     }

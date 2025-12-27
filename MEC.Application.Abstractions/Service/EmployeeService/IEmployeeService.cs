@@ -18,5 +18,6 @@ namespace MEC.Application.Abstractions.Service.EmployeeService
         Task CreateEmployeeTypeAsync(EmployeeType employeeType);
         Task UpdateEmployeeTypeAsync(EmployeeType employeeType);
         Task DeleteEmployeeTypeAsync(int id);
+        Task ActivateEmployeeAsync(int id);
     }
 }

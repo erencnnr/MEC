@@ -92,6 +92,7 @@
                                 <th>Email</th>
                                 <th>Telefon</th>
                                 <th>Güncelleme Tarihi</th>
+                                <th class="text-end">İşlemler</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -104,13 +105,22 @@
                                         <td>@item.LastName</td>
                                         <td>@item.Email</td>
                                         <td>@item.Phone</td>
-                                        <td>@(item.UpdateDate.HasValue? item.UpdateDate.Value.ToString("dd.MM.yyyy") : "-")</td>
+                                        <td>@(item.UpdateDate.HasValue ? item.UpdateDate.Value.ToString("dd.MM.yyyy") : "-")</td>
+
+                                        <td class="text-end">
+                                            <a href="/Employee/Activate/@item.Id"
+                                               class="btn btn-sm btn-success"
+                                               title="Aktif Et"
+                                               onclick="return confirm('Bu kullanıcıyı tekrar aktif etmek istediğinize emin misiniz?');">
+                                                <i class="bi bi-arrow-counterclockwise"></i> Aktif Et
+                                            </a>
+                                        </td>
                                     </tr>
                                 }
                             }
                             else
                             {
-                                <tr><td colspan="5" class="text-center text-muted">Pasif çalışan bulunamadı.</td></tr>
+                                <tr><td colspan="6" class="text-center text-muted">Pasif çalışan bulunamadı.</td></tr>
                             }
                         </tbody>
                     </table>
@@ -170,16 +180,38 @@
 
 @section Scripts {
     <script>
-        // Senkronize Et butonu için basit bir fonksiyon
+        document.addEventListener("DOMContentLoaded", function () {
+
+            var successMsg = '@Html.Raw(TempData["Success"])';
+            if (successMsg) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Başarılı!',
+                    text: successMsg,
+                    confirmButtonColor: '#28a745',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
+
+            var errorMsg = '@Html.Raw(TempData["Error"])';
+            if (errorMsg) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Hata!',
+                    text: errorMsg,
+                    confirmButtonColor: '#d33',
+                    confirmButtonText: 'Tamam'
+                });
+            }
+        });
         function syncEmployees() {
-            // Butona tıklandığını göstermek için ikon döndürebiliriz
             var btn = document.getElementById('btnSync');
             var originalContent = btn.innerHTML;
 
             btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Senkronize Ediliyor...';
             btn.disabled = true;
 
-            // Simülasyon (Gerçekte buraya AJAX isteği gelebilir)
             setTimeout(function() {
                 alert("Senkronizasyon başarıyla tamamlandı!");
                 btn.innerHTML = originalContent;
