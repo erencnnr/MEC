@@ -4,8 +4,7 @@
 
 @{
     ViewData["Title"] = "Demirbaş Listesi";
-    // Filtreleri geri al
-    var filter = ViewBag.CurrentFilter as AssetFilterRequestModel;
+    var filter = ViewBag.CurrentFilters as AssetFilterRequestModel;
 }
 
 <div class="container-fluid">
@@ -14,23 +13,28 @@
     <form method="get" asp-action="Index" asp-controller="Asset" id="mainFilterForm">
 
         <div class="d-flex justify-content-between align-items-center mb-3">
+
             <a asp-action="CreateAsset" class="btn btn-primary shadow-sm">
                 <i class="bi bi-plus-lg"></i> Yeni Ekle
             </a>
 
-            <div class="input-group" style="width: 300px;">
-                <input type="text" name="SearchText" class="form-control"
-                       placeholder="Seri No, Marka, Model..."
-                       value="@filter?.SearchText">
-                <button class="btn btn-primary" type="submit">
-                    <i class="bi bi-search"></i>
-                </button>
-                @if (!string.IsNullOrEmpty(filter?.SearchText) || filter?.SchoolId != null || filter?.AssetTypeId != null || filter?.AssetStatusId != null)
+            <div class="d-flex align-items-center gap-2">
+
+                @if (filter != null && (!string.IsNullOrEmpty(filter.SearchText) || filter.SchoolId != null || filter.AssetTypeId != null || filter.AssetStatusId != null))
                 {
-                    <a asp-action="Index" class="btn btn-secondary" title="Filtreleri Temizle">
-                        <i class="bi bi-x-lg"></i>
+                    <a asp-action="Index" class="btn btn-sm btn-danger shadow-sm text-white d-flex align-items-center" title="Filtreleri Temizle">
+                        <i class="bi bi-x-circle-fill me-1"></i> Temizle
                     </a>
                 }
+
+                <div class="input-group" style="width: 300px;">
+                    <input type="text" name="SearchText" class="form-control"
+                           placeholder="Seri No, Marka, Model..."
+                           value="@filter?.SearchText">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
             </div>
         </div>
 

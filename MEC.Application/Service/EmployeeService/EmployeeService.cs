@@ -28,8 +28,31 @@ namespace MEC.Application.Service.EmployeeService
 
         public async Task CreateEmployeeAsync(Employee employee)
         {
-            employee.CreatedDate = DateTime.Now;
-            await _repository.AddAsync(employee);
+            var existingList = await _repository.GetAllAsync(x => x.Email == employee.Email);
+            var existingEmployee = existingList.FirstOrDefault();
+
+            if (existingEmployee != null)
+            {
+                existingEmployee.FirstName = employee.FirstName;
+                existingEmployee.LastName = employee.LastName;
+                existingEmployee.Phone = employee.Phone;
+                existingEmployee.EmployeeTypeId = employee.EmployeeTypeId;
+
+                if (existingEmployee.IsDeleted)
+                {
+                    existingEmployee.IsDeleted = false;
+                }
+
+                existingEmployee.UpdateDate = DateTime.Now;
+
+                _repository.Update(existingEmployee);
+            }
+            else
+            {
+                employee.CreatedDate = DateTime.Now;
+                employee.IsDeleted = false; 
+                await _repository.AddAsync(employee);
+            }
         }
 
         public async Task DeleteEmployeeAsync(int id)
@@ -71,6 +94,16 @@ namespace MEC.Application.Service.EmployeeService
             if (type != null)
             {
                 _typeRepository.Delete(type);
+            }
+        }
+        public async Task ActivateEmployeeAsync(int id)
+        {
+            var employee = await _repository.GetByIdAsync(id);
+            if (employee != null)
+            {
+                employee.IsDeleted = false; 
+                employee.UpdateDate = DateTime.Now; 
+                _repository.Update(employee);
             }
         }
     }
