@@ -16,5 +16,7 @@ namespace MEC.Application.Abstractions.Service.LoanService
         Task<bool> HasActiveLoanAsync(int assetId);
         Task ReturnLoanAsync(int loanId, DateTime returnDate);
         Task UpdateLoanAsync(Loan loan);
+        Task<List<Loan>> GetActiveLoansAsync(string? searchTerm = null);
     }
-}
+    
+    }

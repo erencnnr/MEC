@@ -456,70 +456,71 @@
                 Swal.fire({ icon: 'success', title: 'Başarılı!', text: successMsg, timer: 2000, showConfirmButton: false });
             }
 
-        // C) Hata Mesajı Var mı?
-        var errorMsg = '@TempData["Error"]';
-        if (errorMsg) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Hata!',
-                text: errorMsg
-            });
-        }
-    });
-
-    // Fatura Yükleme Fonksiyonu
-    async function uploadInvoicePdf() {
-        const fileInput = document.getElementById('invoicePdfInput');
-        const file = fileInput.files[0];
-        const assetId = '@Model.Id'; // Razor modelden ID'yi alıyoruz
-        const statusDiv = document.getElementById('uploadStatus');
-
-        if (!file) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Dosya Seçilmedi',
-                text: 'Lütfen yüklemek için bir PDF dosyası seçiniz.'
-            });
-            return;
-        }
-
-        // Form verisi hazırlama
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('assetId', assetId);
-
-        // Yükleniyor mesajı
-        statusDiv.innerHTML = '<span class="text-info"><i class="bi bi-arrow-repeat spinner-border spinner-border-sm"></i> Yükleniyor...</span>';
-
-        try {
-            // NOT: Port numarasını WebAPI projenizin launchSettings.json dosyasındaki https portuna göre güncelleyin (örn: 7103)
-            const response = await fetch('https://localhost:7103/api/Attachment/UploadAttachment', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (response.ok) {
-                const result = await response.json();
-                statusDiv.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-check-circle"></i> Dosya başarıyla yüklendi!</span>';
-
+            // C) Hata Mesajı Var mı?
+            var errorMsg = '@TempData["Error"]';
+            if (errorMsg) {
                 Swal.fire({
-                    icon: 'success',
-                    title: 'Başarılı',
-                    text: 'Fatura belgesi başarıyla yüklendi.',
-                    timer: 2000
+                    icon: 'error',
+                    title: 'Hata!',
+                    text: errorMsg
+                });
+            }
+        });
+
+        // Fatura Yükleme Fonksiyonu
+        async function uploadInvoicePdf() {
+            const fileInput = document.getElementById('invoicePdfInput');
+            const file = fileInput.files[0];
+            const assetId = '@Model.Id'; // Razor modelden ID'yi alıyoruz
+            const statusDiv = document.getElementById('uploadStatus');
+
+            if (!file) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Dosya Seçilmedi',
+                    text: 'Lütfen yüklemek için bir PDF dosyası seçiniz.'
+                });
+                return;
+            }
+
+            // Form verisi hazırlama
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('assetId', assetId);
+
+            // Yükleniyor mesajı
+            statusDiv.innerHTML = '<span class="text-info"><i class="bi bi-arrow-repeat spinner-border spinner-border-sm"></i> Yükleniyor...</span>';
+
+            try {
+                // NOT: Port numarasını WebAPI projenizin launchSettings.json dosyasındaki https portuna göre güncelleyin (örn: 7103)
+                const response = await fetch('https://localhost:7103/api/Attachment/UploadAttachment', {
+                    method: 'POST',
+                    body: formData
                 });
 
-                // İsteğe bağlı: Input'u temizle
-                fileInput.value = '';
-            } else {
-                const errorText = await response.text();
-                statusDiv.innerHTML = '<span class="text-danger">Hata oluştu.</span>';
-                Swal.fire('Hata', errorText || 'Yükleme başarısız.', 'error');
+                if (response.ok) {
+                    const result = await response.json();
+                    statusDiv.innerHTML = '<span class="text-success fw-bold"><i class="bi bi-check-circle"></i> Dosya başarıyla yüklendi!</span>';
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Başarılı',
+                        text: 'Fatura belgesi başarıyla yüklendi.',
+                        timer: 2000
+                    });
+
+                    // İsteğe bağlı: Input'u temizle
+                    fileInput.value = '';
+                } else {
+                    const errorText = await response.text();
+                    statusDiv.innerHTML = '<span class="text-danger">Hata oluştu.</span>';
+                    Swal.fire('Hata', errorText || 'Yükleme başarısız.', 'error');
+                }
+            } catch (error) {
+                console.error('Upload Error:', error);
+                statusDiv.innerHTML = '<span class="text-danger">Bağlantı hatası.</span>';
+                Swal.fire('Hata', 'API sunucusuna erişilemedi. WebAPI projesinin çalıştığından emin olun.', 'error');
             }
-        } catch (error) {
-            console.error('Upload Error:', error);
-            statusDiv.innerHTML = '<span class="text-danger">Bağlantı hatası.</span>';
-            Swal.fire('Hata', 'API sunucusuna erişilemedi. WebAPI projesinin çalıştığından emin olun.', 'error');
         }
-    }
-</script>
+    </script>
+}

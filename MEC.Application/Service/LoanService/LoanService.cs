@@ -60,5 +60,31 @@ namespace MEC.Application.Service.LoanService
                 _repository.Update(loan);
             }
         }
+        public async Task<List<Loan>> GetActiveLoansAsync(string? searchTerm = null)
+        {
+            // ReturnDate == null olanlar (Aktif Zimmetler)
+            var predicate = (System.Linq.Expressions.Expression<Func<Loan, bool>>)(x => x.ReturnDate == null);
+
+            // Eğer arama terimi varsa filtreyi genişlet (Büyük/küçük harf duyarlılığı için ToLower eklenebilir)
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+                // Not: Burada Employee entity'nizde 'FirstName' ve 'LastName' alanları olduğunu varsayıyoruz. 
+                // Eğer farklıysa (örn: Ad, Soyad) lütfen güncelleyin.
+                searchTerm = searchTerm.ToLower();
+                predicate = x => x.ReturnDate == null &&
+                                 (x.Asset.Name.ToLower().Contains(searchTerm) ||
+                                  x.AssignedTo.FirstName.ToLower().Contains(searchTerm) ||
+                                  x.AssignedTo.LastName.ToLower().Contains(searchTerm));
+            }
+
+            var activeLoans = await _repository.GetAllAsync(
+                predicate,
+                x => x.Asset,       // Eşya bilgilerini getir
+                x => x.AssignedTo,  // Personel bilgilerini getir
+                x => x.LoanStatus   // Durum bilgisini getir
+            );
+
+            return activeLoans.OrderByDescending(x => x.LoanDate).ToList();
+        }
     }
 }
