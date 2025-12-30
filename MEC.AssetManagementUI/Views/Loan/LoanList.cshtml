@@ -1,0 +1,378 @@
+﻿@using MEC.Application.Abstractions.Service.LoanService.Model
+@using MEC.AssetManagementUI.Models.LoanModel
+@model List<LoanListViewModel>
+
+@{
+    ViewData["Title"] = "Zimmet Yönetimi";
+    var filter = ViewBag.CurrentFilters as LoanFilterRequestModel;
+
+    // Hangi sekmenin açık olduğunu belirle (Varsayılan: active)
+    var currentTab = filter?.ActiveTab ?? "active";
+
+    var activeLoans = Model.Where(x => x.IsActive).ToList();
+    var historyLoans = Model.Where(x => !x.IsActive).ToList();
+}
+
+<style>
+    .filter-scroll-list {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .asset-link {
+        color: #5a5c69;
+        text-decoration: none;
+        font-weight: bold;
+    }
+
+        .asset-link:hover {
+            color: #4e73df;
+            text-decoration: underline;
+        }
+
+    .th-filter-btn {
+        color: #6c757d;
+    }
+
+        .th-filter-btn.active {
+            color: #4e73df;
+            font-weight: bold;
+        }
+</style>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="h3 text-gray-800">Zimmet Yönetimi</h2>
+
+        <div class="d-flex gap-2">
+            <button type="submit" form="filterForm"
+                    formaction="@Url.Action("ExportToExcel", "Loan")"
+                    class="btn btn-success shadow-sm text-white">
+                <i class="bi bi-file-earmark-excel-fill me-1"></i> Excel'e Aktar
+            </button>
+
+            <button type="button" class="btn btn-warning shadow-sm" onclick="openBulkReturnModal()">
+                <i class="bi bi-box-arrow-in-left me-1"></i> Seçilileri İade Al
+            </button>
+        </div>
+    </div>
+
+    <form method="get" asp-action="Index" id="filterForm">
+
+        <input type="hidden" name="ActiveTab" id="activeTabInput" value="@currentTab" />
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <ul class="nav nav-pills" id="loanTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold @(currentTab == "active" ? "active" : "")"
+                            id="active-tab" data-bs-toggle="tab" data-bs-target="#active"
+                            type="button" onclick="setActiveTab('active')">
+                        <i class="bi bi-check-circle me-1"></i> Aktif <span class="badge bg-white text-primary ms-1">@activeLoans.Count</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link fw-bold @(currentTab == "history" ? "active" : "")"
+                            id="history-tab" data-bs-toggle="tab" data-bs-target="#history"
+                            type="button" onclick="setActiveTab('history')">
+                        <i class="bi bi-clock-history me-1"></i> Geçmiş
+                    </button>
+                </li>
+            </ul>
+
+            <div class="d-flex align-items-center gap-2">
+                @if (filter != null && (!string.IsNullOrEmpty(filter.SearchText) || (filter.AssignedToIds != null && filter.AssignedToIds.Any()) || (filter.AssignedByIds != null && filter.AssignedByIds.Any()) || filter.SortOrder != "LoanDate_Desc"))
+                {
+                    <a asp-action="Index" class="btn btn-sm btn-danger shadow-sm text-white d-flex align-items-center" title="Filtreleri Temizle">
+                        <i class="bi bi-x-circle-fill me-1"></i> Temizle
+                    </a>
+                }
+
+                <div class="input-group" style="width: 250px;">
+                    <input type="text" name="SearchText" class="form-control" placeholder="Demirbaş, Seri No, Personel..." value="@filter?.SearchText">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="loanTabsContent">
+
+            <div class="tab-pane fade @(currentTab == "active" ? "show active" : "")" id="active" role="tabpanel">
+                <div class="card shadow mb-4">
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="min-height: 500px;">
+                            <table class="table table-bordered table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 40px;" class="text-center">
+                                            <input type="checkbox" class="form-check-input" id="selectAll">
+                                        </th>
+                                        <th>Demirbaş Adı</th>
+                                        <th>Seri No</th>
+
+                                        <th>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span>Zimmet Alan</span>
+                                                <div class="dropdown">
+                                                    <button class="btn btn-sm p-0 border-0 th-filter-btn @(filter?.AssignedToIds != null && filter.AssignedToIds.Any() ? "active" : "")" type="button" data-bs-toggle="dropdown">
+                                                        <i class="bi bi-funnel-fill"></i>
+                                                    </button>
+                                                    <div class="dropdown-menu p-3 shadow border-0" style="min-width: 250px; z-index: 1050;">
+                                                        <label class="form-label small fw-bold text-muted">Personel Filtrele</label>
+                                                        <div class="filter-scroll-list mb-2">
+                                                            @if (ViewBag.Employees != null)
+                                                            {
+                                                                foreach (var item in (List<SelectListItem>)ViewBag.Employees)
+                                                                {
+                                                                    var isChecked = filter?.AssignedToIds != null && filter.AssignedToIds.Contains(int.Parse(item.Value));
+                                                                    <div class="form-check">
+                                                                        <input class="form-check-input" type="checkbox" name="AssignedToIds" value="@item.Value" id="to_active_@item.Value" @(isChecked ? "checked" : "")>
+                                                                        <label class="form-check-label small" for="to_active_@item.Value">@item.Text</label>
+                                                                    </div>
+                                                                }
+                                                            }
+                                                        </div>
+                                                        <div class="d-grid"><button type="submit" class="btn btn-sm btn-primary">Uygula</button></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </th>
+
+                                        <th>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span>Zimmet Veren</span>
+                                                <div class="dropdown">
+                                                    <button class="btn btn-sm p-0 border-0 th-filter-btn @(filter?.AssignedByIds != null && filter.AssignedByIds.Any() ? "active" : "")" type="button" data-bs-toggle="dropdown">
+                                                        <i class="bi bi-funnel-fill"></i>
+                                                    </button>
+                                                    <div class="dropdown-menu p-3 shadow border-0" style="min-width: 250px; z-index: 1050;">
+                                                        <div class="filter-scroll-list mb-2">
+                                                            @if (ViewBag.Employees != null)
+                                                            {
+                                                                foreach (var item in (List<SelectListItem>)ViewBag.Employees)
+                                                                {
+                                                                    var isChecked = filter?.AssignedByIds != null && filter.AssignedByIds.Contains(int.Parse(item.Value));
+                                                                    <div class="form-check">
+                                                                        <input class="form-check-input" type="checkbox" name="AssignedByIds" value="@item.Value" id="by_active_@item.Value" @(isChecked ? "checked" : "")>
+                                                                        <label class="form-check-label small" for="by_active_@item.Value">@item.Text</label>
+                                                                    </div>
+                                                                }
+                                                            }
+                                                        </div>
+                                                        <div class="d-grid"><button type="submit" class="btn btn-sm btn-primary">Uygula</button></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </th>
+
+                                        <th>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span>Zimmet Tarihi</span>
+                                                <div class="dropdown">
+                                                    <button class="btn btn-sm p-0 border-0 th-filter-btn @(filter?.SortOrder?.Contains("LoanDate") == true ? "active" : "")" type="button" data-bs-toggle="dropdown">
+                                                        <i class="bi bi-arrow-down-up"></i>
+                                                    </button>
+                                                    <ul class="dropdown-menu shadow border-0">
+                                                        <li><button class="dropdown-item small" type="submit" name="SortOrder" value="LoanDate_Desc"><i class="bi bi-sort-down"></i> Yeniden Eskiye</button></li>
+                                                        <li><button class="dropdown-item small" type="submit" name="SortOrder" value="LoanDate_Asc"><i class="bi bi-sort-up"></i> Eskiden Yeniye</button></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th class="text-center">Durum</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (activeLoans.Any())
+                                    {
+                                        foreach (var item in activeLoans)
+                                        {
+                                            <tr>
+                                                <td class="text-center">
+                                                    <input type="checkbox" name="selectedLoanIds" value="@item.Id" form="bulkReturnForm" class="form-check-input loan-checkbox">
+                                                </td>
+                                                <td>
+                                                    <a href="@Url.Action("AssetInfo", "Asset", new { id = item.AssetId })" class="asset-link">@item.AssetName</a>
+                                                </td>
+                                                <td>@item.SerialNumber</td>
+                                                <td><i class="bi bi-person-down text-muted me-1"></i> @item.AssignedToName</td>
+                                                <td class="small text-muted"><i class="bi bi-person-up me-1"></i> @item.AssignedByName</td>
+                                                <td>@item.LoanDate</td>
+                                                <td class="text-center"><span class="badge bg-success rounded-pill">Zimmetli</span></td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr><td colspan="7" class="text-center py-5 text-muted">Kayıt bulunamadı.</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade @(currentTab == "history" ? "show active" : "")" id="history" role="tabpanel">
+                <div class="card shadow mb-4">
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="min-height: 500px;">
+                            <table class="table table-bordered table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Demirbaş Adı</th>
+                                        <th>Seri No</th>
+
+                                        <th>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span>Zimmet Alan</span>
+                                                <div class="dropdown">
+                                                    <button class="btn btn-sm p-0 border-0 th-filter-btn @(filter?.AssignedToIds != null && filter.AssignedToIds.Any() ? "active" : "")" type="button" data-bs-toggle="dropdown">
+                                                        <i class="bi bi-funnel-fill"></i>
+                                                    </button>
+                                                    <div class="dropdown-menu p-3 shadow border-0" style="min-width: 250px; z-index: 1050;">
+                                                        <div class="filter-scroll-list mb-2">
+                                                            @if (ViewBag.Employees != null)
+                                                            {
+                                                                foreach (var item in (List<SelectListItem>)ViewBag.Employees)
+                                                                {
+                                                                    var isChecked = filter?.AssignedToIds != null && filter.AssignedToIds.Contains(int.Parse(item.Value));
+                                                                    <div class="form-check">
+                                                                        <input class="form-check-input" type="checkbox" name="AssignedToIds" value="@item.Value" id="to_hist_@item.Value" @(isChecked ? "checked" : "")>
+                                                                        <label class="form-check-label small" for="to_hist_@item.Value">@item.Text</label>
+                                                                    </div>
+                                                                }
+                                                            }
+                                                        </div>
+                                                        <div class="d-grid"><button type="submit" class="btn btn-sm btn-primary">Uygula</button></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </th>
+
+                                        <th>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span>Zimmet Veren</span>
+                                                <div class="dropdown">
+                                                    <button class="btn btn-sm p-0 border-0 th-filter-btn @(filter?.AssignedByIds != null && filter.AssignedByIds.Any() ? "active" : "")" type="button" data-bs-toggle="dropdown">
+                                                        <i class="bi bi-funnel-fill"></i>
+                                                    </button>
+                                                    <div class="dropdown-menu p-3 shadow border-0" style="min-width: 250px; z-index: 1050;">
+                                                        <div class="filter-scroll-list mb-2">
+                                                            @if (ViewBag.Employees != null)
+                                                            {
+                                                                foreach (var item in (List<SelectListItem>)ViewBag.Employees)
+                                                                {
+                                                                    var isChecked = filter?.AssignedByIds != null && filter.AssignedByIds.Contains(int.Parse(item.Value));
+                                                                    <div class="form-check">
+                                                                        <input class="form-check-input" type="checkbox" name="AssignedByIds" value="@item.Value" id="by_hist_@item.Value" @(isChecked ? "checked" : "")>
+                                                                        <label class="form-check-label small" for="by_hist_@item.Value">@item.Text</label>
+                                                                    </div>
+                                                                }
+                                                            }
+                                                        </div>
+                                                        <div class="d-grid"><button type="submit" class="btn btn-sm btn-primary">Uygula</button></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </th>
+
+                                        <th>Veriliş Tarihi</th>
+                                        <th>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span>İade Tarihi</span>
+                                                <div class="dropdown">
+                                                    <button class="btn btn-sm p-0 border-0 th-filter-btn @(filter?.SortOrder?.Contains("ReturnDate") == true ? "active" : "")" type="button" data-bs-toggle="dropdown">
+                                                        <i class="bi bi-arrow-down-up"></i>
+                                                    </button>
+                                                    <ul class="dropdown-menu shadow border-0">
+                                                        <li><button class="dropdown-item small" type="submit" name="SortOrder" value="ReturnDate_Desc"><i class="bi bi-sort-down"></i> Yeniden Eskiye</button></li>
+                                                        <li><button class="dropdown-item small" type="submit" name="SortOrder" value="ReturnDate_Asc"><i class="bi bi-sort-up"></i> Eskiden Yeniye</button></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th class="text-center">Durum</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (historyLoans.Any())
+                                    {
+                                        foreach (var item in historyLoans)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <a href="@Url.Action("AssetInfo", "Asset", new { id = item.AssetId })" class="asset-link">@item.AssetName</a>
+                                                </td>
+                                                <td>@item.SerialNumber</td>
+                                                <td>@item.AssignedToName</td>
+                                                <td class="small text-muted">@item.AssignedByName</td>
+                                                <td>@item.LoanDate</td>
+                                                <td>@item.ReturnDate</td>
+                                                <td class="text-center"><span class="badge bg-secondary rounded-pill">İade Alındı</span></td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr><td colspan="7" class="text-center py-5 text-muted">Geçmiş kayıt bulunamadı.</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<form asp-action="BulkReturn" method="post" id="bulkReturnForm">
+    <div class="modal fade" id="bulkReturnModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Toplu İade Al</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">Seçili zimmetler için iade tarihi giriniz:</p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">İade Tarihi</label>
+                        <input type="date" name="returnDate" class="form-control"
+                               value="@DateTime.Now.ToString("yyyy-MM-dd")"
+                               max="@DateTime.Now.ToString("yyyy-MM-dd")" required />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <button type="submit" class="btn btn-success">Onayla ve Bitir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    // Sekme değişince hidden inputu güncelle
+    function setActiveTab(tabName) {
+        document.getElementById('activeTabInput').value = tabName;
+    }
+
+    document.getElementById('selectAll').addEventListener('change', function () {
+        var checkboxes = document.querySelectorAll('.loan-checkbox');
+        for (var checkbox of checkboxes) {
+            checkbox.checked = this.checked;
+        }
+    });
+
+    function openBulkReturnModal() {
+        var checkedCount = document.querySelectorAll('.loan-checkbox:checked').length;
+        if (checkedCount === 0) {
+            Swal.fire({ icon: 'warning', title: 'Seçim Yapmadınız', text: 'Lütfen iade almak istediğiniz zimmetleri seçiniz.' });
+            return;
+        }
+        var myModal = new bootstrap.Modal(document.getElementById('bulkReturnModal'));
+        myModal.show();
+    }
+</script>

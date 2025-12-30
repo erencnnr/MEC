@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - MEC Asset Management</title>
+    <title>@ViewData["Title"]</title>
 
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -36,13 +36,16 @@
                         <span>Çalışanlar</span>
                     </a>
                 </li>
-
                 <li>
-                    <a href="#settingsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle d-flex align-items-center justify-content-between">
-                        <div>
-                            <i class="bi bi-gear-fill"></i>
-                            <span>Ayarlar</span>
-                        </div>
+                    <a asp-controller="Loan" asp-action="Index">
+                        <i class="bi bi-arrow-left-right"></i>
+                        <span>Zimmetler</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#settingsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                        <i class="bi bi-gear-fill"></i>
+                        <span>Ayarlar</span>
                     </a>
 
                     <ul class="collapse list-unstyled ps-3" id="settingsSubmenu">
@@ -79,10 +82,10 @@
         <div id="content">
             <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4 shadow-sm rounded">
                 <div class="container-fluid">
-                    <span class="navbar-brand mb-0 h1 ms-2">Yönetim Paneli</span>
+                    <span class="navbar-brand mb-0 h1 ms-2"></span>
 
                     <div class="ms-auto">
-                        <span class="me-3">Merhaba, Admin</span>
+                        <span class="me-3"></span>
                         <a asp-controller="Account" asp-action="Logout" class="btn btn-sm btn-danger">Çıkış</a>
                     </div>
                 </div>
@@ -91,7 +94,9 @@
             <main role="main">
                 @RenderBody()
             </main>
+            
         </div>
+        
     </div>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

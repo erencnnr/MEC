@@ -24,11 +24,11 @@ namespace MEC.Application.Service.AssetService
         {
             Expression<Func<Asset, bool>> predicate = x =>
                 (string.IsNullOrEmpty(request.SearchText) || x.Description.Contains(request.SearchText) || x.Name.Contains(request.SearchText)) &&
-                (!request.SchoolId.HasValue || x.SchoolId == request.SchoolId) &&
-                (!request.AssetTypeId.HasValue || x.AssetTypeId == request.AssetTypeId) &&
-                (!request.AssetStatusId.HasValue || x.AssetStatusId == request.AssetStatusId);
+                (request.SchoolIds == null || !request.SchoolIds.Any() || request.SchoolIds.Contains(x.SchoolId)) &&
+                (request.AssetTypeIds == null || !request.AssetTypeIds.Any() || request.AssetTypeIds.Contains(x.AssetTypeId)) &&
+                (request.AssetStatusIds == null || !request.AssetStatusIds.Any() || request.AssetStatusIds.Contains(x.AssetStatusId));
 
-            var assets = await _repository.GetAllAsync(predicate,x => x.School,x => x.AssetType,x => x.AssetStatus);
+            var assets = await _repository.GetAllAsync(predicate, x => x.School, x => x.AssetType, x => x.AssetStatus, x => x.SchoolClass);
             return assets.ToList();
         }
         public async Task AddAssetAsync(Asset asset)

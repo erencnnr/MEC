@@ -24,6 +24,11 @@ namespace MEC.AssetManagementUI.Models.AssetModel
         [Display(Name = "Garanti Bitiş Tarihi")]
         [DataType(DataType.Date)]
         public DateTime? WarrantyEndDate { get; set; }
+        [Display(Name = "Fatura Tarihi")]
+        [DataType(DataType.Date)]
+        public DateTime? InvoiceDate { get; set; }
+        [Display(Name = "Sınıf / Şube")]
+        public int? SchoolClassId { get; set; }
 
     }
 }

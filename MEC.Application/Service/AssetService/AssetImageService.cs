@@ -43,6 +43,15 @@ namespace MEC.Application.Service.AssetService
                 _repository.Delete(image);
             }
         }
-
+        public async Task<AssetImage> GetImageByAssetAndNameAsync(int assetId, string fileName)
+        {
+            // AssetId ve FileName eşleşen ilk kaydı getirir.
+            var images = await _repository.GetAllAsync(x => x.AssetId == assetId && x.Path == fileName);
+            return images.FirstOrDefault();
+        }
+        public async Task UpdateAssetImageAsync(AssetImage assetImage)
+        {
+            _repository.Update(assetImage);
+        }
     }
 }

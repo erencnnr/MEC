@@ -1,10 +1,12 @@
 ﻿using MEC.Application.Abstractions.Service.LoanService;
+using MEC.Application.Abstractions.Service.LoanService.Model;
 using MEC.DAL.Config.Abstractions.Common;
 using MEC.Domain.Entity.Asset;
 using MEC.Domain.Entity.Loan;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -28,8 +30,55 @@ namespace MEC.Application.Service.LoanService
         }
         public async Task<List<Loan>> GetLoanListAsync()
         {
-           var loans = await _repository.GetAllAsync();
-           return loans.ToList();
+            var loans = await _repository.GetAllAsync();
+            return loans.ToList();
+        }
+        public async Task<List<Loan>> GetLoanListAsync(LoanFilterRequestModel request)
+        {
+            // 1. FİLTRELEME (Predicate)
+            Expression<Func<Loan, bool>> predicate = x =>
+                // Arama Metni: Demirbaş, Seri No, Zimmet Alan Kişi
+                (string.IsNullOrEmpty(request.SearchText) ||
+                 x.Asset.Name.Contains(request.SearchText) ||
+                 x.Asset.SerialNumber.Contains(request.SearchText) ||
+                 (x.AssignedTo.FirstName + " " + x.AssignedTo.LastName).Contains(request.SearchText)) &&
+
+                // Zimmet Alan Kişi Filtresi (AssignedTo)
+                (request.AssignedToIds == null || !request.AssignedToIds.Any() || request.AssignedToIds.Contains(x.AssignedToId)) &&
+
+                // Zimmet Veren Kişi Filtresi (CreatedBy - Opsiyonel)
+                // Not: CreatedBy int olduğu varsayıldı.
+                (request.AssignedByIds == null || !request.AssignedByIds.Any() || request.AssignedByIds.Contains((int)x.AssignedById));
+
+            // Veriyi Çek
+            // Not: Zimmeti veren kişinin adını göstermek için o tabloyu da joinlemek gerekebilir. 
+            // Şimdilik sadece Asset ve AssignedTo include ediyoruz.
+            var loans = await _repository.GetAllAsync(predicate, x => x.Asset, x => x.AssignedTo);
+
+            // 2. SIRALAMA (Sorting)
+            // IQueryable'a çevirip bellek içi sıralama yapıyoruz (Repo List dönüyorsa)
+            var query = loans.AsQueryable();
+
+            switch (request.SortOrder)
+            {
+                case "LoanDate_Asc":
+                    query = query.OrderBy(x => x.LoanDate);
+                    break;
+                case "LoanDate_Desc":
+                    query = query.OrderByDescending(x => x.LoanDate);
+                    break;
+                case "ReturnDate_Asc":
+                    query = query.OrderBy(x => x.ReturnDate);
+                    break;
+                case "ReturnDate_Desc":
+                    query = query.OrderByDescending(x => x.ReturnDate);
+                    break;
+                default:
+                    query = query.OrderByDescending(x => x.LoanDate); // Varsayılan
+                    break;
+            }
+
+            return query.ToList();
         }
         public async Task<List<Loan>> GetLoansByAssetIdAsync(int assetId)
         {
@@ -59,6 +108,23 @@ namespace MEC.Application.Service.LoanService
                 // Controller tarafında ID'yi bulup göndermek daha esnek olabilir.
                 _repository.Update(loan);
             }
+        }
+        public async Task BulkReturnLoansAsync(List<int> loanIds, DateTime returnDate)
+        {
+            // Sadece seçili ID'leri getir
+            Expression<Func<Loan, bool>> predicate = x => loanIds.Contains(x.Id);
+            var loans = await _repository.GetAllAsync(predicate);
+
+            foreach (var loan in loans)
+            {
+                // Sadece iade edilmemişleri güncelle
+                if (loan.ReturnDate == null)
+                {
+                    loan.ReturnDate = returnDate;
+                    _repository.Update(loan);
+                }
+            }
+            // Not: Generic Repository yapınızda SaveChanges yoksa burada context.SaveChanges() çağırmanız gerekebilir.
         }
     }
 }

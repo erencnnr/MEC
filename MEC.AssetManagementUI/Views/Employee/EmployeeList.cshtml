@@ -47,7 +47,8 @@
                                 <th>Email</th>
                                 <th>Telefon</th>
                                 <th>Kayıt Tarihi</th>
-                                <th class="text-end">İşlemler</th>
+                                <th class="text-center">Yetki Durumu</th>
+                                <th class="text-end" style="min-width: 160px;">İşlemler</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -60,20 +61,54 @@
                                         <td>@item.LastName</td>
                                         <td>@item.Email</td>
                                         <td>@item.Phone</td>
-                                        <td>@(item.CreatedDate.HasValue? item.CreatedDate.Value.ToString("dd.MM.yyyy") : "-")</td>
+                                        <td>@(item.CreatedDate.HasValue ? item.CreatedDate.Value.ToString("dd.MM.yyyy") : "-")</td>
+
+                                        <td class="text-center">
+                                            @if (item.IsAdmin)
+                                            {
+                                                <span class="badge bg-success"><i class="bi bi-shield-fill-check me-1"></i> Admin</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-light text-dark border">Kullanıcı</span>
+                                            }
+                                        </td>
+
                                         <td class="text-end">
-                                            <a href="/Employee/Delete/@item.Id"
-                                               class="btn btn-sm btn-danger"
-                                               onclick="return confirm('Bu kullanıcıyı pasife almak istediğinize emin misiniz?');">
-                                                <i class="bi bi-trash"></i>
-                                            </a>
+                                            <div class="d-flex justify-content-end gap-2">
+
+                                                <form asp-action="ToggleAdmin" asp-controller="Employee" method="post" style="display:inline;">
+                                                    <input type="hidden" name="id" value="@item.Id" />
+                                                    @if (item.IsAdmin)
+                                                    {
+                                                        <button type="submit" class="btn btn-sm btn-warning text-white" title="Yetkiyi Kaldır"
+                                                                onclick="return confirm('@item.FirstName @item.LastName kullanıcısının Admin yetkisini almak istediğinize emin misiniz?');">
+                                                            <i class="bi bi-shield-slash-fill"></i> Yetki Al
+                                                        </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <button type="submit" class="btn btn-sm btn-success" title="Admin Yap"
+                                                                onclick="return confirm('@item.FirstName @item.LastName kullanıcısına Admin yetkisi vermek istediğinize emin misiniz?');">
+                                                            <i class="bi bi-shield-check"></i> Yetkilendir
+                                                        </button>
+                                                    }
+                                                </form>
+
+                                                <a href="/Employee/Delete/@item.Id"
+                                                   class="btn btn-sm btn-outline-danger"
+                                                   title="Pasife Al"
+                                                   onclick="return confirm('Bu kullanıcıyı pasife almak istediğinize emin misiniz?');">
+                                                    <i class="bi bi-trash-fill"></i>
+                                                </a>
+                                            </div>
                                         </td>
                                     </tr>
                                 }
                             }
                             else
                             {
-                                <tr><td colspan="6" class="text-center text-muted">Aktif çalışan bulunamadı.</td></tr>
+                                <tr><td colspan="7" class="text-center text-muted">Aktif çalışan bulunamadı.</td></tr>
                             }
                         </tbody>
                     </table>
@@ -151,6 +186,12 @@
                         <label class="form-label">Email</label>
                         <input type="email" class="form-control" name="Email" required>
                     </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Şifre</label>
+                        <input type="password" class="form-control" name="Password" placeholder="Varsayılan şifre belirleyiniz..." required>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label">Telefon</label>
                         <input type="text" class="form-control" name="Phone">
@@ -168,6 +209,14 @@
                             }
                         </select>
                     </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="IsAdmin" value="true" id="isAdminCheck">
+                        <label class="form-check-label" for="isAdminCheck">
+                            Admin Yetkisi Ver
+                        </label>
+                    </div>
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
@@ -181,7 +230,6 @@
 @section Scripts {
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-
             var successMsg = '@Html.Raw(TempData["Success"])';
             if (successMsg) {
                 Swal.fire({
@@ -205,6 +253,7 @@
                 });
             }
         });
+
         function syncEmployees() {
             var btn = document.getElementById('btnSync');
             var originalContent = btn.innerHTML;
@@ -212,11 +261,11 @@
             btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Senkronize Ediliyor...';
             btn.disabled = true;
 
-            setTimeout(function() {
+            setTimeout(function () {
                 alert("Senkronizasyon başarıyla tamamlandı!");
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
-                location.reload(); // Sayfayı yenile
+                location.reload();
             }, 1000);
         }
     </script>

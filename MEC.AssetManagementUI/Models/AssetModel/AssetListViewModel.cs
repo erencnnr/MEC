@@ -15,11 +15,13 @@ namespace MEC.AssetManagementUI.Models.AssetModel
 
         // İlişkili tablolardan gelecek veriler
         public string SchoolName { get; set; }
+        public string SchoolClassName { get; set; }
         public string AssetTypeName { get; set; }
 
         // Badge (Etiket) rengi için
         public string StatusName { get; set; }
         public string StatusColor { get; set; }
         public string WarrantyEndDate { get; set; }
+        public string InvoiceDate { get; set; }
     }
 }

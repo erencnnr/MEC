@@ -1,4 +1,5 @@
-﻿using MEC.Application.Abstractions.Service.AssetService;
+﻿using ClosedXML.Excel;
+using MEC.Application.Abstractions.Service.AssetService;
 using MEC.Application.Abstractions.Service.AssetService.Model;
 using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.LoanService;
@@ -25,10 +26,14 @@ namespace MEC.AssetManagementUI.Controllers
         private ILoanStatusService _loanStatusService;
         private readonly IAssetImageService _imageService;
         private readonly IEmployeeService _employeeService;
+        private readonly ISchoolClassService _schoolClassService;
+        private readonly IAssetImageService _assetImageService;
+        private readonly IAssetAttachmentService _assetAttachmentService;
         
 
         public AssetController(IAssetService assetService, ISchoolService schoolService, IAssetTypeService assetTypeService, IAssetStatusService assetStatusService,
-            ILoanService loanService, IAssetImageService imageService, IEmployeeService employeeService, ILoanStatusService loanStatusService)
+            ILoanService loanService, IAssetImageService imageService, IEmployeeService employeeService, ILoanStatusService loanStatusService, ISchoolClassService schoolClassService,
+            IAssetImageService assetImageService, IAssetAttachmentService assetAttachmentService)
         {
             _assetService = assetService;
             _schoolService = schoolService;
@@ -38,6 +43,9 @@ namespace MEC.AssetManagementUI.Controllers
             _imageService = imageService;
             _employeeService = employeeService;
             _loanStatusService = loanStatusService;
+            _schoolClassService = schoolClassService;
+            _assetImageService = assetImageService;
+            _assetAttachmentService = assetAttachmentService;
             
         }
         [HttpGet]
@@ -46,10 +54,9 @@ namespace MEC.AssetManagementUI.Controllers
             var assets = await _assetService.GetAssetListAsync(request);
 
             var model = assets.Select(x => x.ToViewModel()).ToList();
-
-            ViewBag.Schools = new SelectList(await _schoolService.GetSchoolListAsync(), "Id", "Name", request.SchoolId);
-            ViewBag.Types = new SelectList(await _assetTypeService.GetAssetTypeListAsync(), "Id", "Name", request.AssetTypeId);
-            ViewBag.Statuses = new SelectList(await _assetStatusService.GetAssetStatusListAsync(), "Id", "Name", request.AssetStatusId);
+            ViewBag.Schools = new SelectList(await _schoolService.GetSchoolListAsync(), "Id", "Name");
+            ViewBag.Types = new SelectList(await _assetTypeService.GetAssetTypeListAsync(), "Id", "Name");
+            ViewBag.Statuses = new SelectList(await _assetStatusService.GetAssetStatusListAsync(), "Id", "Name");
             ViewBag.CurrentFilters = request;
 
             return View("AssetList",model);
@@ -213,17 +220,14 @@ namespace MEC.AssetManagementUI.Controllers
                 return RedirectToAction("AssetInfo", new { id = assetId });
             }
 
-            // 1. Zimmet Kaydını Getir
-            var loans = await _loanService.GetLoanListAsync(); // veya GetByIdAsync
+            var loans = await _loanService.GetLoanListAsync();
             var loan = loans.FirstOrDefault(x => x.Id == loanId);
 
             if (loan != null)
             {
-                // 2. "İade Alındı" Durumunu Bul
                 var statuses = await _loanStatusService.GetLoanStatusListAsync();
                 var returnStatus = statuses.FirstOrDefault(x => x.Name == "İade Alındı");
 
-                // 3. Güncelle
                 loan.ReturnDate = returnDate;
                 loan.LoanStatusId = returnStatus != null ? returnStatus.Id : loan.LoanStatusId;
 
@@ -238,44 +242,172 @@ namespace MEC.AssetManagementUI.Controllers
         [HttpPost]
         public async Task<IActionResult> AddImage(int assetId, string fileName)
         {
+            // 1. Bu Asset için bu isimde bir resim zaten var mı kontrol et
+            // (Servis katmanınızda böyle bir metod olduğunu varsayıyorum)
+            var existingImage = await _assetImageService.GetImageByAssetAndNameAsync(assetId, fileName);
+
+            if (existingImage != null)
+            {
+                // Dosya zaten diskte güncellendi (API tarafında).
+                // DB'de kayıt zaten var, sadece update tarihini güncelleyebiliriz veya hiçbir şey yapmayız.
+                existingImage.UpdateDate = DateTime.Now;
+                await _assetImageService.UpdateAssetImageAsync(existingImage);
+
+                return Json(new { success = true, message = "Mevcut resim güncellendi." });
+            }
+
+            // 2. Kayıt yoksa yeni ekle
+            var newImage = new AssetImage
+            {
+                AssetId = assetId,
+                Path = fileName, // Sadece isim tutuluyor, klasör ID'den biliniyor
+                CreatedDate = DateTime.Now
+            };
+
+            await _assetImageService.CreateAsync(newImage);
+
+            return Json(new { success = true, message = "Yeni resim eklendi." });
+        }
+
+        [HttpGet] // Form GET ile çalıştığı için HttpGet kullanıyoruz
+        public async Task<IActionResult> ExportToExcel(AssetFilterRequestModel request)
+        {
+            var assets = await _assetService.GetAssetListAsync(request);
+
+            using (var workbook = new XLWorkbook())
+            {
+                var worksheet = workbook.Worksheets.Add("Demirbaş Listesi");
+
+                worksheet.Cell(1, 1).Value = "Seri Numarası";
+                worksheet.Cell(1, 2).Value = "Demirbaş Adı";
+                worksheet.Cell(1, 3).Value = "Türü";
+                worksheet.Cell(1, 4).Value = "Konum / Okul";
+                worksheet.Cell(1, 5).Value = "Sınıf / Şube";
+                worksheet.Cell(1, 6).Value = "Durum";
+                worksheet.Cell(1, 7).Value = "Açıklama";
+                worksheet.Cell(1, 8).Value = "Alım Tarihi";
+                worksheet.Cell(1, 9).Value = "Garanti Bitiş Tarihi";
+                worksheet.Cell(1, 10).Value = "Fatura Tarihi";
+
+                // Başlık Stili (Bold ve Arka Plan)
+                var headerRange = worksheet.Range("A1:J1");
+                headerRange.Style.Font.Bold = true;
+                headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+
+                // Verileri Satırlara Yazma
+                int row = 2;
+                foreach (var item in assets)
+                {
+                    worksheet.Cell(row, 1).Value = item.SerialNumber;
+                    worksheet.Cell(row, 2).Value = item.Name;
+                    worksheet.Cell(row, 3).Value = item.AssetType?.Name ?? "-";
+                    worksheet.Cell(row, 4).Value = item.School?.Name ?? "-";
+                    worksheet.Cell(row, 5).Value = item.SchoolClass?.Name ?? "-";
+                    worksheet.Cell(row, 6).Value = item.AssetStatus?.Name ?? "-";
+                    worksheet.Cell(row, 7).Value = item.Description;
+
+                    // Tarih formatları
+                    worksheet.Cell(row, 8).Value = item.PurchaseDate;
+                    worksheet.Cell(row, 9).Value = item.WarrantyEndDate;
+                    worksheet.Cell(row, 10).Value = item.InvoiceDate;
+
+                    row++;
+                }
+
+                worksheet.Columns().AdjustToContents();
+
+                using (var stream = new MemoryStream())
+                {
+                    workbook.SaveAs(stream);
+                    var content = stream.ToArray();
+                    return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"Demirbas_Listesi_{DateTime.Now:ddMMyyyy}.xlsx");
+                }
+            }
+        }
+        [HttpGet]
+        public async Task<IActionResult> GetClassesBySchool(int schoolId)
+        {
+            // Servisinizde GetListAsync(predicate) gibi bir yapı olduğunu varsayıyorum.
+            // Eğer yoksa ISchoolClassService'e bu metodu eklemeniz gerekebilir.
+            // Örnek kullanım:
+            var classes = await _schoolClassService.GetSchoolClassListAsync(); // Tümünü çekip filtereliyoruz (veya servise parametre geçin)
+            var filteredClasses = classes.Where(x => x.SchoolId == schoolId)
+                                         .Select(x => new { id = x.Id, name = x.Name })
+                                         .OrderBy(x => x.name)
+                                         .ToList();
+
+            return Json(filteredClasses);
+        }
+        [HttpPost]
+        public async Task<IActionResult> DeleteImage(int assetId, string fileName)
+        {
             try
             {
-                // API adresiniz (Portu kendi çalışan portunuzla değiştirmeyi unutmayın)
-                string apiBaseUrl = "https://localhost:7152/static/";
+                // 1. Kaydı bul
+                var imageRecord = await _assetImageService.GetImageByAssetAndNameAsync(assetId, fileName);
 
-                var assetImage = new MEC.Domain.Entity.Asset.AssetImage
+                // 2. Kayıt varsa sil
+                if (imageRecord != null)
+                {
+                    await _assetImageService.DeleteAsync(imageRecord.Id);
+                    return Json(new { success = true, message = "Veritabanından silindi." });
+                }
+
+                return Json(new { success = false, message = "Kayıt bulunamadı." });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "DB Hatası: " + ex.Message });
+            }
+        }
+        [HttpPost]
+        public async Task<IActionResult> AddAttachment(int assetId, string fileName)
+        {
+            try
+            {
+                // Varsa güncelle, yoksa ekle mantığı
+                // (Eğer aynı isimde dosya yüklenirse DB'de mükerrer olmasın diye kontrol)
+                // Servisinizde bu metodun (GetByAssetAndName) olduğunu varsayıyoruz, yoksa eklenmeli.
+                // Yoksa direkt CreateAsync de yapabilirsiniz ama mükerrer kayıt oluşabilir.
+
+                var attachment = new AssetAttachment
                 {
                     AssetId = assetId,
-                    Url = apiBaseUrl + fileName, // Tarayıcının erişeceği URL
-                    Path = fileName             // Dosya adı veya fiziksel yol (İsteğinize göre)
-                                                // IsDeleted = false;       // BU SATIRI SİLDİK
+                    Path = fileName, // Dosya adı
+                    CreatedDate = DateTime.Now
                 };
 
-                await _imageService.CreateAsync(assetImage);
+                await _assetAttachmentService.CreateAsync(attachment);
 
-                return Json(new { success = true });
+                return Json(new { success = true, message = "Ek başarıyla kaydedildi." });
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return Json(new { success = false });
+                return Json(new { success = false, message = "DB Hatası: " + ex.Message });
             }
         }
 
         [HttpPost]
-        public async Task<IActionResult> DeleteImage(int id)
+        public async Task<IActionResult> DeleteAttachment(int assetId, string fileName)
         {
             try
             {
-                // Not: Şimdilik sadece veritabanından kaydı siliyoruz.
-                // Fiziksel dosyayı (C:\Images) silmek için API'ye ayrı bir istek atılması gerekir.
-                // Ancak DB'den silmek UI'dan kaybolması için yeterlidir.
+                // İsimden ve AssetId'den kaydı bul (Servisinizde bu metodun olması gerekir)
+                // Eğer yoksa GetAll yapıp LINQ ile de bulabilirsiniz.
+                var attachment = await _assetAttachmentService.GetAttachmentByAssetAndNameAsync(assetId, fileName);
 
-                await _imageService.DeleteAsync(id);
-                return Json(new { success = true });
+                if (attachment != null)
+                {
+                    await _assetAttachmentService.DeleteAsync(attachment.Id);
+                    return Json(new { success = true, message = "Veritabanından silindi." });
+                }
+
+                // DB'de yoksa bile diskten silinmesi için true dönüyoruz
+                return Json(new { success = true, message = "Kayıt bulunamadı, disk işlemine geçiliyor." });
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return Json(new { success = false, message = "Silme işlemi sırasında hata oluştu." });
+                return Json(new { success = false, message = "DB Hatası: " + ex.Message });
             }
         }
     }

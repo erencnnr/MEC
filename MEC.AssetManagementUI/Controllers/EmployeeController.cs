@@ -60,5 +60,12 @@ namespace MEC.AssetManagementUI.Controllers
             await _employeeService.ActivateEmployeeAsync(id);
             return RedirectToAction("Index");
         }
+        [HttpPost]
+        public async Task<IActionResult> ToggleAdmin(int id)
+        {
+            await _employeeService.ToggleAdminStatusAsync(id);
+            TempData["Success"] = "Kullanıcı yetkisi güncellendi.";
+            return RedirectToAction("Index");
+        }
     }
 }
