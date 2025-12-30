@@ -1,4 +1,5 @@
 ﻿using MEC.Domain.Common;
+using MEC.Domain.Entity.School;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -26,5 +27,8 @@ namespace MEC.Domain.Entity.Asset
         public int? InvoiceId { get; set; }
         public Invoice.Invoice Invoice { get; set; }
         public DateTime? WarrantyEndDate { get; set; }
+        public DateTime? InvoiceDate { get; set; }
+        public int? SchoolClassId { get; set; }
+        public SchoolClass? SchoolClass { get; set; }
     }
 }

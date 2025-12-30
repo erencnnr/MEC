@@ -28,9 +28,9 @@
                         <div asp-validation-summary="ModelOnly" class="text-danger mb-3 small text-center"></div>
 
                         <div class="form-floating mb-3">
-                            <input asp-for="Username" class="form-control" id="floatingInput" placeholder="Kullanıcı Adı" />
+                            <input asp-for="Email" class="form-control" id="floatingInput" placeholder="Mail Adresi" />
                             <label for="floatingInput">Kullanıcı Adı</label>
-                            <span asp-validation-for="Username" class="text-danger small"></span>
+                            <span asp-validation-for="Email" class="text-danger small"></span>
                         </div>
 
                         <div class="form-floating mb-3">
@@ -48,7 +48,7 @@
             </div>
 
             <div class="text-center mt-3 text-muted small">
-                &copy; @DateTime.Now.Year - MEC Asset Management
+                &copy; @DateTime.Now.Year
             </div>
 
         </div>

@@ -11,5 +11,6 @@ namespace MEC.AssetManagementUI.Models.AssetModel
         public Invoice? Invoice { get; set; }
         public List<AssetImage>? Images { get; set; }
         public List<Loan>? Loans { get; set; }
+        public DateTime? InvoiceDate { get; set; }
     }
 }

@@ -40,10 +40,32 @@
 
                         <div class="mb-3">
                             <label asp-for="SchoolId" class="form-label fw-bold">Konum / Okul</label>
-                            <select asp-for="SchoolId" class="form-select" asp-items="ViewBag.Schools">
+                            <select asp-for="SchoolId" class="form-select" asp-items="ViewBag.Schools" id="SchoolDropdown">
                                 <option value="">-- Seçiniz --</option>
                             </select>
                             <span asp-validation-for="SchoolId" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="SchoolClassId" class="form-label fw-bold">Sınıf / Şube (Opsiyonel)</label>
+                            <select asp-for="SchoolClassId" class="form-select" id="ClassDropdown" disabled>
+                                <option value="">-- Önce Okul Seçiniz --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label asp-for="WarrantyEndDate" class="form-label fw-bold"></label>
+                            <input asp-for="WarrantyEndDate" class="form-control" type="date" />
+                            <span asp-validation-for="WarrantyEndDate" class="text-danger small"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label asp-for="InvoiceDate" class="form-label fw-bold"></label>
+                            <input asp-for="InvoiceDate" class="form-control" type="date" />
+                            <span asp-validation-for="InvoiceDate" class="text-danger small"></span>
                         </div>
                     </div>
 
@@ -64,3 +86,54 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+    <script>
+        $(document).ready(function () {
+            // Okul değiştiğinde çalışacak fonksiyon
+            $('#SchoolDropdown').change(function () {
+                var schoolId = $(this).val();
+                var $classDropdown = $('#ClassDropdown');
+
+                // Önceki sınıfları temizle ve yükleniyor mesajı göster
+                $classDropdown.empty();
+                $classDropdown.append('<option value="">-- Yükleniyor... --</option>');
+                $classDropdown.prop('disabled', true);
+
+                if (schoolId) {
+                    // Controller'daki GetClassesBySchool metoduna istek atıyoruz
+                    $.ajax({
+                        url: '/Asset/GetClassesBySchool',
+                        type: 'GET',
+                        data: { schoolId: schoolId },
+                        success: function (data) {
+                            $classDropdown.empty();
+                            $classDropdown.append('<option value="">-- Seçiniz (Opsiyonel) --</option>');
+
+                            // Gelen veriyi döngüyle dropdown'a ekle
+                            $.each(data, function (i, item) {
+                                $classDropdown.append($('<option>').text(item.name).val(item.id));
+                            });
+
+                            // Dropdown'ı aktif et
+                            $classDropdown.prop('disabled', false);
+                        },
+                        error: function () {
+                            $classDropdown.empty();
+                            $classDropdown.append('<option value="">Sınıflar yüklenemedi</option>');
+                        }
+                    });
+                } else {
+                    // Okul seçimi iptal edilirse sınıfı sıfırla
+                    $classDropdown.empty();
+                    $classDropdown.append('<option value="">-- Önce Okul Seçiniz --</option>');
+                    $classDropdown.prop('disabled', true);
+                }
+            });
+        });
+    </script>
+}

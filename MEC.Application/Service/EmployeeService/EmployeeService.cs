@@ -106,5 +106,24 @@ namespace MEC.Application.Service.EmployeeService
                 _repository.Update(employee);
             }
         }
+        public async Task<Employee> GetEmployeeByEmailAsync(string email)
+        {
+            // FirstOrDefaultAsync kullanmak için repository'nizde destek olmalı veya GetAllAsync ile filtrelemelisiniz
+            // GenericRepository yapınıza uygun olarak:
+            var employees = await _repository.GetAllAsync(x => x.Email == email);
+            return employees.FirstOrDefault();
+        }
+
+        // 2. Yetki Değiştirme (Toggle)
+        public async Task ToggleAdminStatusAsync(int id)
+        {
+            var employee = await _repository.GetByIdAsync(id);
+            if (employee != null)
+            {
+                employee.IsAdmin = !employee.IsAdmin; // Tersine çevir (True ise False, False ise True)
+                _repository.Update(employee);
+                // SaveChanges yoksa context.SaveChanges() eklenmeli
+            }
+        }
     }
 }

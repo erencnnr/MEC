@@ -1,73 +1,59 @@
-using Microsoft.Extensions.FileProviders; // Bu namespace'i eklemeyi unutmayýn
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// --- SERVÝSLER ---
 
-// 1. ADIM: CORS Politikasýný Tanýmla
-// (Farklý porttaki UI projesinin buraya eriþebilmesi için gerekli)
+// 1. CORS Ayarý (TEK SEFERDE TANIMLA)
+// IIS'te UI projeniz artýk "localhost:7255" olmayabilir (Domain adý veya sunucu IP'si olabilir).
+// Baþlangýçta hata almamak için AllowAnyOrigin kullanýyoruz. 
+// Canlýya alýrken "WithOrigins("https://alanadiniz.com")" olarak deðiþtirmek daha güvenlidir.
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        policy =>
-        {
-            policy.AllowAnyOrigin()   // Her yerden gelen isteðe izin ver
-                  .AllowAnyMethod()   // GET, POST, PUT vb. hepsine izin ver
-                  .AllowAnyHeader();  // Tüm baþlýklara izin ver
-        });
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()  // Prod ortamýnda buraya UI domain'i yazýlmalý
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
 });
 
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// --- 1. CORS Servisini Ekle ---
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowUI",
-        policy =>
-        {
-            // Güvenlik için sadece kendi UI adresinize izin verebilirsiniz
-            // veya geliþtirme ortamý için AllowAnyOrigin kullanabilirsiniz.
-            policy.WithOrigins("https://localhost:7255") // UI projenizin adresi
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
-        });
-});
-
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// --- MIDDLEWARE (SIRALAMA ÖNEMLÝDÝR) ---
 
-// 2. ADIM: CORS'u Aktif Et
+// 2. Swagger Ayarý
+// IIS'e attýðýnýzda ortam "Production" olur. Swagger varsayýlan olarak sadece "Development"ta çalýþýr.
+// Swagger'ý IIS'te de görmek istiyorsanýz if bloðunu kaldýrýn veya || true ekleyin.
+// (Güvenlik gereði canlý ortamda kapatýlmasý önerilir ama test için açabilirsiniz)
+app.UseSwagger();
+app.UseSwaggerUI();
+
+// 3. CORS'u Aktif Et (En baþlarda olmalý)
 app.UseCors("AllowAll");
 
 app.UseHttpsRedirection();
 
-// 3. ADIM: Resim Klasörünü Ayarla ve Dýþarý Aç
+// 4. Statik Dosya (Resim) Ayarlarý
+// DÝKKAT: IIS'in C:\Images klasörüne eriþim izni olmasý þarttýr!
 string imagePath = @"C:\Images";
 
-// Klasör yoksa oluþtur (DirectoryNotFound hatasýný önler)
+// Klasör yoksa oluþtur
 if (!Directory.Exists(imagePath))
 {
     Directory.CreateDirectory(imagePath);
 }
 
-// Klasörü /static adresiyle sun
+// Klasörü dýþarý aç
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(imagePath),
     RequestPath = "/static"
 });
-
-// --- 2. CORS Middleware'ini Kullan ---
-app.UseCors("AllowUI");
 
 app.UseAuthorization();
 

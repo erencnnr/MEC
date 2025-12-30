@@ -7,6 +7,24 @@
     var filter = ViewBag.CurrentFilters as AssetFilterRequestModel;
 }
 
+<style>
+    .table-fixed {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    .truncate-cell {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .filter-scroll-list {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+</style>
+
 <div class="container-fluid">
     <h2 class="h3 mb-4 text-gray-800">Demirbaş Yönetimi</h2>
 
@@ -14,13 +32,23 @@
 
         <div class="d-flex justify-content-between align-items-center mb-3">
 
-            <a asp-action="CreateAsset" class="btn btn-primary shadow-sm">
-                <i class="bi bi-plus-lg"></i> Yeni Ekle
-            </a>
+            <div class="d-flex gap-2">
+                <a asp-action="CreateAsset" class="btn btn-primary shadow-sm">
+                    <i class="bi bi-plus-lg"></i> Yeni Ekle
+                </a>
+
+                <button type="submit"
+                        formaction="@Url.Action("ExportToExcel", "Asset")"
+                        class="btn btn-success shadow-sm text-white">
+                    <i class="bi bi-file-earmark-excel-fill me-1"></i> Excel'e Aktar
+                </button>
+            </div>
 
             <div class="d-flex align-items-center gap-2">
-
-                @if (filter != null && (!string.IsNullOrEmpty(filter.SearchText) || filter.SchoolId != null || filter.AssetTypeId != null || filter.AssetStatusId != null))
+                @if (filter != null && (!string.IsNullOrEmpty(filter.SearchText) ||
+                (filter.SchoolIds != null && filter.SchoolIds.Any()) ||
+                (filter.AssetTypeIds != null && filter.AssetTypeIds.Any()) ||
+                (filter.AssetStatusIds != null && filter.AssetStatusIds.Any())))
                 {
                     <a asp-action="Index" class="btn btn-sm btn-danger shadow-sm text-white d-flex align-items-center" title="Filtreleri Temizle">
                         <i class="bi bi-x-circle-fill me-1"></i> Temizle
@@ -41,25 +69,35 @@
         <div class="card shadow mb-4">
             <div class="card-body p-0">
                 <div class="table-responsive" style="min-height: 600px;">
-                    <table class="table table-bordered table-hover mb-0" width="100%">
+                    <table class="table table-bordered table-hover mb-0 table-fixed" width="100%">
                         <thead class="table-light">
                             <tr class="align-middle">
 
-                                <th>Seri No</th>
-                                <th>Demirbaş Adı</th>
+                                <th style="width: 150px;">Seri No</th>
+                                <th style="width: 200px;">Demirbaş Adı</th>
 
-                                <th>
+                                <th style="width: 150px;">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span>Tür</span>
                                         <div class="dropdown">
                                             <button class="btn btn-sm p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                                <i class="bi bi-chevron-down @(filter?.AssetTypeId != null ? "text-primary fw-bold" : "text-muted")"></i>
+                                                <i class="bi bi-chevron-down @(filter?.AssetTypeIds != null && filter.AssetTypeIds.Any() ? "text-primary fw-bold" : "text-muted")"></i>
                                             </button>
                                             <div class="dropdown-menu p-3 shadow border-0" style="min-width: 250px; z-index: 1050;">
                                                 <label class="form-label small fw-bold text-muted">Tür Filtrele</label>
-                                                <select name="AssetTypeId" class="form-select form-select-sm mb-2" asp-items="ViewBag.Types">
-                                                    <option value="">-- Tümü --</option>
-                                                </select>
+                                                <div class="filter-scroll-list mb-2">
+                                                    @if (ViewBag.Types != null)
+                                                    {
+                                                        foreach (var item in (IEnumerable<SelectListItem>)ViewBag.Types)
+                                                        {
+                                                            var isChecked = filter?.AssetTypeIds != null && filter.AssetTypeIds.Contains(int.Parse(item.Value));
+                                                            <div class="form-check">
+                                                                <input class="form-check-input" type="checkbox" name="AssetTypeIds" value="@item.Value" id="type_@item.Value" @(isChecked ? "checked" : "")>
+                                                                <label class="form-check-label small" for="type_@item.Value">@item.Text</label>
+                                                            </div>
+                                                        }
+                                                    }
+                                                </div>
                                                 <div class="d-grid">
                                                     <button type="submit" class="btn btn-sm btn-primary">Uygula</button>
                                                 </div>
@@ -68,20 +106,30 @@
                                     </div>
                                 </th>
 
-                                <th>Açıklama</th>
+                                <th style="width: 250px;">Açıklama</th>
 
-                                <th>
+                                <th style="width: 200px;">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span>Konum / Okul</span>
                                         <div class="dropdown">
                                             <button class="btn btn-sm p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                                <i class="bi bi-chevron-down @(filter?.SchoolId != null ? "text-primary fw-bold" : "text-muted")"></i>
+                                                <i class="bi bi-chevron-down @(filter?.SchoolIds != null && filter.SchoolIds.Any() ? "text-primary fw-bold" : "text-muted")"></i>
                                             </button>
                                             <div class="dropdown-menu p-3 shadow border-0" style="min-width: 250px;">
                                                 <label class="form-label small fw-bold text-muted">Okul Filtrele</label>
-                                                <select name="SchoolId" class="form-select form-select-sm mb-2" asp-items="ViewBag.Schools">
-                                                    <option value="">-- Tümü --</option>
-                                                </select>
+                                                <div class="filter-scroll-list mb-2">
+                                                    @if (ViewBag.Schools != null)
+                                                    {
+                                                        foreach (var item in (IEnumerable<SelectListItem>)ViewBag.Schools)
+                                                        {
+                                                            var isChecked = filter?.SchoolIds != null && filter.SchoolIds.Contains(int.Parse(item.Value));
+                                                            <div class="form-check">
+                                                                <input class="form-check-input" type="checkbox" name="SchoolIds" value="@item.Value" id="school_@item.Value" @(isChecked ? "checked" : "")>
+                                                                <label class="form-check-label small" for="school_@item.Value">@item.Text</label>
+                                                            </div>
+                                                        }
+                                                    }
+                                                </div>
                                                 <div class="d-grid">
                                                     <button type="submit" class="btn btn-sm btn-primary">Uygula</button>
                                                 </div>
@@ -90,18 +138,28 @@
                                     </div>
                                 </th>
 
-                                <th>
+                                <th style="width: 130px;">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span>Durum</span>
                                         <div class="dropdown">
                                             <button class="btn btn-sm p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                                <i class="bi bi-chevron-down @(filter?.AssetStatusId != null ? "text-primary fw-bold" : "text-muted")"></i>
+                                                <i class="bi bi-chevron-down @(filter?.AssetStatusIds != null && filter.AssetStatusIds.Any() ? "text-primary fw-bold" : "text-muted")"></i>
                                             </button>
                                             <div class="dropdown-menu p-3 shadow border-0" style="min-width: 200px;">
                                                 <label class="form-label small fw-bold text-muted">Durum Filtrele</label>
-                                                <select name="AssetStatusId" class="form-select form-select-sm mb-2" asp-items="ViewBag.Statuses">
-                                                    <option value="">-- Tümü --</option>
-                                                </select>
+                                                <div class="filter-scroll-list mb-2">
+                                                    @if (ViewBag.Statuses != null)
+                                                    {
+                                                        foreach (var item in (IEnumerable<SelectListItem>)ViewBag.Statuses)
+                                                        {
+                                                            var isChecked = filter?.AssetStatusIds != null && filter.AssetStatusIds.Contains(int.Parse(item.Value));
+                                                            <div class="form-check">
+                                                                <input class="form-check-input" type="checkbox" name="AssetStatusIds" value="@item.Value" id="status_@item.Value" @(isChecked ? "checked" : "")>
+                                                                <label class="form-check-label small" for="status_@item.Value">@item.Text</label>
+                                                            </div>
+                                                        }
+                                                    }
+                                                </div>
                                                 <div class="d-grid">
                                                     <button type="submit" class="btn btn-sm btn-primary">Uygula</button>
                                                 </div>
@@ -110,8 +168,7 @@
                                     </div>
                                 </th>
 
-                                <th>Maliyet</th>
-                                <th>Alım Tarihi</th>
+                                <th style="width: 120px;">Alım Tarihi</th>
 
                                 <th style="width: 60px;" class="text-center">
                                     <i class="bi bi-trash text-muted"></i>
@@ -126,17 +183,17 @@
                                     <tr onclick="location.href='@Url.Action("AssetInfo", "Asset", new { id = item.Id })'"
                                         style="cursor: pointer;">
 
-                                        <td class="fw-bold text-primary">@item.SerialNumber</td>
-                                        <td class="fw-bold">@item.Name</td>
-                                        <td>@item.AssetTypeName</td>
-                                        <td>@item.Description</td>
-                                        <td>@item.SchoolName</td>
+                                        <td class="text-primary truncate-cell" title="@item.SerialNumber">@item.SerialNumber</td>
+                                        <td class="truncate-cell" title="@item.Name">@item.Name</td>
+                                        <td class="truncate-cell">@item.AssetTypeName</td>
+                                        <td class="truncate-cell" title="@item.Description">@item.Description</td>
+                                        <td class="truncate-cell" title="@item.SchoolName">@item.SchoolName</td>
                                         <td class="text-center">
                                             <span class="badge bg-@item.StatusColor rounded-pill">
                                                 @item.StatusName
                                             </span>
                                         </td>
-                                        <td>@(item.Cost.HasValue ? item.Cost.Value.ToString("C2") : "-")</td>
+
                                         <td>@item.PurchaseDate</td>
 
                                         <td class="text-center">
@@ -152,7 +209,7 @@
                             else
                             {
                                 <tr>
-                                    <td colspan="9" class="text-center py-5 text-muted">
+                                    <td colspan="8" class="text-center py-5 text-muted">
                                         <i class="bi bi-inbox fs-1 d-block mb-3 text-gray-300"></i>
                                         <p>Kayıt bulunamadı.</p>
                                     </td>

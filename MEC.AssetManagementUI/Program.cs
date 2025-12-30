@@ -29,6 +29,7 @@ builder.Services.AddScoped<IAssetService, AssetService>();
 builder.Services.AddScoped<IAssetTypeService, AssetTypeService>();
 builder.Services.AddScoped<IAssetStatusService, AssetStatusService>();
 builder.Services.AddScoped<IAssetImageService, AssetImageService>();
+builder.Services.AddScoped<IAssetAttachmentService, AssetAttachmentService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<ILoanService, LoanService>();
 builder.Services.AddScoped<ILoanStatusService, LoanStatusService>();

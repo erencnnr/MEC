@@ -13,5 +13,7 @@ namespace MEC.Application.Abstractions.Service.AssetService
 
         // --- BU SATIRI EKLEYİN ---
         Task DeleteAsync(int id);
+        Task<AssetImage> GetImageByAssetAndNameAsync(int assetId, string fileName);
+        Task UpdateAssetImageAsync(AssetImage assetImage);
     }
 }

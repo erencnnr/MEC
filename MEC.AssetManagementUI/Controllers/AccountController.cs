@@ -1,4 +1,5 @@
-﻿using MEC.AssetManagementUI.Models;
+﻿using MEC.Application.Abstractions.Service.EmployeeService;
+using MEC.AssetManagementUI.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
@@ -9,12 +10,12 @@ namespace MEC.AssetManagementUI.Controllers
 {
     public class AccountController : Controller
     {
-        
+        private readonly IEmployeeService _employeeService;
 
         // Servisi Constructor (Yapıcı Metot) ile içeri alıyoruz
-        public AccountController()
+        public AccountController(IEmployeeService employeeService)
         {
-            
+            _employeeService = employeeService;
         }
 
         [AllowAnonymous]
@@ -35,20 +36,18 @@ namespace MEC.AssetManagementUI.Controllers
         {
             if (ModelState.IsValid)
             {
-                // Servis üzerinden kontrol (Şu an Mock, ileride DB çalışacak)
-                if (model.Username == "admin" && model.Password == "12345")
+                var user = await _employeeService.GetEmployeeByEmailAsync(model.Email);
+                if(model.Email == "admin" && model.Password == "admin")//if (user != null && user.IsAdmin)
                 {
-                    // Kullanıcı bilgilerini (Claims) oluştur
                     var claims = new List<Claim>
                     {
-                        new Claim(ClaimTypes.Name, model.Username),
+                        new Claim(ClaimTypes.Name, model.Email),
                         new Claim(ClaimTypes.Role, "Admin")
                     };
 
                     var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
                     var authProperties = new AuthenticationProperties();
 
-                    // Çerezi oluştur ve giriş yaptır
                     await HttpContext.SignInAsync(
                         CookieAuthenticationDefaults.AuthenticationScheme,
                         new ClaimsPrincipal(claimsIdentity),

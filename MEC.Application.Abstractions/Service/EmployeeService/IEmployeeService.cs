@@ -19,5 +19,7 @@ namespace MEC.Application.Abstractions.Service.EmployeeService
         Task UpdateEmployeeTypeAsync(EmployeeType employeeType);
         Task DeleteEmployeeTypeAsync(int id);
         Task ActivateEmployeeAsync(int id);
+        Task ToggleAdminStatusAsync(int id);
+        Task<Employee> GetEmployeeByEmailAsync(string email);
     }
 }
