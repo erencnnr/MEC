@@ -20,9 +20,19 @@ namespace MEC.Application.Service.EmployeeService
         }
 
         // --- Employee Metotları ---
-        public async Task<List<Employee>> GetEmployeeListAsync()
+        public async Task<List<Employee>> GetEmployeeListAsync(string? searchText = null, bool? isAdmin = null)
         {
-            var employees = await _repository.GetAllAsync();
+            // Veritabanı seviyesinde filtreleme yapıyoruz
+            var employees = await _repository.GetAllAsync(x =>
+                (string.IsNullOrEmpty(searchText) ||
+                 (x.FirstName != null && x.FirstName.Contains(searchText)) ||
+                 (x.LastName != null && x.LastName.Contains(searchText)) ||
+                 (x.Email != null && x.Email.Contains(searchText)) ||
+                 (x.Phone != null && x.Phone.Contains(searchText)))
+                &&
+                (!isAdmin.HasValue || x.IsAdmin == isAdmin.Value)
+            );
+
             return employees.ToList();
         }
 

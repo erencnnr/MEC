@@ -3,30 +3,39 @@ using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Domain.Entity.Employee;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System; // Exception için gerekli
 
 namespace MEC.AssetManagementUI.Controllers
 {
     public class EmployeeController : Controller
     {
-        // 1. TANIMLAMA: Servisleri burada tanımlıyoruz
         private readonly IEmployeeService _employeeService;
-        private readonly IEmployeeTypeService _employeeTypeService; // <-- EKSİK OLAN KISIM BURASIYDI
+        private readonly IEmployeeTypeService _employeeTypeService;
 
-        // 2. CONSTRUCTOR: Servisleri burada içeri alıyoruz (Dependency Injection)
         public EmployeeController(IEmployeeService employeeService, IEmployeeTypeService employeeTypeService)
         {
             _employeeService = employeeService;
-            _employeeTypeService = employeeTypeService; // <-- VE BURADA EŞLEŞTİRİYORUZ
+            _employeeTypeService = employeeTypeService;
         }
 
         [HttpGet]
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string? search = null, string? filterStatus = null)
         {
-            // Türleri artık yeni servisten çekiyoruz
+            // Dropdown için tipleri çek
             var types = await _employeeTypeService.GetEmployeeTypeListAsync();
             ViewBag.EmployeeTypes = types;
 
-            var values = await _employeeService.GetEmployeeListAsync();
+            // Filtreleri View'da tekrar göstermek için sakla
+            ViewBag.CurrentSearch = search;
+            ViewBag.CurrentFilter = filterStatus;
+
+            // Filtre mantığı: Admin/User/Hepsi
+            bool? isAdmin = null;
+            if (filterStatus == "Admin") isAdmin = true;
+            else if (filterStatus == "User") isAdmin = false;
+
+            // Servise parametreleri ilet
+            var values = await _employeeService.GetEmployeeListAsync(search, isAdmin);
             return View("EmployeeList", values);
         }
 
@@ -55,11 +64,13 @@ namespace MEC.AssetManagementUI.Controllers
             await _employeeService.DeleteEmployeeAsync(id);
             return RedirectToAction("Index");
         }
+
         public async Task<IActionResult> Activate(int id)
         {
             await _employeeService.ActivateEmployeeAsync(id);
             return RedirectToAction("Index");
         }
+
         [HttpPost]
         public async Task<IActionResult> ToggleAdmin(int id)
         {

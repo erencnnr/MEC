@@ -8,7 +8,7 @@ namespace MEC.Application.Abstractions.Service.EmployeeService
     public interface IEmployeeService : IApplicationService
     {
         // Mevcut Metotlar
-        Task<List<Employee>> GetEmployeeListAsync();
+        Task<List<Employee>> GetEmployeeListAsync(string? searchText = null, bool? isAdmin = null);
         Task CreateEmployeeAsync(Employee employee);
         Task DeleteEmployeeAsync(int id); // Daha önce eklemiştik
 

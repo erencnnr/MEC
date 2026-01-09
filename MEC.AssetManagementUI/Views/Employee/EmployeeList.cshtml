@@ -10,14 +10,37 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2>Çalışan Listesi</h2>
-        <div>
-            <button class="btn btn-outline-info me-2" id="btnSync" onclick="syncEmployees()">
-                <i class="bi bi-arrow-repeat"></i> Senkronize Et
-            </button>
 
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createEmployeeModal">
-                <i class="bi bi-plus-lg"></i> Yeni Çalışan
-            </button>
+        <div class="d-flex align-items-center">
+            <form asp-action="Index" asp-controller="Employee" method="get" class="d-flex me-3">
+                <input type="text" name="search" class="form-control me-2" placeholder="İsim, mail veya tel..." value="@ViewBag.CurrentSearch">
+
+                @if (ViewBag.CurrentFilter != null)
+                {
+                    <input type="hidden" name="filterStatus" value="@ViewBag.CurrentFilter" />
+                }
+
+                <button type="submit" class="btn btn-outline-secondary" title="Ara">
+                    <i class="bi bi-search"></i>
+                </button>
+
+                @if (!string.IsNullOrEmpty(ViewBag.CurrentSearch as string) || !string.IsNullOrEmpty(ViewBag.CurrentFilter as string))
+                {
+                    <a href="/Employee/Index" class="btn btn-outline-danger ms-1" title="Filtreleri Temizle">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                }
+            </form>
+
+            <div>
+                <button class="btn btn-outline-info me-2" id="btnSync" onclick="syncEmployees()">
+                    <i class="bi bi-arrow-repeat"></i> Senkronize Et
+                </button>
+
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createEmployeeModal">
+                    <i class="bi bi-plus-lg"></i> Yeni Çalışan
+                </button>
+            </div>
         </div>
     </div>
 
@@ -47,7 +70,36 @@
                                 <th>Email</th>
                                 <th>Telefon</th>
                                 <th>Kayıt Tarihi</th>
-                                <th class="text-center">Yetki Durumu</th>
+
+                                <th class="text-center">
+                                    Yetki Durumu
+                                    <div class="dropdown d-inline-block ms-1">
+                                        <a class="text-secondary" href="#" role="button" id="authFilterLink" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bi bi-filter-square-fill" style="font-size: 1.1rem;"></i>
+                                        </a>
+                                        <ul class="dropdown-menu shadow" aria-labelledby="authFilterLink">
+                                            <li>
+                                                <a class="dropdown-item @(ViewBag.CurrentFilter == null ? "active" : "")"
+                                                   href="@Url.Action("Index", "Employee", new { search = ViewBag.CurrentSearch })">
+                                                    Hepsi
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item @(ViewBag.CurrentFilter == "Admin" ? "active" : "")"
+                                                   href="@Url.Action("Index", "Employee", new { filterStatus = "Admin", search = ViewBag.CurrentSearch })">
+                                                    Admin
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item @(ViewBag.CurrentFilter == "User" ? "active" : "")"
+                                                   href="@Url.Action("Index", "Employee", new { filterStatus = "User", search = ViewBag.CurrentSearch })">
+                                                    Kullanıcı
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </th>
+
                                 <th class="text-end" style="min-width: 160px;">İşlemler</th>
                             </tr>
                         </thead>
@@ -108,7 +160,7 @@
                             }
                             else
                             {
-                                <tr><td colspan="7" class="text-center text-muted">Aktif çalışan bulunamadı.</td></tr>
+                                <tr><td colspan="7" class="text-center text-muted">Kayıt bulunamadı.</td></tr>
                             }
                         </tbody>
                     </table>
