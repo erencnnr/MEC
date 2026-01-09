@@ -1,3 +1,9 @@
+using MEC.Application.Abstractions.Service.LdapService;
+using MEC.Application.Service.LdapService;
+using MEC.DAL.Config.Abstractions.Common;
+using MEC.DAL.Config.Applicaiton.EntityFramework;
+using MEC.DAL.Config.Contexts;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,6 +27,12 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+builder.Services.AddScoped<ILdapService, LdapService>();
 
 var app = builder.Build();
 

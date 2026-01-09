@@ -14,7 +14,9 @@ using MEC.Application.Abstractions.Service.LoanService;
 using MEC.Application.Service.InvoiceService;
 using MEC.Application.Service.LoanService;
 using MEC.Application.Service.EmployeeService; 
-using MEC.Application.Abstractions.Service.EmployeeService; 
+using MEC.Application.Service.LoginService; 
+using MEC.Application.Abstractions.Service.EmployeeService;
+using MEC.Application.Abstractions.Service.LoginService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -36,6 +38,7 @@ builder.Services.AddScoped<ILoanStatusService, LoanStatusService>();
 builder.Services.AddScoped<ISchoolClassService, SchoolClassService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IEmployeeTypeService, EmployeeTypeService>();
+builder.Services.AddScoped<ILoginService, LoginService>();
 
 // MVC Servisleri
 builder.Services.AddControllersWithViews(options =>
