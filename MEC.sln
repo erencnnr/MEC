@@ -23,8 +23,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MEC.DAL", "MEC.DAL\MEC.DAL.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MEC.WebAPI", "MEC.WebAPI\MEC.WebAPI.csproj", "{6CA1540C-775E-44B3-988F-D7F5EF659618}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MEC.Portal", "MEC.Portal\MEC.Portal.csproj", "{ABE2F5FC-CB86-46FA-974E-1090192FA596}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

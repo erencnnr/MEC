@@ -4,7 +4,7 @@ namespace MEC.AssetManagementUI.Models
 {
     public class LoginViewModel
     {
-        [Required(ErrorMessage = "Email zorunludur.")]
+        [Required(ErrorMessage = "Kullanıcı adı veya email zorunludur.")]
         public string Email { get; set; }
 
         [Required(ErrorMessage = "Şifre zorunludur.")]

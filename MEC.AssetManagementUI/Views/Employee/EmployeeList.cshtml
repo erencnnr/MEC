@@ -230,6 +230,7 @@
 @section Scripts {
     <script>
         document.addEventListener("DOMContentLoaded", function () {
+            // Başarı Mesajı Kontrolü
             var successMsg = '@Html.Raw(TempData["Success"])';
             if (successMsg) {
                 Swal.fire({
@@ -242,6 +243,7 @@
                 });
             }
 
+            // Hata Mesajı Kontrolü
             var errorMsg = '@Html.Raw(TempData["Error"])';
             if (errorMsg) {
                 Swal.fire({
@@ -254,19 +256,56 @@
             }
         });
 
+        // LDAP Senkronizasyon Fonksiyonu
         function syncEmployees() {
             var btn = document.getElementById('btnSync');
             var originalContent = btn.innerHTML;
 
+            // Butonu yükleniyor durumuna getir
             btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Senkronize Ediliyor...';
             btn.disabled = true;
 
-            setTimeout(function () {
-                alert("Senkronizasyon başarıyla tamamlandı!");
-                btn.innerHTML = originalContent;
-                btn.disabled = false;
-                location.reload();
-            }, 1000);
+            // İstenilen adrese GET isteği atıyoruz
+            fetch('http://192.168.1.12:5051/api/Ldap/SyncUsers', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        throw new Error('Sunucu hatası: ' + response.status);
+                    }
+                })
+                .then(data => {
+                    // İşlem başarılıysa
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Tamamlandı',
+                        text: data.message || 'Senkronizasyon başarıyla tamamlandı!',
+                        confirmButtonColor: '#28a745'
+                    }).then((result) => {
+                        // Kullanıcı "Tamam"a basınca sayfayı yenile
+                        location.reload();
+                    });
+                })
+                .catch(error => {
+                    // Hata oluşursa
+                    console.error('Hata:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Başarısız',
+                        text: 'Senkronizasyon sırasında bir hata oluştu. Lütfen tekrar deneyin.',
+                        confirmButtonColor: '#d33'
+                    });
+                })
+                .finally(() => {
+                    // Her durumda butonu eski haline getir
+                    btn.innerHTML = originalContent;
+                    btn.disabled = false;
+                });
         }
     </script>
 }

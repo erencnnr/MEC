@@ -1,4 +1,5 @@
 ﻿using MEC.Application.Abstractions.Service.EmployeeService;
+using MEC.Application.Abstractions.Service.LoginService;
 using MEC.AssetManagementUI.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -10,56 +11,50 @@ namespace MEC.AssetManagementUI.Controllers
 {
     public class AccountController : Controller
     {
-        private readonly IEmployeeService _employeeService;
+        private readonly ILoginService _loginService;
 
-        // Servisi Constructor (Yapıcı Metot) ile içeri alıyoruz
-        public AccountController(IEmployeeService employeeService)
+        public AccountController(ILoginService loginService)
         {
-            _employeeService = employeeService;
+            _loginService = loginService;
         }
 
-        [AllowAnonymous]
         [HttpGet]
+        [AllowAnonymous]
         public IActionResult Login()
         {
-            // Zaten giriş yapmışsa anasayfaya at
-            if (User.Identity!.IsAuthenticated)
+            if (User.Identity.IsAuthenticated)
             {
                 return RedirectToAction("Index", "Home");
             }
             return View();
         }
 
-        [AllowAnonymous]
         [HttpPost]
+        [AllowAnonymous]
         public async Task<IActionResult> Login(LoginViewModel model)
         {
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid) return View(model);
+
+            bool isAuthenticated = await _loginService.ValidateUserAsync(model.Email, model.Password);
+
+            if (isAuthenticated)
             {
-                var user = await _employeeService.GetEmployeeByEmailAsync(model.Email);
-                if(model.Email == "admin" && model.Password == "admin")//if (user != null && user.IsAdmin)
+                var claims = new List<Claim>
                 {
-                    var claims = new List<Claim>
-                    {
-                        new Claim(ClaimTypes.Name, model.Email),
-                        new Claim(ClaimTypes.Role, "Admin")
-                    };
+                    new Claim(ClaimTypes.Name, model.Email),
+                    new Claim(ClaimTypes.Role, "Admin")
+                };
 
-                    var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-                    var authProperties = new AuthenticationProperties();
+                var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 
-                    await HttpContext.SignInAsync(
-                        CookieAuthenticationDefaults.AuthenticationScheme,
-                        new ClaimsPrincipal(claimsIdentity),
-                        authProperties);
+                await HttpContext.SignInAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme,
+                    new ClaimsPrincipal(claimsIdentity));
 
-                    return RedirectToAction("Index", "Home");
-                }
-                else
-                {
-                    ModelState.AddModelError("", "Kullanıcı adı veya şifre hatalı.");
-                }
+                return RedirectToAction("Index", "Home");
             }
+
+            ViewBag.Error = "Kullanıcı adı veya şifre hatalı.";
             return View(model);
         }
 
