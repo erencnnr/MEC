@@ -10,6 +10,7 @@ using MEC.Application.Service.SchoolService;
 using MEC.AssetManagementUI.Extensions;
 using MEC.AssetManagementUI.Models.AssetModel;
 using MEC.AssetManagementUI.Models.LoanModel;
+using MEC.Domain.Common;
 using MEC.Domain.Entity.Asset;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -51,15 +52,30 @@ namespace MEC.AssetManagementUI.Controllers
         [HttpGet]
         public async Task<IActionResult> Index([FromQuery] AssetFilterRequestModel request)
         {
-            var assets = await _assetService.GetAssetListAsync(request);
+            // 1. Servisten Sayfalı Veriyi Çek
+            // Not: request.Page ve request.PageSize (20) modelden otomatik gelir.
+            var pagedAssets = await _assetService.GetPagedAssetListAsync(request);
 
-            var model = assets.Select(x => x.ToViewModel()).ToList();
+            // 2. Entity -> ViewModel Dönüşümü (Sayfalama verilerini koruyarak)
+            var viewModel = new PagedResult<AssetListViewModel>
+            {
+                CurrentPage = pagedAssets.CurrentPage,
+                PageCount = pagedAssets.PageCount,
+                PageSize = pagedAssets.PageSize,
+                RowCount = pagedAssets.RowCount,
+                // Listeyi ViewModel'e çevir
+                Results = pagedAssets.Results.Select(x => x.ToViewModel()).ToList()
+            };
+
+            // 3. Dropdownları Doldur
             ViewBag.Schools = new SelectList(await _schoolService.GetSchoolListAsync(), "Id", "Name");
             ViewBag.Types = new SelectList(await _assetTypeService.GetAssetTypeListAsync(), "Id", "Name");
             ViewBag.Statuses = new SelectList(await _assetStatusService.GetAssetStatusListAsync(), "Id", "Name");
+
+            // Filtreleri View'da korumak için
             ViewBag.CurrentFilters = request;
 
-            return View("AssetList",model);
+            return View("AssetList", viewModel);
         }
         [HttpGet]
         public async Task<IActionResult> CreateAsset()

@@ -1,5 +1,6 @@
 ﻿using MEC.Application.Abstractions.Application;
 using MEC.Application.Abstractions.Service.LoanService.Model;
+using MEC.Domain.Common;
 using MEC.Domain.Entity.Loan;
 using System;
 using System.Collections.Generic;
@@ -15,6 +16,7 @@ namespace MEC.Application.Abstractions.Service.LoanService
         Task BulkReturnLoansAsync(List<int> loanIds, DateTime returnDate);
         Task<List<Loan>> GetLoanListAsync(LoanFilterRequestModel request);
         Task<List<Loan>> GetLoanListAsync();
+        Task<PagedResult<Loan>> GetPagedLoanListAsync(LoanFilterRequestModel request);
         Task<List<Loan>> GetLoansByAssetIdAsync(int assetId);
         Task<bool> HasActiveLoanAsync(int assetId);
         Task ReturnLoanAsync(int loanId, DateTime returnDate);

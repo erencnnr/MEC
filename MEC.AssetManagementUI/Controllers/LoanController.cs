@@ -1,11 +1,17 @@
-﻿using MEC.Application.Abstractions.Service.LoanService.Model;
-using MEC.Application.Abstractions.Service.LoanService;
-using MEC.AssetManagementUI.Models.LoanModel;
-using Microsoft.AspNetCore.Mvc;
+﻿using ClosedXML.Excel;
+using MEC.Domain.Common;
 using MEC.Application.Abstractions.Service.EmployeeService;
+using MEC.Application.Abstractions.Service.LoanService;
+using MEC.Application.Abstractions.Service.LoanService.Model;
+using MEC.AssetManagementUI.Models.LoanModel;
+using MEC.Domain.Common;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using ClosedXML.Excel;
+using System.Threading.Tasks;
 
 namespace MEC.AssetManagementUI.Controllers
 {
@@ -23,40 +29,51 @@ namespace MEC.AssetManagementUI.Controllers
         [HttpGet]
         public async Task<IActionResult> Index([FromQuery] LoanFilterRequestModel request)
         {
-            var loans = await _loanService.GetLoanListAsync(request);
-            var employees = await _employeeService.GetAllEmployeesAsync();
+            // 1. Sayfalı Veriyi Çek
+            var pagedLoans = await _loanService.GetPagedLoanListAsync(request);
 
-            // Çalışan listesini Dictionary'e çevirip hızlı erişim sağlıyoruz (ID -> Ad Soyad)
+            // 2. Çalışan Bilgilerini Çek (İsim eşleştirmesi için)
+            var employees = await _employeeService.GetAllEmployeesAsync();
             var empDict = employees.ToDictionary(k => k.Id, v => $"{v.FirstName} {v.LastName}");
 
-            var model = loans.Select(x => new LoanListViewModel
+            // 3. PagedResult<Loan> -> PagedResult<LoanListViewModel> Dönüşümü
+            var viewModel = new PagedResult<LoanListViewModel>
             {
-                Id = x.Id,
-                AssetId = x.AssetId,
-                AssetName = x.Asset?.Name ?? "-",
-                SerialNumber = x.Asset?.SerialNumber ?? "-",
+                CurrentPage = pagedLoans.CurrentPage,
+                PageCount = pagedLoans.PageCount,
+                PageSize = pagedLoans.PageSize,
+                RowCount = pagedLoans.RowCount,
+                Results = pagedLoans.Results.Select(x => new LoanListViewModel
+                {
+                    Id = x.Id,
+                    AssetId = x.AssetId,
+                    AssetName = x.Asset?.Name ?? "-",
+                    SerialNumber = x.Asset?.SerialNumber ?? "-",
 
-                // Zimmet Alan
-                AssignedToName = x.AssignedTo != null ? $"{x.AssignedTo.FirstName} {x.AssignedTo.LastName}" : "-",
+                    // Zimmet Alan
+                    AssignedToName = x.AssignedTo != null ? $"{x.AssignedTo.FirstName} {x.AssignedTo.LastName}" : "-",
 
-                // Zimmet Veren (CreatedBy ID'sini Employee listesinde arıyoruz)
-                AssignedByName = empDict.ContainsKey((int)x.AssignedById) ? empDict[(int)x.AssignedById] : "Sistem/Bilinmiyor",
+                    // Zimmet Veren (Isim sözlükten bakılır)
+                    AssignedByName = (x.AssignedById.HasValue && empDict.ContainsKey(x.AssignedById.Value))
+                                     ? empDict[x.AssignedById.Value]
+                                     : "-",
 
-                LoanDate = x.LoanDate.ToShortDateString(),
-                ReturnDate = x.ReturnDate?.ToShortDateString(),
-                // View tarafında IsActive ile sekmelere ayıracağız
-            }).ToList();
+                    LoanDate = x.LoanDate.ToShortDateString(),
+                    ReturnDate = x.ReturnDate?.ToShortDateString()
+                }).ToList()
+            };
 
-            // Filtre Dropdownları için ViewBag
+            // 4. Filtre Dropdownları
             ViewBag.Employees = employees.Select(x => new SelectListItem
             {
                 Value = x.Id.ToString(),
                 Text = $"{x.FirstName} {x.LastName}"
             }).ToList();
 
+            // Filtreleri View'da korumak için
             ViewBag.CurrentFilters = request;
 
-            return View("LoanList",model);
+            return View("LoanList", viewModel);
         }
 
         [HttpPost]
@@ -72,34 +89,23 @@ namespace MEC.AssetManagementUI.Controllers
             TempData["Success"] = "Seçili zimmetler iade alındı.";
             return RedirectToAction("Index");
         }
-        
+
         [HttpGet]
-        public async Task<IActionResult> ExportToExcel(LoanFilterRequestModel request)
+        public async Task<IActionResult> ExportToExcel([FromQuery] LoanFilterRequestModel request)
         {
-            // 1. Filtre kriterlerine (Arama, Personel vb.) uyan TÜM veriyi çek
+            // Servis zaten ActiveTab ve diğer filtrelere göre doğru veriyi getiriyor.
+            // Ekstra filtrelemeye (Where) gerek yok.
             var loans = await _loanService.GetLoanListAsync(request);
 
-            // 2. SEKME FİLTRESİ (ActiveTab kontrolü)
-            // Eğer "history" sekmesindeyse iade tarihi olanları (geçmiş), 
-            // değilse ("active" veya boş) iade tarihi olmayanları (aktif) filtrele.
-            if (request.ActiveTab == "history")
-            {
-                loans = loans.Where(x => x.ReturnDate != null).ToList();
-            }
-            else
-            {
-                loans = loans.Where(x => x.ReturnDate == null).ToList();
-            }
-
-            // 3. Çalışan isimlerini eşleştirmek için sözlük (Dictionary) oluştur
             var employees = await _employeeService.GetAllEmployeesAsync();
             var empDict = employees.ToDictionary(k => k.Id, v => $"{v.FirstName} {v.LastName}");
 
-            // 4. Excel Oluştur
             using (var workbook = new XLWorkbook())
             {
-                // Sekme adına göre sayfa adı verelim
                 string sheetName = request.ActiveTab == "history" ? "Zimmet Geçmişi" : "Aktif Zimmetler";
+                // Excel sayfa ismi max 31 karakter olabilir
+                if (sheetName.Length > 31) sheetName = sheetName.Substring(0, 31);
+
                 var worksheet = workbook.Worksheets.Add(sheetName);
 
                 // --- BAŞLIKLAR ---
@@ -108,57 +114,58 @@ namespace MEC.AssetManagementUI.Controllers
                 worksheet.Cell(1, 3).Value = "Zimmet Alan";
                 worksheet.Cell(1, 4).Value = "Zimmet Veren";
                 worksheet.Cell(1, 5).Value = "Zimmet Tarihi";
-                // İade Tarihi istenen listede yoktu ama geçmiş sekmesi için opsiyonel eklenebilir. 
-                // Şimdilik isteğinize sadık kalarak eklemiyorum, sadece Durum'u ekliyorum.
-                worksheet.Cell(1, 6).Value = "Durum";
+                worksheet.Cell(1, 6).Value = "İade Tarihi"; // İsteğe bağlı eklenebilir
+                worksheet.Cell(1, 7).Value = "Durum";
 
-                // Başlık Stili
-                var headerRange = worksheet.Range("A1:F1");
+                var headerRange = worksheet.Range("A1:G1");
                 headerRange.Style.Font.Bold = true;
                 headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
                 headerRange.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
 
-                // --- VERİLERİ YAZMA ---
+                // --- VERİLER ---
                 int row = 2;
                 foreach (var item in loans)
                 {
                     worksheet.Cell(row, 1).Value = item.Asset?.Name ?? "-";
                     worksheet.Cell(row, 2).Value = item.Asset?.SerialNumber ?? "-";
+                    worksheet.Cell(row, 3).Value = item.AssignedTo != null ? $"{item.AssignedTo.FirstName} {item.AssignedTo.LastName}" : "-";
 
-                    // Zimmet Alan
-                    var assignedTo = item.AssignedTo != null ? $"{item.AssignedTo.FirstName} {item.AssignedTo.LastName}" : "-";
-                    worksheet.Cell(row, 3).Value = assignedTo;
-
-                    // Zimmet Veren
-                    var assignedBy = empDict.ContainsKey((int)(int)item.AssignedById) ? empDict[(int)item.AssignedById] : "-";
+                    var assignedBy = (item.AssignedById.HasValue && empDict.ContainsKey(item.AssignedById.Value))
+                                     ? empDict[item.AssignedById.Value]
+                                     : "-";
                     worksheet.Cell(row, 4).Value = assignedBy;
 
-                    // Tarih Formatı
                     worksheet.Cell(row, 5).Value = item.LoanDate;
                     worksheet.Cell(row, 5).Style.DateFormat.Format = "dd.MM.yyyy";
 
-                    // Durum
-                    string status = item.ReturnDate == null ? "Zimmetli" : "İade Alındı";
-                    worksheet.Cell(row, 6).Value = status;
-
-                    // İade alındıysa yeşil, zimmetliyse sarı hücre rengi (Opsiyonel Görsellik)
-                    if (item.ReturnDate == null)
-                        worksheet.Cell(row, 6).Style.Font.FontColor = XLColor.OrangeRed;
+                    if (item.ReturnDate.HasValue)
+                    {
+                        worksheet.Cell(row, 6).Value = item.ReturnDate.Value;
+                        worksheet.Cell(row, 6).Style.DateFormat.Format = "dd.MM.yyyy";
+                    }
                     else
-                        worksheet.Cell(row, 6).Style.Font.FontColor = XLColor.Green;
+                    {
+                        worksheet.Cell(row, 6).Value = "-";
+                    }
+
+                    string status = item.ReturnDate == null ? "Zimmetli" : "İade Alındı";
+                    worksheet.Cell(row, 7).Value = status;
+
+                    if (item.ReturnDate == null)
+                        worksheet.Cell(row, 7).Style.Font.FontColor = XLColor.OrangeRed;
+                    else
+                        worksheet.Cell(row, 7).Style.Font.FontColor = XLColor.Green;
 
                     row++;
                 }
 
-                // Sütun genişliklerini otomatik ayarla
                 worksheet.Columns().AdjustToContents();
 
-                // Dosyayı İndirt
                 using (var stream = new MemoryStream())
                 {
                     workbook.SaveAs(stream);
                     var content = stream.ToArray();
-                    string fileName = $"Zimmet_{sheetName.Replace(" ", "_")}_{DateTime.Now:ddMMyyyy}.xlsx";
+                    string fileName = $"Zimmet_{DateTime.Now:ddMMyyyy_HHmm}.xlsx";
                     return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
                 }
             }

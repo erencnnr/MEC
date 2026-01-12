@@ -1,10 +1,18 @@
-﻿@using MEC.Application.Abstractions.Service.AssetService.Model
+﻿@using MEC.Domain.Common
+@using MEC.Application.Abstractions.Service.AssetService.Model
 @using MEC.AssetManagementUI.Models.AssetModel
-@model List<AssetListViewModel>
+@model PagedResult<AssetListViewModel>
 
 @{
     ViewData["Title"] = "Demirbaş Listesi";
     var filter = ViewBag.CurrentFilters as AssetFilterRequestModel;
+
+    // Filtre var mı kontrolü (Temizle butonu için)
+    bool isFilterActive = filter != null &&
+        (!string.IsNullOrEmpty(filter.SearchText) ||
+         (filter.SchoolIds != null && filter.SchoolIds.Any()) ||
+         (filter.AssetTypeIds != null && filter.AssetTypeIds.Any()) ||
+         (filter.AssetStatusIds != null && filter.AssetStatusIds.Any()));
 }
 
 <style>
@@ -23,32 +31,35 @@
         max-height: 200px;
         overflow-y: auto;
     }
+
+    .cursor-pointer {
+        cursor: pointer;
+    }
 </style>
 
 <div class="container-fluid">
     <h2 class="h3 mb-4 text-gray-800">Demirbaş Yönetimi</h2>
 
+    @* Form GET olarak çalışır, tüm filtreler ve sayfa numarası bu form ile taşınır *@
     <form method="get" asp-action="Index" asp-controller="Asset" id="mainFilterForm">
 
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        @* SAYFA NUMARASINI SAKLAYAN GİZLİ INPUT *@
+        <input type="hidden" name="Page" id="currentPageInput" value="@Model.CurrentPage" />
 
+        <div class="d-flex justify-content-between align-items-center mb-3">
             <div class="d-flex gap-2">
                 <a asp-action="CreateAsset" class="btn btn-primary shadow-sm">
                     <i class="bi bi-plus-lg"></i> Yeni Ekle
                 </a>
 
-                <button type="submit"
-                        formaction="@Url.Action("ExportToExcel", "Asset")"
-                        class="btn btn-success shadow-sm text-white">
+                @* Excel Export butonu (FormAction ile farklı action'a gider) *@
+                <button type="submit" formaction="@Url.Action("ExportToExcel", "Asset")" class="btn btn-success shadow-sm text-white">
                     <i class="bi bi-file-earmark-excel-fill me-1"></i> Excel'e Aktar
                 </button>
             </div>
 
             <div class="d-flex align-items-center gap-2">
-                @if (filter != null && (!string.IsNullOrEmpty(filter.SearchText) ||
-                (filter.SchoolIds != null && filter.SchoolIds.Any()) ||
-                (filter.AssetTypeIds != null && filter.AssetTypeIds.Any()) ||
-                (filter.AssetStatusIds != null && filter.AssetStatusIds.Any())))
+                @if (isFilterActive)
                 {
                     <a asp-action="Index" class="btn btn-sm btn-danger shadow-sm text-white d-flex align-items-center" title="Filtreleri Temizle">
                         <i class="bi bi-x-circle-fill me-1"></i> Temizle
@@ -56,10 +67,9 @@
                 }
 
                 <div class="input-group" style="width: 300px;">
-                    <input type="text" name="SearchText" class="form-control"
-                           placeholder="Seri No, Marka, Model..."
-                           value="@filter?.SearchText">
-                    <button class="btn btn-primary" type="submit">
+                    @* Arama yapıldığında sayfa 1'e dönmesi için onchange ekleyebiliriz veya controller halleder *@
+                    <input type="text" name="SearchText" class="form-control" placeholder="Seri No, Marka, Model..." value="@filter?.SearchText">
+                    <button class="btn btn-primary" type="submit" onclick="resetPage()">
                         <i class="bi bi-search"></i>
                     </button>
                 </div>
@@ -68,14 +78,14 @@
 
         <div class="card shadow mb-4">
             <div class="card-body p-0">
-                <div class="table-responsive" style="min-height: 600px;">
+                <div class="table-responsive">
                     <table class="table table-bordered table-hover mb-0 table-fixed" width="100%">
                         <thead class="table-light">
                             <tr class="align-middle">
-
                                 <th style="width: 150px;">Seri No</th>
                                 <th style="width: 200px;">Demirbaş Adı</th>
 
+                                @* TÜR FİLTRESİ *@
                                 <th style="width: 150px;">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span>Tür</span>
@@ -99,7 +109,7 @@
                                                     }
                                                 </div>
                                                 <div class="d-grid">
-                                                    <button type="submit" class="btn btn-sm btn-primary">Uygula</button>
+                                                    <button type="submit" class="btn btn-sm btn-primary" onclick="resetPage()">Uygula</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -108,6 +118,7 @@
 
                                 <th style="width: 250px;">Açıklama</th>
 
+                                @* OKUL FİLTRESİ *@
                                 <th style="width: 200px;">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span>Konum / Okul</span>
@@ -131,13 +142,14 @@
                                                     }
                                                 </div>
                                                 <div class="d-grid">
-                                                    <button type="submit" class="btn btn-sm btn-primary">Uygula</button>
+                                                    <button type="submit" class="btn btn-sm btn-primary" onclick="resetPage()">Uygula</button>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </th>
 
+                                @* DURUM FİLTRESİ *@
                                 <th style="width: 130px;">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span>Durum</span>
@@ -161,7 +173,7 @@
                                                     }
                                                 </div>
                                                 <div class="d-grid">
-                                                    <button type="submit" class="btn btn-sm btn-primary">Uygula</button>
+                                                    <button type="submit" class="btn btn-sm btn-primary" onclick="resetPage()">Uygula</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -169,36 +181,26 @@
                                 </th>
 
                                 <th style="width: 120px;">Alım Tarihi</th>
-
-                                <th style="width: 60px;" class="text-center">
-                                    <i class="bi bi-trash text-muted"></i>
-                                </th>
+                                <th style="width: 60px;" class="text-center"><i class="bi bi-trash text-muted"></i></th>
                             </tr>
                         </thead>
                         <tbody>
-                            @if (Model != null && Model.Any())
+                            @if (Model.Results != null && Model.Results.Any())
                             {
-                                @foreach (var item in Model)
+                                @foreach (var item in Model.Results)
                                 {
-                                    <tr onclick="location.href='@Url.Action("AssetInfo", "Asset", new { id = item.Id })'"
-                                        style="cursor: pointer;">
-
+                                    <tr onclick="location.href='@Url.Action("AssetInfo", "Asset", new { id = item.Id })'" class="cursor-pointer">
                                         <td class="text-primary truncate-cell" title="@item.SerialNumber">@item.SerialNumber</td>
                                         <td class="truncate-cell" title="@item.Name">@item.Name</td>
                                         <td class="truncate-cell">@item.AssetTypeName</td>
                                         <td class="truncate-cell" title="@item.Description">@item.Description</td>
                                         <td class="truncate-cell" title="@item.SchoolName">@item.SchoolName</td>
                                         <td class="text-center">
-                                            <span class="badge bg-@item.StatusColor rounded-pill">
-                                                @item.StatusName
-                                            </span>
+                                            <span class="badge bg-@item.StatusColor rounded-pill">@item.StatusName</span>
                                         </td>
-
                                         <td>@item.PurchaseDate</td>
-
                                         <td class="text-center">
-                                            <button type="button" class="btn btn-sm btn-outline-danger border-0"
-                                                    title="Sil"
+                                            <button type="button" class="btn btn-sm btn-outline-danger border-0" title="Sil"
                                                     onclick="event.stopPropagation(); if(confirm('Bu kaydı silmek istediğinize emin misiniz?')) { /* Silme Linki */ }">
                                                 <i class="bi bi-trash-fill"></i>
                                             </button>
@@ -221,4 +223,54 @@
             </div>
         </div>
     </form>
+
+    @* --- SAYFALAMA KONTROLLERİ --- *@
+    @if (Model.PageCount > 1)
+    {
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+
+                @* Önceki Sayfa *@
+                <li class="page-item @(Model.CurrentPage == 1 ? "disabled" : "")">
+                    <button class="page-link" type="button" onclick="changePage(@(Model.CurrentPage - 1))">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                </li>
+
+                @* Sayfa Numaraları *@
+                @for (int i = 1; i <= Model.PageCount; i++)
+                {
+                    <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                        <button class="page-link" type="button" onclick="changePage(@i)">@i</button>
+                    </li>
+                }
+
+                @* Sonraki Sayfa *@
+                <li class="page-item @(Model.CurrentPage == Model.PageCount ? "disabled" : "")">
+                    <button class="page-link" type="button" onclick="changePage(@(Model.CurrentPage + 1))">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </li>
+            </ul>
+            <div class="text-center text-muted small">
+                Toplam @Model.RowCount kayıttan @((Model.CurrentPage - 1) * Model.PageSize + 1) - @Math.Min(Model.CurrentPage * Model.PageSize, Model.RowCount) arası gösteriliyor.
+            </div>
+        </nav>
+    }
 </div>
+
+@section Scripts {
+    <script>
+        // Sayfa Değiştirme Fonksiyonu
+        function changePage(page) {
+            // Gizli input'un değerini güncelle ve formu gönder
+            document.getElementById('currentPageInput').value = page;
+            document.getElementById('mainFilterForm').submit();
+        }
+
+        // Yeni arama/filtreleme yapıldığında sayfayı 1'e sıfırlar
+        function resetPage() {
+            document.getElementById('currentPageInput').value = 1;
+        }
+    </script>
+}

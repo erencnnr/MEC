@@ -26,7 +26,7 @@ namespace MEC.Application.Service.EmployeeService
             var employees = await _repository.GetAllAsync();
             return employees.ToList();
         }
-        public async Task<PagedResult<Employee>> GetPagedEmployeeListAsync(string? searchText = null, bool? isAdmin = null, int page = 1, int pageSize = 10)
+        public async Task<PagedResult<Employee>> GetPagedEmployeeListAsync(string? searchText = null, bool? isAdmin = null, int page = 1, int pageSize = 20)
         {
             
             var allEmployees = await _repository.GetAllAsync(x =>

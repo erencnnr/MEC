@@ -17,5 +17,7 @@ namespace MEC.Application.Abstractions.Service.LoanService.Model
         // Sıralama (Örn: "LoanDate_Desc", "ReturnDate_Asc")
         public string? SortOrder { get; set; } = "LoanDate_Desc";
         public string ActiveTab { get; set; } = "active";
+        public int Page { get; set; } = 1;
+        public int PageSize { get; set; } = 20;
     }
 }

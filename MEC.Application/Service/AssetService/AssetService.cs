@@ -1,6 +1,7 @@
 ﻿using MEC.Application.Abstractions.Service.AssetService;
 using MEC.Application.Abstractions.Service.AssetService.Model;
 using MEC.DAL.Config.Abstractions.Common;
+using MEC.Domain.Common;
 using MEC.Domain.Entity.Asset;
 using System;
 using System.Collections.Generic;
@@ -19,17 +20,52 @@ namespace MEC.Application.Service.AssetService
         {
             _repository = repository;
         }
-
         public async Task<List<Asset>> GetAssetListAsync(AssetFilterRequestModel request)
         {
-            Expression<Func<Asset, bool>> predicate = x =>
-                (string.IsNullOrEmpty(request.SearchText) || x.Description.Contains(request.SearchText) || x.Name.Contains(request.SearchText)) &&
-                (request.SchoolIds == null || !request.SchoolIds.Any() || request.SchoolIds.Contains(x.SchoolId)) &&
-                (request.AssetTypeIds == null || !request.AssetTypeIds.Any() || request.AssetTypeIds.Contains(x.AssetTypeId)) &&
-                (request.AssetStatusIds == null || !request.AssetStatusIds.Any() || request.AssetStatusIds.Contains(x.AssetStatusId));
+            // Filtreleri oluştur
+            var predicate = CreateFilterPredicate(request);
 
-            var assets = await _repository.GetAllAsync(predicate, x => x.School, x => x.AssetType, x => x.AssetStatus, x => x.SchoolClass);
+            // Veriyi çek
+            var assets = await _repository.GetAllAsync(predicate,
+                x => x.School,
+                x => x.AssetType,
+                x => x.AssetStatus,
+                x => x.SchoolClass);
+
             return assets.ToList();
+        }
+
+        // 2. SAYFALI LİSTE (UI Listeleme için)
+        public async Task<PagedResult<Asset>> GetPagedAssetListAsync(AssetFilterRequestModel request)
+        {
+            // Filtreleri oluştur
+            var predicate = CreateFilterPredicate(request);
+
+            // Tüm filtrelenmiş veriyi çek (Repository IQueryable dönmediği için mecburen listeyi çekiyoruz)
+            var allAssets = await _repository.GetAllAsync(predicate,
+                x => x.School,
+                x => x.AssetType,
+                x => x.AssetStatus,
+                x => x.SchoolClass);
+
+            // Toplam kayıt sayısı
+            int rowCount = allAssets.Count();
+
+            // Bellekte Sayfalama (Pagination)
+            var pagedData = allAssets
+                .OrderByDescending(x => x.Id) // Yeniden eskiye sıralama
+                .Skip((request.Page - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToList();
+
+            return new PagedResult<Asset>
+            {
+                Results = pagedData,
+                CurrentPage = request.Page,
+                PageSize = request.PageSize,
+                RowCount = rowCount,
+                PageCount = (int)Math.Ceiling((double)rowCount / request.PageSize)
+            };
         }
         public async Task AddAssetAsync(Asset asset)
         {
@@ -50,6 +86,17 @@ namespace MEC.Application.Service.AssetService
             // Senin GenericRepo koduna baktım, Update sadece _dbSet.Update yapıyor. 
             // Bu yüzden buraya bir SaveChanges mekanizması lazım. 
             // (Şimdilik repo'nun transaction yönettiğini varsayıyorum veya UnitOfWork varsa o halleder)
+        }
+        private Expression<Func<Asset, bool>> CreateFilterPredicate(AssetFilterRequestModel request)
+        {
+            return x =>
+                (string.IsNullOrEmpty(request.SearchText) ||
+                 (x.Description != null && x.Description.Contains(request.SearchText)) ||
+                 (x.Name != null && x.Name.Contains(request.SearchText)) ||
+                 (x.SerialNumber != null && x.SerialNumber.Contains(request.SearchText))) && // Seri No araması eklendi
+                (request.SchoolIds == null || !request.SchoolIds.Any() || request.SchoolIds.Contains(x.SchoolId)) &&
+                (request.AssetTypeIds == null || !request.AssetTypeIds.Any() || request.AssetTypeIds.Contains(x.AssetTypeId)) &&
+                (request.AssetStatusIds == null || !request.AssetStatusIds.Any() || request.AssetStatusIds.Contains(x.AssetStatusId));
         }
     }
 }
