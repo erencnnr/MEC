@@ -19,24 +19,21 @@ namespace MEC.AssetManagementUI.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Index(string? search = null, string? filterStatus = null)
+        public async Task<IActionResult> Index(string? search = null, string? filterStatus = null, int page = 1)
         {
-            // Dropdown için tipleri çek
             var types = await _employeeTypeService.GetEmployeeTypeListAsync();
             ViewBag.EmployeeTypes = types;
 
-            // Filtreleri View'da tekrar göstermek için sakla
             ViewBag.CurrentSearch = search;
             ViewBag.CurrentFilter = filterStatus;
 
-            // Filtre mantığı: Admin/User/Hepsi
             bool? isAdmin = null;
             if (filterStatus == "Admin") isAdmin = true;
             else if (filterStatus == "User") isAdmin = false;
 
-            // Servise parametreleri ilet
-            var values = await _employeeService.GetEmployeeListAsync(search, isAdmin);
-            return View("EmployeeList", values);
+            // BURADA YENİ METODU ÇAĞIRIYORUZ
+            var pagedResult = await _employeeService.GetPagedEmployeeListAsync(search, isAdmin, page, 10);
+            return View("EmployeeList", pagedResult);
         }
 
         [HttpPost]

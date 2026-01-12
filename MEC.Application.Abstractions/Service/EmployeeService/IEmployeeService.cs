@@ -1,4 +1,5 @@
 ﻿using MEC.Application.Abstractions.Application;
+using MEC.Domain.Common;
 using MEC.Domain.Entity.Employee;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -8,7 +9,8 @@ namespace MEC.Application.Abstractions.Service.EmployeeService
     public interface IEmployeeService : IApplicationService
     {
         // Mevcut Metotlar
-        Task<List<Employee>> GetEmployeeListAsync(string? searchText = null, bool? isAdmin = null);
+        Task<List<Employee>> GetAllEmployeesAsync();
+        Task<PagedResult<Employee>> GetPagedEmployeeListAsync(string? searchText = null, bool? isAdmin = null, int page = 1, int pageSize = 10);
         Task CreateEmployeeAsync(Employee employee);
         Task DeleteEmployeeAsync(int id); // Daha önce eklemiştik
 

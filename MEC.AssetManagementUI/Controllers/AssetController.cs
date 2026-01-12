@@ -112,7 +112,7 @@ namespace MEC.AssetManagementUI.Controllers
             // 2. Resim ve Zimmet listelerini servislerden çek
             var assetImages = await _imageService.GetImagesByAssetIdAsync(id);
             var assetLoans = await _loanService.GetLoansByAssetIdAsync(id);
-            var employees = await _employeeService.GetEmployeeListAsync();
+            var employees = await _employeeService.GetAllEmployeesAsync();
             // 3. ViewModel'i Doldur
             var model = new AssetInfoViewModel
             {
