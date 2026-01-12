@@ -1,5 +1,6 @@
 ﻿using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.DAL.Config.Abstractions.Common;
+using MEC.Domain.Common;
 using MEC.Domain.Entity.Employee;
 using System;
 using System.Collections.Generic;
@@ -20,10 +21,15 @@ namespace MEC.Application.Service.EmployeeService
         }
 
         // --- Employee Metotları ---
-        public async Task<List<Employee>> GetEmployeeListAsync(string? searchText = null, bool? isAdmin = null)
+        public async Task<List<Employee>> GetAllEmployeesAsync()
         {
-            // Veritabanı seviyesinde filtreleme yapıyoruz
-            var employees = await _repository.GetAllAsync(x =>
+            var employees = await _repository.GetAllAsync();
+            return employees.ToList();
+        }
+        public async Task<PagedResult<Employee>> GetPagedEmployeeListAsync(string? searchText = null, bool? isAdmin = null, int page = 1, int pageSize = 10)
+        {
+            
+            var allEmployees = await _repository.GetAllAsync(x =>
                 (string.IsNullOrEmpty(searchText) ||
                  (x.FirstName != null && x.FirstName.Contains(searchText)) ||
                  (x.LastName != null && x.LastName.Contains(searchText)) ||
@@ -33,7 +39,24 @@ namespace MEC.Application.Service.EmployeeService
                 (!isAdmin.HasValue || x.IsAdmin == isAdmin.Value)
             );
 
-            return employees.ToList();
+            // 2. Toplam Kayıt Sayısı
+            int rowCount = allEmployees.Count();
+
+            // 3. Sayfalama Hesabı
+            var pagedData = allEmployees
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            // 4. Sonuç Dön
+            return new PagedResult<Employee>
+            {
+                Results = pagedData,
+                CurrentPage = page,
+                PageSize = pageSize,
+                RowCount = rowCount,
+                PageCount = (int)Math.Ceiling((double)rowCount / pageSize)
+            };
         }
 
         public async Task CreateEmployeeAsync(Employee employee)

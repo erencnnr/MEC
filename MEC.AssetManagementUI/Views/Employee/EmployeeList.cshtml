@@ -1,44 +1,79 @@
-﻿@using MEC.Domain.Entity.Employee
-@model List<Employee>
+﻿@using MEC.Domain.Common
+@using MEC.Domain.Entity.Employee
+@model PagedResult<Employee>
 
 @{
     ViewData["Title"] = "Çalışanlar";
-    var activeEmployees = Model.Where(x => !x.IsDeleted).ToList();
-    var passiveEmployees = Model.Where(x => x.IsDeleted).ToList();
+
+    // Model.Results üzerinden o sayfadaki kayıtları alıp aktif/pasif diye ayırıyoruz
+    var activeEmployees = Model.Results.Where(x => !x.IsDeleted).ToList();
+    var passiveEmployees = Model.Results.Where(x => x.IsDeleted).ToList();
+
+    // Filtre durumunu kontrol etmek için (Temizle butonu görünürlüğü)
+    bool isFilterActive = !string.IsNullOrEmpty(ViewBag.CurrentSearch as string) || !string.IsNullOrEmpty(ViewBag.CurrentFilter as string);
 }
+
+<style>
+    .table-fixed {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    .truncate-cell {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .filter-scroll-list {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+</style>
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2>Çalışan Listesi</h2>
+        <h2 class="h3 text-gray-800">Çalışan Listesi</h2>
 
         <div class="d-flex align-items-center">
-            <form asp-action="Index" asp-controller="Employee" method="get" class="d-flex me-3">
-                <input type="text" name="search" class="form-control me-2" placeholder="İsim, mail veya tel..." value="@ViewBag.CurrentSearch">
 
-                @if (ViewBag.CurrentFilter != null)
+            @* ARAMA VE FİLTRE FORMU *@
+            <form asp-action="Index" asp-controller="Employee" method="get" class="d-flex align-items-center me-3">
+
+                @* Temizle Butonu: Filtre veya arama varsa görünür *@
+                @if (isFilterActive)
                 {
-                    <input type="hidden" name="filterStatus" value="@ViewBag.CurrentFilter" />
-                }
-
-                <button type="submit" class="btn btn-outline-secondary" title="Ara">
-                    <i class="bi bi-search"></i>
-                </button>
-
-                @if (!string.IsNullOrEmpty(ViewBag.CurrentSearch as string) || !string.IsNullOrEmpty(ViewBag.CurrentFilter as string))
-                {
-                    <a href="/Employee/Index" class="btn btn-outline-danger ms-1" title="Filtreleri Temizle">
-                        <i class="bi bi-x-lg"></i>
+                    <a asp-action="Index" class="btn btn-sm btn-danger shadow-sm text-white d-flex align-items-center me-2" title="Filtreleri Temizle">
+                        <i class="bi bi-x-circle-fill me-1"></i> Temizle
                     </a>
                 }
+
+                @* Arama Çubuğu *@
+                <div class="input-group" style="width: 300px;">
+                    <input type="text" name="search" class="form-control"
+                           placeholder="İsim, mail veya tel..."
+                           value="@ViewBag.CurrentSearch">
+
+                    @* Filtre varsa sayfa değişince kaybolmasın diye hidden input *@
+                    @if (ViewBag.CurrentFilter != null)
+                    {
+                        <input type="hidden" name="filterStatus" value="@ViewBag.CurrentFilter" />
+                    }
+
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
             </form>
 
-            <div>
-                <button class="btn btn-outline-info me-2" id="btnSync" onclick="syncEmployees()">
+            @* BUTONLAR *@
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-info shadow-sm" id="btnSync" onclick="syncEmployees()">
                     <i class="bi bi-arrow-repeat"></i> Senkronize Et
                 </button>
 
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createEmployeeModal">
-                    <i class="bi bi-plus-lg"></i> Yeni Çalışan
+                <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#createEmployeeModal">
+                    <i class="bi bi-plus-lg"></i> Yeni Ekle
                 </button>
             </div>
         </div>
@@ -60,161 +95,212 @@
     <div class="tab-content" id="employeeTabsContent">
 
         <div class="tab-pane fade show active" id="active" role="tabpanel">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <table class="table table-hover align-middle">
-                        <thead>
-                            <tr>
-                                <th>Ad</th>
-                                <th>Soyad</th>
-                                <th>Email</th>
-                                <th>Telefon</th>
-                                <th>Kayıt Tarihi</th>
+            <div class="card shadow mb-4">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover mb-0 table-fixed" width="100%">
+                            <thead class="table-light">
+                                <tr class="align-middle">
+                                    <th style="width: 150px;">Ad</th>
+                                    <th style="width: 150px;">Soyad</th>
+                                    <th style="width: 200px;">Email</th>
+                                    <th style="width: 130px;">Telefon</th>
+                                    <th style="width: 120px;">Kayıt Tarihi</th>
 
-                                <th class="text-center">
-                                    Yetki Durumu
-                                    <div class="dropdown d-inline-block ms-1">
-                                        <a class="text-secondary" href="#" role="button" id="authFilterLink" data-bs-toggle="dropdown" aria-expanded="false">
-                                            <i class="bi bi-filter-square-fill" style="font-size: 1.1rem;"></i>
-                                        </a>
-                                        <ul class="dropdown-menu shadow" aria-labelledby="authFilterLink">
-                                            <li>
-                                                <a class="dropdown-item @(ViewBag.CurrentFilter == null ? "active" : "")"
-                                                   href="@Url.Action("Index", "Employee", new { search = ViewBag.CurrentSearch })">
-                                                    Hepsi
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <a class="dropdown-item @(ViewBag.CurrentFilter == "Admin" ? "active" : "")"
-                                                   href="@Url.Action("Index", "Employee", new { filterStatus = "Admin", search = ViewBag.CurrentSearch })">
-                                                    Admin
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <a class="dropdown-item @(ViewBag.CurrentFilter == "User" ? "active" : "")"
-                                                   href="@Url.Action("Index", "Employee", new { filterStatus = "User", search = ViewBag.CurrentSearch })">
-                                                    Kullanıcı
-                                                </a>
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </th>
+                                    @* YETKİ DURUMU FİLTRESİ *@
+                                    <th style="width: 150px;">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span>Yetki Durumu</span>
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="bi bi-chevron-down @(ViewBag.CurrentFilter != null ? "text-primary fw-bold" : "text-muted")"></i>
+                                                </button>
+                                                <div class="dropdown-menu p-2 shadow border-0" style="min-width: 200px; z-index: 1050;">
+                                                    <label class="form-label small fw-bold text-muted mb-2 ps-2">Yetki Filtrele</label>
 
-                                <th class="text-end" style="min-width: 160px;">İşlemler</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @if (activeEmployees.Any())
-                            {
-                                foreach (var item in activeEmployees)
+                                                    <ul class="list-unstyled mb-0">
+                                                        <li>
+                                                            <a class="dropdown-item rounded @(ViewBag.CurrentFilter == null ? "active" : "")"
+                                                               href="@Url.Action("Index", "Employee", new { search = ViewBag.CurrentSearch })">
+                                                                <i class="bi bi-check2-all me-2"></i>Hepsi
+                                                            </a>
+                                                        </li>
+                                                        <li>
+                                                            <a class="dropdown-item rounded @(ViewBag.CurrentFilter == "Admin" ? "active" : "")"
+                                                               href="@Url.Action("Index", "Employee", new { filterStatus = "Admin", search = ViewBag.CurrentSearch })">
+                                                                <i class="bi bi-shield-lock-fill me-2 text-success"></i>Admin
+                                                            </a>
+                                                        </li>
+                                                        <li>
+                                                            <a class="dropdown-item rounded @(ViewBag.CurrentFilter == "User" ? "active" : "")"
+                                                               href="@Url.Action("Index", "Employee", new { filterStatus = "User", search = ViewBag.CurrentSearch })">
+                                                                <i class="bi bi-person-fill me-2 text-secondary"></i>Kullanıcı
+                                                            </a>
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </th>
+
+                                    <th class="text-center" style="width: 100px;">İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (activeEmployees.Any())
+                                {
+                                    foreach (var item in activeEmployees)
+                                    {
+                                        <tr>
+                                            <td class="truncate-cell" title="@item.FirstName">@item.FirstName</td>
+                                            <td class="truncate-cell" title="@item.LastName">@item.LastName</td>
+                                            <td class="truncate-cell" title="@item.Email">@item.Email</td>
+                                            <td class="truncate-cell">@item.Phone</td>
+                                            <td>@(item.CreatedDate.HasValue ? item.CreatedDate.Value.ToString("dd.MM.yyyy") : "-")</td>
+
+                                            <td class="text-center">
+                                                @if (item.IsAdmin)
+                                                {
+                                                    <span class="badge bg-success rounded-pill"><i class="bi bi-shield-fill-check me-1"></i> Admin</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-light text-dark border rounded-pill">Kullanıcı</span>
+                                                }
+                                            </td>
+
+                                            <td class="text-center">
+                                                <div class="d-flex justify-content-center gap-2">
+                                                    <form asp-action="ToggleAdmin" asp-controller="Employee" method="post" style="display:inline;">
+                                                        <input type="hidden" name="id" value="@item.Id" />
+                                                        @if (item.IsAdmin)
+                                                        {
+                                                            <button type="submit" class="btn btn-sm btn-outline-warning border-0" title="Yetkiyi Kaldır"
+                                                                    onclick="return confirm('@item.FirstName @item.LastName kullanıcısının Admin yetkisini almak istediğinize emin misiniz?');">
+                                                                <i class="bi bi-shield-slash-fill"></i>
+                                                            </button>
+                                                        }
+                                                        else
+                                                        {
+                                                            <button type="submit" class="btn btn-sm btn-outline-success border-0" title="Admin Yap"
+                                                                    onclick="return confirm('@item.FirstName @item.LastName kullanıcısına Admin yetkisi vermek istediğinize emin misiniz?');">
+                                                                <i class="bi bi-shield-check"></i>
+                                                            </button>
+                                                        }
+                                                    </form>
+
+                                                    <a href="/Employee/Delete/@item.Id"
+                                                       class="btn btn-sm btn-outline-danger border-0"
+                                                       title="Pasife Al"
+                                                       onclick="return confirm('Bu kullanıcıyı pasife almak istediğinize emin misiniz?');">
+                                                        <i class="bi bi-trash-fill"></i>
+                                                    </a>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
                                 {
                                     <tr>
-                                        <td>@item.FirstName</td>
-                                        <td>@item.LastName</td>
-                                        <td>@item.Email</td>
-                                        <td>@item.Phone</td>
-                                        <td>@(item.CreatedDate.HasValue ? item.CreatedDate.Value.ToString("dd.MM.yyyy") : "-")</td>
-
-                                        <td class="text-center">
-                                            @if (item.IsAdmin)
-                                            {
-                                                <span class="badge bg-success"><i class="bi bi-shield-fill-check me-1"></i> Admin</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-light text-dark border">Kullanıcı</span>
-                                            }
-                                        </td>
-
-                                        <td class="text-end">
-                                            <div class="d-flex justify-content-end gap-2">
-
-                                                <form asp-action="ToggleAdmin" asp-controller="Employee" method="post" style="display:inline;">
-                                                    <input type="hidden" name="id" value="@item.Id" />
-                                                    @if (item.IsAdmin)
-                                                    {
-                                                        <button type="submit" class="btn btn-sm btn-warning text-white" title="Yetkiyi Kaldır"
-                                                                onclick="return confirm('@item.FirstName @item.LastName kullanıcısının Admin yetkisini almak istediğinize emin misiniz?');">
-                                                            <i class="bi bi-shield-slash-fill"></i> Yetki Al
-                                                        </button>
-                                                    }
-                                                    else
-                                                    {
-                                                        <button type="submit" class="btn btn-sm btn-success" title="Admin Yap"
-                                                                onclick="return confirm('@item.FirstName @item.LastName kullanıcısına Admin yetkisi vermek istediğinize emin misiniz?');">
-                                                            <i class="bi bi-shield-check"></i> Yetkilendir
-                                                        </button>
-                                                    }
-                                                </form>
-
-                                                <a href="/Employee/Delete/@item.Id"
-                                                   class="btn btn-sm btn-outline-danger"
-                                                   title="Pasife Al"
-                                                   onclick="return confirm('Bu kullanıcıyı pasife almak istediğinize emin misiniz?');">
-                                                    <i class="bi bi-trash-fill"></i>
-                                                </a>
-                                            </div>
+                                        <td colspan="7" class="text-center py-5 text-muted">
+                                            <i class="bi bi-person-x fs-1 d-block mb-3 text-gray-300"></i>
+                                            <p>Aktif çalışan bulunamadı.</p>
                                         </td>
                                     </tr>
                                 }
-                            }
-                            else
-                            {
-                                <tr><td colspan="7" class="text-center text-muted">Kayıt bulunamadı.</td></tr>
-                            }
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="tab-pane fade" id="passive" role="tabpanel">
-            <div class="card shadow-sm border-danger">
-                <div class="card-body">
-                    <table class="table table-hover table-secondary align-middle">
-                        <thead>
-                            <tr>
-                                <th>Ad</th>
-                                <th>Soyad</th>
-                                <th>Email</th>
-                                <th>Telefon</th>
-                                <th>Güncelleme Tarihi</th>
-                                <th class="text-end">İşlemler</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @if (passiveEmployees.Any())
-                            {
-                                foreach (var item in passiveEmployees)
+            <div class="card shadow mb-4 border-start-danger">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover table-secondary mb-0 table-fixed align-middle" width="100%">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 150px;">Ad</th>
+                                    <th style="width: 150px;">Soyad</th>
+                                    <th style="width: 250px;">Email</th>
+                                    <th style="width: 130px;">Telefon</th>
+                                    <th style="width: 150px;">Güncelleme Tarihi</th>
+                                    <th class="text-center" style="width: 100px;">İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (passiveEmployees.Any())
                                 {
-                                    <tr>
-                                        <td>@item.FirstName</td>
-                                        <td>@item.LastName</td>
-                                        <td>@item.Email</td>
-                                        <td>@item.Phone</td>
-                                        <td>@(item.UpdateDate.HasValue ? item.UpdateDate.Value.ToString("dd.MM.yyyy") : "-")</td>
+                                    foreach (var item in passiveEmployees)
+                                    {
+                                        <tr>
+                                            <td class="truncate-cell">@item.FirstName</td>
+                                            <td class="truncate-cell">@item.LastName</td>
+                                            <td class="truncate-cell">@item.Email</td>
+                                            <td>@item.Phone</td>
+                                            <td>@(item.UpdateDate.HasValue ? item.UpdateDate.Value.ToString("dd.MM.yyyy") : "-")</td>
 
-                                        <td class="text-end">
-                                            <a href="/Employee/Activate/@item.Id"
-                                               class="btn btn-sm btn-success"
-                                               title="Aktif Et"
-                                               onclick="return confirm('Bu kullanıcıyı tekrar aktif etmek istediğinize emin misiniz?');">
-                                                <i class="bi bi-arrow-counterclockwise"></i> Aktif Et
-                                            </a>
-                                        </td>
-                                    </tr>
+                                            <td class="text-center">
+                                                <a href="/Employee/Activate/@item.Id"
+                                                   class="btn btn-sm btn-success shadow-sm"
+                                                   title="Aktif Et"
+                                                   onclick="return confirm('Bu kullanıcıyı tekrar aktif etmek istediğinize emin misiniz?');">
+                                                    <i class="bi bi-arrow-counterclockwise"></i> Aktif Et
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    }
                                 }
-                            }
-                            else
-                            {
-                                <tr><td colspan="6" class="text-center text-muted">Pasif çalışan bulunamadı.</td></tr>
-                            }
-                        </tbody>
-                    </table>
+                                else
+                                {
+                                    <tr><td colspan="6" class="text-center text-muted py-4">Pasif çalışan bulunamadı.</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+
+    @* SAYFALAMA KONTROLLERİ *@
+    @if (Model.PageCount > 1)
+    {
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+
+                @* Önceki Sayfa *@
+                <li class="page-item @(Model.CurrentPage == 1 ? "disabled" : "")">
+                    <a class="page-link" href="@Url.Action("Index", new { page = Model.CurrentPage - 1, search = ViewBag.CurrentSearch, filterStatus = ViewBag.CurrentFilter })" aria-label="Previous">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+
+                @* Sayfa Numaraları *@
+                @for (int i = 1; i <= Model.PageCount; i++)
+                {
+                    <li class="page-item @(i == Model.CurrentPage ? "active" : "")">
+                        <a class="page-link" href="@Url.Action("Index", new { page = i, search = ViewBag.CurrentSearch, filterStatus = ViewBag.CurrentFilter })">
+                            @i
+                        </a>
+                    </li>
+                }
+
+                @* Sonraki Sayfa *@
+                <li class="page-item @(Model.CurrentPage == Model.PageCount ? "disabled" : "")">
+                    <a class="page-link" href="@Url.Action("Index", new { page = Model.CurrentPage + 1, search = ViewBag.CurrentSearch, filterStatus = ViewBag.CurrentFilter })" aria-label="Next">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+            <div class="text-center text-muted small">
+                Toplam @Model.RowCount kayıttan @((Model.CurrentPage - 1) * Model.PageSize + 1) - @Math.Min(Model.CurrentPage * Model.PageSize, Model.RowCount) arası gösteriliyor.
+            </div>
+        </nav>
+    }
 </div>
 
 <div class="modal fade" id="createEmployeeModal" tabindex="-1" aria-labelledby="createEmployeeModalLabel" aria-hidden="true">
@@ -282,7 +368,7 @@
 @section Scripts {
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-            // Başarı Mesajı Kontrolü
+            // Başarı Mesajı
             var successMsg = '@Html.Raw(TempData["Success"])';
             if (successMsg) {
                 Swal.fire({
@@ -295,7 +381,7 @@
                 });
             }
 
-            // Hata Mesajı Kontrolü
+            // Hata Mesajı
             var errorMsg = '@Html.Raw(TempData["Error"])';
             if (errorMsg) {
                 Swal.fire({
@@ -313,11 +399,9 @@
             var btn = document.getElementById('btnSync');
             var originalContent = btn.innerHTML;
 
-            // Butonu yükleniyor durumuna getir
             btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Senkronize Ediliyor...';
             btn.disabled = true;
 
-            // İstenilen adrese GET isteği atıyoruz
             fetch('http://192.168.1.12:5051/api/Ldap/SyncUsers', {
                 method: 'GET',
                 headers: {
@@ -332,19 +416,16 @@
                     }
                 })
                 .then(data => {
-                    // İşlem başarılıysa
                     Swal.fire({
                         icon: 'success',
                         title: 'Tamamlandı',
                         text: data.message || 'Senkronizasyon başarıyla tamamlandı!',
                         confirmButtonColor: '#28a745'
                     }).then((result) => {
-                        // Kullanıcı "Tamam"a basınca sayfayı yenile
                         location.reload();
                     });
                 })
                 .catch(error => {
-                    // Hata oluşursa
                     console.error('Hata:', error);
                     Swal.fire({
                         icon: 'error',
@@ -354,7 +435,6 @@
                     });
                 })
                 .finally(() => {
-                    // Her durumda butonu eski haline getir
                     btn.innerHTML = originalContent;
                     btn.disabled = false;
                 });

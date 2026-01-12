@@ -24,7 +24,7 @@ namespace MEC.AssetManagementUI.Controllers
         public async Task<IActionResult> Index([FromQuery] LoanFilterRequestModel request)
         {
             var loans = await _loanService.GetLoanListAsync(request);
-            var employees = await _employeeService.GetEmployeeListAsync();
+            var employees = await _employeeService.GetAllEmployeesAsync();
 
             // Çalışan listesini Dictionary'e çevirip hızlı erişim sağlıyoruz (ID -> Ad Soyad)
             var empDict = employees.ToDictionary(k => k.Id, v => $"{v.FirstName} {v.LastName}");
@@ -92,7 +92,7 @@ namespace MEC.AssetManagementUI.Controllers
             }
 
             // 3. Çalışan isimlerini eşleştirmek için sözlük (Dictionary) oluştur
-            var employees = await _employeeService.GetEmployeeListAsync();
+            var employees = await _employeeService.GetAllEmployeesAsync();
             var empDict = employees.ToDictionary(k => k.Id, v => $"{v.FirstName} {v.LastName}");
 
             // 4. Excel Oluştur
