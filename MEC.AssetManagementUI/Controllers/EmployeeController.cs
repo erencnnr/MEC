@@ -32,7 +32,7 @@ namespace MEC.AssetManagementUI.Controllers
             else if (filterStatus == "User") isAdmin = false;
 
             // BURADA YENİ METODU ÇAĞIRIYORUZ
-            var pagedResult = await _employeeService.GetPagedEmployeeListAsync(search, isAdmin, page, 10);
+            var pagedResult = await _employeeService.GetPagedEmployeeListAsync(search, isAdmin, page, 20);
             return View("EmployeeList", pagedResult);
         }
 

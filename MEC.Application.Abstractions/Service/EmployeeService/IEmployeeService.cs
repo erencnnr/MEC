@@ -10,7 +10,7 @@ namespace MEC.Application.Abstractions.Service.EmployeeService
     {
         // Mevcut Metotlar
         Task<List<Employee>> GetAllEmployeesAsync();
-        Task<PagedResult<Employee>> GetPagedEmployeeListAsync(string? searchText = null, bool? isAdmin = null, int page = 1, int pageSize = 10);
+        Task<PagedResult<Employee>> GetPagedEmployeeListAsync(string? searchText = null, bool? isAdmin = null, int page = 1, int pageSize = 20);
         Task CreateEmployeeAsync(Employee employee);
         Task DeleteEmployeeAsync(int id); // Daha önce eklemiştik
 

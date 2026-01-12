@@ -1,6 +1,7 @@
 ﻿using MEC.Application.Abstractions.Service.LoanService;
 using MEC.Application.Abstractions.Service.LoanService.Model;
 using MEC.DAL.Config.Abstractions.Common;
+using MEC.Domain.Common;
 using MEC.Domain.Entity.Asset;
 using MEC.Domain.Entity.Loan;
 using System;
@@ -35,50 +36,51 @@ namespace MEC.Application.Service.LoanService
         }
         public async Task<List<Loan>> GetLoanListAsync(LoanFilterRequestModel request)
         {
-            // 1. FİLTRELEME (Predicate)
-            Expression<Func<Loan, bool>> predicate = x =>
-                // Arama Metni: Demirbaş, Seri No, Zimmet Alan Kişi
-                (string.IsNullOrEmpty(request.SearchText) ||
-                 x.Asset.Name.Contains(request.SearchText) ||
-                 x.Asset.SerialNumber.Contains(request.SearchText) ||
-                 (x.AssignedTo.FirstName + " " + x.AssignedTo.LastName).Contains(request.SearchText)) &&
+            var predicate = CreateFilterPredicate(request);
 
-                // Zimmet Alan Kişi Filtresi (AssignedTo)
-                (request.AssignedToIds == null || !request.AssignedToIds.Any() || request.AssignedToIds.Contains(x.AssignedToId)) &&
+            // İlişkili tabloları dahil ederek çekiyoruz
+            var loans = await _repository.GetAllAsync(predicate,
+                x => x.Asset,
+                x => x.AssignedTo,
+                x => x.AssignedBy,
+                x => x.LoanStatus);
 
-                // Zimmet Veren Kişi Filtresi (CreatedBy - Opsiyonel)
-                // Not: CreatedBy int olduğu varsayıldı.
-                (request.AssignedByIds == null || !request.AssignedByIds.Any() || request.AssignedByIds.Contains((int)x.AssignedById));
+            // Bellekte sıralama yapıp listeyi dönüyoruz
+            return ApplySorting(loans, request.SortOrder).ToList();
+        }
 
-            // Veriyi Çek
-            // Not: Zimmeti veren kişinin adını göstermek için o tabloyu da joinlemek gerekebilir. 
-            // Şimdilik sadece Asset ve AssignedTo include ediyoruz.
-            var loans = await _repository.GetAllAsync(predicate, x => x.Asset, x => x.AssignedTo);
+        // 2. SAYFALI LİSTE (LoanList Ekranı için)
+        public async Task<PagedResult<Loan>> GetPagedLoanListAsync(LoanFilterRequestModel request)
+        {
+            var predicate = CreateFilterPredicate(request);
 
-            // 2. SIRALAMA (Sorting)
-            // IQueryable'a çevirip bellek içi sıralama yapıyoruz (Repo List dönüyorsa)
-            var query = loans.AsQueryable();
+            // Tüm filtrelenmiş veriyi çek (Repo IQueryable dönmediği için)
+            var loans = await _repository.GetAllAsync(predicate,
+                x => x.Asset,
+                x => x.AssignedTo,
+                x => x.AssignedBy,
+                x => x.LoanStatus);
 
-            switch (request.SortOrder)
+            // Bellekte Sıralama
+            var query = ApplySorting(loans, request.SortOrder);
+
+            // Toplam kayıt sayısı
+            int rowCount = query.Count();
+
+            // Bellekte Sayfalama (Skip/Take)
+            var pagedData = query
+                .Skip((request.Page - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToList();
+
+            return new PagedResult<Loan>
             {
-                case "LoanDate_Asc":
-                    query = query.OrderBy(x => x.LoanDate);
-                    break;
-                case "LoanDate_Desc":
-                    query = query.OrderByDescending(x => x.LoanDate);
-                    break;
-                case "ReturnDate_Asc":
-                    query = query.OrderBy(x => x.ReturnDate);
-                    break;
-                case "ReturnDate_Desc":
-                    query = query.OrderByDescending(x => x.ReturnDate);
-                    break;
-                default:
-                    query = query.OrderByDescending(x => x.LoanDate); // Varsayılan
-                    break;
-            }
-
-            return query.ToList();
+                Results = pagedData,
+                CurrentPage = request.Page,
+                PageSize = request.PageSize,
+                RowCount = rowCount,
+                PageCount = (int)Math.Ceiling((double)rowCount / request.PageSize)
+            };
         }
         public async Task<List<Loan>> GetLoansByAssetIdAsync(int assetId)
         {
@@ -125,6 +127,37 @@ namespace MEC.Application.Service.LoanService
                 }
             }
             // Not: Generic Repository yapınızda SaveChanges yoksa burada context.SaveChanges() çağırmanız gerekebilir.
+        }
+        private Expression<Func<Loan, bool>> CreateFilterPredicate(LoanFilterRequestModel request)
+        {
+            return x =>
+                // 1. Tab Filtresi (Aktif / Geçmiş)
+                (string.IsNullOrEmpty(request.ActiveTab) ||
+                 (request.ActiveTab == "active" && x.ReturnDate == null) ||
+                 (request.ActiveTab == "history" && x.ReturnDate != null)) &&
+
+                // 2. Arama Metni (Demirbaş Adı, Seri No, Personel Adı)
+                (string.IsNullOrEmpty(request.SearchText) ||
+                 (x.Asset != null && (x.Asset.Name.Contains(request.SearchText) || x.Asset.SerialNumber.Contains(request.SearchText))) ||
+                 (x.AssignedTo != null && (x.AssignedTo.FirstName + " " + x.AssignedTo.LastName).Contains(request.SearchText))) &&
+
+                // 3. Zimmet Alan Kişi Filtresi
+                (request.AssignedToIds == null || !request.AssignedToIds.Any() || request.AssignedToIds.Contains(x.AssignedToId)) &&
+
+                // 4. Zimmet Veren Kişi Filtresi (AssignedBy Nullable olduğu için kontrol ediyoruz)
+                (request.AssignedByIds == null || !request.AssignedByIds.Any() || (x.AssignedById.HasValue && request.AssignedByIds.Contains(x.AssignedById.Value)));
+        }
+
+        private IEnumerable<Loan> ApplySorting(IEnumerable<Loan> query, string? sortOrder)
+        {
+            return sortOrder switch
+            {
+                "LoanDate_Asc" => query.OrderBy(x => x.LoanDate),
+                "LoanDate_Desc" => query.OrderByDescending(x => x.LoanDate),
+                "ReturnDate_Asc" => query.OrderBy(x => x.ReturnDate),
+                "ReturnDate_Desc" => query.OrderByDescending(x => x.ReturnDate),
+                _ => query.OrderByDescending(x => x.LoanDate), // Varsayılan: En yeni en üstte
+            };
         }
     }
 }

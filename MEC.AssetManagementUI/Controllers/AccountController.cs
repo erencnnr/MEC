@@ -24,7 +24,7 @@ namespace MEC.AssetManagementUI.Controllers
         {
             if (User.Identity.IsAuthenticated)
             {
-                return RedirectToAction("Index", "Home");
+                return RedirectToAction("Index", "Asset");
             }
             return View();
         }
@@ -51,7 +51,7 @@ namespace MEC.AssetManagementUI.Controllers
                     CookieAuthenticationDefaults.AuthenticationScheme,
                     new ClaimsPrincipal(claimsIdentity));
 
-                return RedirectToAction("Index", "Home");
+                return RedirectToAction("Index", "Asset");
             }
 
             ViewBag.Error = "Kullanıcı adı veya şifre hatalı.";
