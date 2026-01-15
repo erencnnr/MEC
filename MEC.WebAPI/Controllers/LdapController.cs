@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace MEC.WebAPI.Controllers
 {
+    [ApiController]
+    [Route("api/[controller]")]
     public class LdapController : Controller
     {
         private readonly ILdapService _ldapService;

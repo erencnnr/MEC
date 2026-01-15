@@ -52,7 +52,8 @@ body {
 .sidebar-header {
     padding: 15px 10px;
     /* Header kýsmý gövdeden bir týk daha koyu olsun */
-    background: #081a2f;
+    background: transparent;
+    display: block;
     text-align: center;
     border-bottom: 1px solid #1c3552;
     display: flex;
@@ -64,7 +65,7 @@ body {
 /* Logo Ayarlarý */
 .logo-img {
     /* Logo boyutunu 80px'den 55px'e düþürdük */
-    width: 55px;
+    width: 100px;
     height: auto;
     transition: all 0.3s;
     margin-bottom: 10px;
@@ -72,7 +73,7 @@ body {
 
 /* Daralýnca logo daha da küçülsün */
 #sidebar.active .logo-img {
-    width: 35px;
+    width: 55px;
     margin-bottom: 5px;
 }
 
