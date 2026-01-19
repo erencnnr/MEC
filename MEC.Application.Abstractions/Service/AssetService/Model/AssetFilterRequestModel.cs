@@ -14,5 +14,6 @@ namespace MEC.Application.Abstractions.Service.AssetService.Model
         public List<int>? AssetStatusIds { get; set; }
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 20;
+        public string? SortOrder { get; set; }
     }
 }

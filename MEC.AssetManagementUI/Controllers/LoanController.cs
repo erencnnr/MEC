@@ -70,6 +70,7 @@ namespace MEC.AssetManagementUI.Controllers
                 Text = $"{x.FirstName} {x.LastName}"
             }).ToList();
 
+            ViewBag.CurrentSort = request.SortOrder;
             // Filtreleri View'da korumak için
             ViewBag.CurrentFilters = request;
 
@@ -109,7 +110,7 @@ namespace MEC.AssetManagementUI.Controllers
                 var worksheet = workbook.Worksheets.Add(sheetName);
 
                 // --- BAŞLIKLAR ---
-                worksheet.Cell(1, 1).Value = "Demirbaş Adı";
+                worksheet.Cell(1, 1).Value = "Ad";    
                 worksheet.Cell(1, 2).Value = "Seri No";
                 worksheet.Cell(1, 3).Value = "Zimmet Alan";
                 worksheet.Cell(1, 4).Value = "Zimmet Veren";

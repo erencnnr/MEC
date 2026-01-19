@@ -71,7 +71,7 @@ namespace MEC.AssetManagementUI.Controllers
             ViewBag.Schools = new SelectList(await _schoolService.GetSchoolListAsync(), "Id", "Name");
             ViewBag.Types = new SelectList(await _assetTypeService.GetAssetTypeListAsync(), "Id", "Name");
             ViewBag.Statuses = new SelectList(await _assetStatusService.GetAssetStatusListAsync(), "Id", "Name");
-
+            ViewBag.CurrentSort = request.SortOrder;
             // Filtreleri View'da korumak için
             ViewBag.CurrentFilters = request;
 
@@ -104,8 +104,10 @@ namespace MEC.AssetManagementUI.Controllers
                     SchoolId = model.SchoolId,
                     AssetTypeId = model.AssetTypeId,
                     AssetStatusId = defaultStatusId,
-                    Cost = 0, 
-                    PurchaseDate = DateTime.Now
+                    Cost = 0,
+                    WarrantyEndDate = model.WarrantyEndDate,
+                    InvoiceDate = model.InvoiceDate,
+                    SchoolClassId = model.SchoolClassId
                 };
 
                 await _assetService.AddAssetAsync(asset);
@@ -139,6 +141,7 @@ namespace MEC.AssetManagementUI.Controllers
                 SchoolId = asset.SchoolId,
                 AssetTypeId = asset.AssetTypeId,
                 WarrantyEndDate = asset.WarrantyEndDate,
+                InvoiceDate = asset.InvoiceDate,
                 // Yeni Alanlar
                 Invoice = asset.Invoice,
                 Images = assetImages,
@@ -148,7 +151,13 @@ namespace MEC.AssetManagementUI.Controllers
             // 4. Dropdownları Hazırla
             ViewBag.Schools = new SelectList(await _schoolService.GetSchoolListAsync(), "Id", "Name", asset.SchoolId);
             ViewBag.Types = new SelectList(await _assetTypeService.GetAssetTypeListAsync(), "Id", "Name", asset.AssetTypeId);
-            ViewBag.Employees = new SelectList(employees.Where(x => !x.IsDeleted), "Id", "FirstName", "LastName");
+            ViewBag.Employees = new SelectList(employees.Where(x => !x.IsDeleted)
+                                            .Select(x => new {
+                                                Id = x.Id,
+                                                FullName = $"{x.FirstName} {x.LastName}"
+                                            })
+                                            .OrderBy(x => x.FullName),
+                                    "Id", "FullName");
             ViewBag.AssetId = id;
 
             return View(model);
@@ -292,10 +301,10 @@ namespace MEC.AssetManagementUI.Controllers
 
             using (var workbook = new XLWorkbook())
             {
-                var worksheet = workbook.Worksheets.Add("Demirbaş Listesi");
+                var worksheet = workbook.Worksheets.Add("Envanter");
 
                 worksheet.Cell(1, 1).Value = "Seri Numarası";
-                worksheet.Cell(1, 2).Value = "Demirbaş Adı";
+                worksheet.Cell(1, 2).Value = "Ad";
                 worksheet.Cell(1, 3).Value = "Türü";
                 worksheet.Cell(1, 4).Value = "Konum / Okul";
                 worksheet.Cell(1, 5).Value = "Sınıf / Şube";

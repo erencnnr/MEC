@@ -40,17 +40,21 @@
     @* --- 1. ARAMA VE FİLTRE FORMU (GET) --- *@
     <form method="get" asp-action="Index" asp-controller="Loan" id="mainFilterForm">
 
-        @* Sayfa ve Sekme Bilgilerini Saklayan Gizli Inputlar *@
+        @* Sayfa, Sekme ve Sıralama Bilgilerini Saklayan Gizli Inputlar *@
         <input type="hidden" name="Page" id="currentPageInput" value="@Model.CurrentPage" />
         <input type="hidden" name="ActiveTab" id="activeTabInput" value="@activeTab" />
+
+        @* --- YENİ EKLENEN KISIM: Sıralama Bilgisi --- *@
+        <input type="hidden" name="SortOrder" id="sortOrderInput" value="@ViewBag.CurrentSort" />
 
         <div class="d-flex justify-content-between align-items-center mb-3">
             <div class="d-flex gap-2">
                 @* Yeni Zimmet Butonu *@
+                @*
                 <a href="@Url.Action("AssignAsset", "Loan")" class="btn btn-primary shadow-sm">
                     <i class="bi bi-box-arrow-up-right"></i> Yeni Zimmet
                 </a>
-
+                *@
                 @* Excel Export (Mevcut filtrelerle) *@
                 <button type="submit" formaction="@Url.Action("ExportToExcel", "Loan")" class="btn btn-success shadow-sm text-white">
                     <i class="bi bi-file-earmark-excel-fill me-1"></i> Excel'e Aktar
@@ -66,7 +70,7 @@
                 }
 
                 <div class="input-group" style="width: 300px;">
-                    <input type="text" name="SearchText" class="form-control" placeholder="Personel, Demirbaş, Seri No..." value="@filter?.SearchText">
+                    <input type="text" name="SearchText" class="form-control" placeholder="Personel, Eşya, Seri No..." value="@filter?.SearchText">
                     <button class="btn btn-primary" type="submit" onclick="resetPage()">
                         <i class="bi bi-search"></i>
                     </button>
@@ -88,23 +92,13 @@
             </li>
         </ul>
 
-        @* --- FİLTRE DROPDOWNLARI (Tablo Başlığında Kullanılacaksa buraya hidden input olarak eklenebilir veya aşağıda dropdown içinde input olarak kalabilir) --- *@
-        @* Not: Aşağıdaki tablo başlıklarındaki dropdownlar bu formun içinde olduğu için submit edildiğinde değerleri gidecektir. *@
-
+        @* --- FİLTRE DROPDOWNLARI --- *@
         <div class="card shadow mb-4">
             <div class="card-body p-0">
-
-                @* --- 3. TOPLU İŞLEM FORMU (POST - Sadece Tabloyu Kapsar) --- *@
-                @* Not: HTML5'te form içinde form olmaz. Bu yüzden Bulk işlemi için JS kullanacağız veya
-                Filter formunu tablo dışına alıp, tabloyu ayrı bir form yapacağız.
-                En temizi: Filter formu yukarıda bitti (kapatalım mı? Hayır, dropdown filtreler th içinde).
-                Çözüm: Dropdown filtreleri "mainFilterForm"a ait (input form attribute) yapıp,
-                tabloyu "bulkForm" içine alabiliriz. Ancak HTML yapısını bozmamak için
-                Bulk Submit işlemini JS ile yapıp main formdan bağımsız post atacağız. *@
+                @* Tablo başlığındaki filtreler form="mainFilterForm" attribute'u ile bu forma bağlanır *@
             </div>
         </div>
     </form>
-    @* Formu burada kapattık. Tablo başlığındaki filtreler çalışsın diye inputlara form="mainFilterForm" ekleyeceğiz. *@
 
     @* --- TABLO VE TOPLU İŞLEM ALANI --- *@
     <form method="post" action="@Url.Action("BulkReturn", "Loan")" id="bulkForm">
@@ -131,7 +125,7 @@
                                     </th>
                                 }
 
-                                <th style="width: 150px;">Demirbaş</th>
+                                <th style="width: 150px;">Eşya</th>
                                 <th style="width: 120px;">Seri No</th>
 
                                 @* PERSONEL FİLTRESİ *@
@@ -151,7 +145,6 @@
                                                         {
                                                             var isChecked = filter?.AssignedToIds != null && filter.AssignedToIds.Contains(int.Parse(item.Value));
                                                             <div class="form-check">
-                                                                @* Bu inputlar Ana Filtre Formuna (mainFilterForm) ait olacak *@
                                                                 <input class="form-check-input" type="checkbox" name="AssignedToIds" value="@item.Value" id="emp_@item.Value" form="mainFilterForm" @(isChecked ? "checked" : "")>
                                                                 <label class="form-check-label small" for="emp_@item.Value">@item.Text</label>
                                                             </div>
@@ -159,7 +152,6 @@
                                                     }
                                                 </div>
                                                 <div class="d-grid">
-                                                    @* Buton Ana Filtre Formunu submit etmeli *@
                                                     <button type="button" class="btn btn-sm btn-primary" onclick="submitMainForm()">Uygula</button>
                                                 </div>
                                             </div>
@@ -168,11 +160,63 @@
                                 </th>
 
                                 <th style="width: 150px;">Zimmet Veren</th>
-                                <th style="width: 120px;">Veriliş Tarihi</th>
+
+                                @* --- VERİLİŞ TARİHİ SÜTUNU (Dropdownlu Sıralama) --- *@
+                                <th style="width: 180px;">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>Veriliş Tarihi</span>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                @* Eğer sıralama bu sütundaysa ikonu mavi yap *@
+                                                <i class="bi bi-chevron-down @(ViewBag.CurrentSort != null && ViewBag.CurrentSort.Contains("LoanDate") ? "text-primary fw-bold" : "text-muted")"></i>
+                                            </button>
+                                            <ul class="dropdown-menu shadow border-0 p-2">
+                                                <li><h6 class="dropdown-header small text-muted">Sıralama Seçiniz</h6></li>
+                                                <li>
+                                                    <button class="dropdown-item rounded @(ViewBag.CurrentSort == "LoanDate_Asc" ? "active" : "")"
+                                                            type="button" onclick="changeSort('LoanDate_Asc')">
+                                                        <i class="bi bi-sort-numeric-down me-2"></i>Eskiden Yeniye
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <button class="dropdown-item rounded @(ViewBag.CurrentSort == "LoanDate_Desc" ? "active" : "")"
+                                                            type="button" onclick="changeSort('LoanDate_Desc')">
+                                                        <i class="bi bi-sort-numeric-down-alt me-2"></i>Yeniden Eskiye
+                                                    </button>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </th>
 
                                 @if (activeTab == "history")
                                 {
-                                    <th style="width: 120px;">İade Tarihi</th>
+                                    @* --- İADE TARİHİ SÜTUNU (Dropdownlu Sıralama) --- *@
+                                    <th style="width: 180px;">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span>İade Tarihi</span>
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="bi bi-chevron-down @(ViewBag.CurrentSort != null && ViewBag.CurrentSort.Contains("ReturnDate") ? "text-primary fw-bold" : "text-muted")"></i>
+                                                </button>
+                                                <ul class="dropdown-menu shadow border-0 p-2">
+                                                    <li><h6 class="dropdown-header small text-muted">Sıralama Seçiniz</h6></li>
+                                                    <li>
+                                                        <button class="dropdown-item rounded @(ViewBag.CurrentSort == "ReturnDate_Asc" ? "active" : "")"
+                                                                type="button" onclick="changeSort('ReturnDate_Asc')">
+                                                            <i class="bi bi-sort-numeric-down me-2"></i>Eskiden Yeniye
+                                                        </button>
+                                                    </li>
+                                                    <li>
+                                                        <button class="dropdown-item rounded @(ViewBag.CurrentSort == "ReturnDate_Desc" ? "active" : "")"
+                                                                type="button" onclick="changeSort('ReturnDate_Desc')">
+                                                            <i class="bi bi-sort-numeric-down-alt me-2"></i>Yeniden Eskiye
+                                                        </button>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </th>
                                 }
 
                                 <th style="width: 100px;" class="text-center">İşlemler</th>
@@ -291,6 +335,18 @@
         // Ana Formu Submit Et (Dropdown içindeki buton için)
         function submitMainForm() {
             resetPage();
+            document.getElementById('mainFilterForm').submit();
+        }
+
+        // YENİ EKLENEN FONKSİYON: Sıralamayı Değiştirir
+        function changeSort(sortOrder) {
+            // 1. Gizli inputa seçilen sıralama değerini yaz
+            document.getElementById('sortOrderInput').value = sortOrder;
+
+            // 2. Sayfayı 1'e sıfırla (Sıralama değişince ilk sayfaya dönmek iyidir)
+            resetPage();
+
+            // 3. Formu gönder (Tüm filtrelerle birlikte)
             document.getElementById('mainFilterForm').submit();
         }
 
