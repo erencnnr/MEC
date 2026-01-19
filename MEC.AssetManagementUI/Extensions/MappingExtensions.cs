@@ -14,7 +14,7 @@ namespace MEC.AssetManagementUI.Extensions
                 Description = x.Description ?? "-",
                 Name = x.Name ?? "-",
                 Cost = x.Cost,
-                PurchaseDate = x.PurchaseDate.HasValue ? x.PurchaseDate.Value.ToShortDateString() : "-",
+                CreatedDate = x.CreatedDate.HasValue ? x.CreatedDate.Value.ToShortDateString() : "-",
                 WarrantyEndDate = x.WarrantyEndDate.HasValue ? x.WarrantyEndDate.Value.ToShortDateString() : "-",
                 InvoiceDate = x.InvoiceDate.HasValue ? x.InvoiceDate.Value.ToShortDateString() : "-",
                 SchoolName = x.School != null ? x.School.Name : "Tanımsız",

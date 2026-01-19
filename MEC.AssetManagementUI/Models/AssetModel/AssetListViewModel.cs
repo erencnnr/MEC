@@ -11,7 +11,7 @@ namespace MEC.AssetManagementUI.Models.AssetModel
         public string Description { get; set; }
         public string Name { get; set; }
         public decimal? Cost { get; set; }
-        public string PurchaseDate { get; set; }
+        public string CreatedDate { get; set; }
 
         // İlişkili tablolardan gelecek veriler
         public string SchoolName { get; set; }

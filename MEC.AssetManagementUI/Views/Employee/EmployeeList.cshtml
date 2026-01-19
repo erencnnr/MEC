@@ -29,6 +29,19 @@
         max-height: 200px;
         overflow-y: auto;
     }
+
+    #btnSync {
+        background-color: #ffc107; /* Sarı renk */
+        border-color: #ffc107;
+        color: #fff; /* Yazı rengi siyah */
+    }
+
+        #btnSync:hover {
+            background-color: #ffc107 !important;
+            border-color: #ffc107 !important;
+            color: #fff !important;
+        }
+
 </style>
 
 <div class="container-fluid">
@@ -68,7 +81,7 @@
 
             @* BUTONLAR *@
             <div class="d-flex gap-2">
-                <button class="btn btn-outline-info shadow-sm" id="btnSync" onclick="syncEmployees()">
+                <button class="btn btn-warning shadow-sm" id="btnSync" onclick="syncEmployees()">
                     <i class="bi bi-arrow-repeat"></i> Senkronize Et
                 </button>
 

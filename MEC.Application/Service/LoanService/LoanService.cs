@@ -136,7 +136,7 @@ namespace MEC.Application.Service.LoanService
                  (request.ActiveTab == "active" && x.ReturnDate == null) ||
                  (request.ActiveTab == "history" && x.ReturnDate != null)) &&
 
-                // 2. Arama Metni (Demirbaş Adı, Seri No, Personel Adı)
+                // 2. Arama Metni (Eşya Adı, Seri No, Personel Adı)
                 (string.IsNullOrEmpty(request.SearchText) ||
                  (x.Asset != null && (x.Asset.Name.Contains(request.SearchText) || x.Asset.SerialNumber.Contains(request.SearchText))) ||
                  (x.AssignedTo != null && (x.AssignedTo.FirstName + " " + x.AssignedTo.LastName).Contains(request.SearchText))) &&

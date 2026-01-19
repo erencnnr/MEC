@@ -48,11 +48,26 @@ namespace MEC.Application.Service.AssetService
                 x => x.AssetStatus,
                 x => x.SchoolClass);
 
+            IEnumerable<Asset> query = allAssets;
+
+            switch (request.SortOrder)
+            {
+                case "Date_Asc":
+                    query = query.OrderBy(x => x.CreatedDate);
+                    break;
+                case "Date_Desc":
+                    query = query.OrderByDescending(x => x.CreatedDate);
+                    break;
+                default:
+                    query = query.OrderByDescending(x => x.Id); // Varsayılan: En son eklenen en üstte
+                    break;
+            }
+
             // Toplam kayıt sayısı
-            int rowCount = allAssets.Count();
+            int rowCount = query.Count();
 
             // Bellekte Sayfalama (Pagination)
-            var pagedData = allAssets
+            var pagedData = query
                 .OrderByDescending(x => x.Id) // Yeniden eskiye sıralama
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)

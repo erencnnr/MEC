@@ -4,7 +4,7 @@
 @model PagedResult<AssetListViewModel>
 
 @{
-    ViewData["Title"] = "Demirbaş Listesi";
+    ViewData["Title"] = "Envanter";
     var filter = ViewBag.CurrentFilters as AssetFilterRequestModel;
 
     // Filtre var mı kontrolü (Temizle butonu için)
@@ -38,13 +38,16 @@
 </style>
 
 <div class="container-fluid">
-    <h2 class="h3 mb-4 text-gray-800">Demirbaş Yönetimi</h2>
+    <h2 class="h3 mb-4 text-gray-800">Envanter Yönetimi</h2>
 
     @* Form GET olarak çalışır, tüm filtreler ve sayfa numarası bu form ile taşınır *@
     <form method="get" asp-action="Index" asp-controller="Asset" id="mainFilterForm">
 
-        @* SAYFA NUMARASINI SAKLAYAN GİZLİ INPUT *@
+        @* SAYFA VE SIRALAMA BİLGİSİNİ SAKLAYAN GİZLİ INPUTLAR *@
         <input type="hidden" name="Page" id="currentPageInput" value="@Model.CurrentPage" />
+
+        @* --- YENİ EKLENEN: Sıralama Inputu --- *@
+        <input type="hidden" name="SortOrder" id="sortOrderInput" value="@ViewBag.CurrentSort" />
 
         <div class="d-flex justify-content-between align-items-center mb-3">
             <div class="d-flex gap-2">
@@ -83,7 +86,7 @@
                         <thead class="table-light">
                             <tr class="align-middle">
                                 <th style="width: 150px;">Seri No</th>
-                                <th style="width: 200px;">Demirbaş Adı</th>
+                                <th style="width: 200px;">Ad</th>
 
                                 @* TÜR FİLTRESİ *@
                                 <th style="width: 150px;">
@@ -109,7 +112,7 @@
                                                     }
                                                 </div>
                                                 <div class="d-grid">
-                                                    <button type="submit" class="btn btn-sm btn-primary" onclick="resetPage()">Uygula</button>
+                                                    <button type="button" class="btn btn-sm btn-primary" onclick="submitMainForm()">Uygula</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -142,7 +145,7 @@
                                                     }
                                                 </div>
                                                 <div class="d-grid">
-                                                    <button type="submit" class="btn btn-sm btn-primary" onclick="resetPage()">Uygula</button>
+                                                    <button type="button" class="btn btn-sm btn-primary" onclick="submitMainForm()">Uygula</button>
                                                 </div>
                                             </div>
                                         </div>
@@ -173,14 +176,40 @@
                                                     }
                                                 </div>
                                                 <div class="d-grid">
-                                                    <button type="submit" class="btn btn-sm btn-primary" onclick="resetPage()">Uygula</button>
+                                                    <button type="button" class="btn btn-sm btn-primary" onclick="submitMainForm()">Uygula</button>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </th>
 
-                                <th style="width: 120px;">Alım Tarihi</th>
+                                @* --- YENİ EKLENEN KISIM: KAYIT TARİHİ VE SIRALAMA --- *@
+                                <th style="width: 180px;">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span>Kayıt Tarihi</span>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="bi bi-chevron-down @(ViewBag.CurrentSort != null && ViewBag.CurrentSort.ToString().Contains("Date") ? "text-primary fw-bold" : "text-muted")"></i>
+                                            </button>
+                                            <ul class="dropdown-menu shadow border-0 p-2">
+                                                <li><h6 class="dropdown-header small text-muted">Sıralama Seçiniz</h6></li>
+                                                <li>
+                                                    <button class="dropdown-item rounded @(ViewBag.CurrentSort == "Date_Asc" ? "active" : "")"
+                                                            type="button" onclick="changeSort('Date_Asc')">
+                                                        <i class="bi bi-sort-numeric-down me-2"></i>Eskiden Yeniye
+                                                    </button>
+                                                </li>
+                                                <li>
+                                                    <button class="dropdown-item rounded @(ViewBag.CurrentSort == "Date_Desc" ? "active" : "")"
+                                                            type="button" onclick="changeSort('Date_Desc')">
+                                                        <i class="bi bi-sort-numeric-down-alt me-2"></i>Yeniden Eskiye
+                                                    </button>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </th>
+
                                 <th style="width: 60px;" class="text-center"><i class="bi bi-trash text-muted"></i></th>
                             </tr>
                         </thead>
@@ -198,7 +227,9 @@
                                         <td class="text-center">
                                             <span class="badge bg-@item.StatusColor rounded-pill">@item.StatusName</span>
                                         </td>
-                                        <td>@item.PurchaseDate</td>
+
+                                        <td>@item.CreatedDate</td>
+
                                         <td class="text-center">
                                             <button type="button" class="btn btn-sm btn-outline-danger border-0" title="Sil"
                                                     onclick="event.stopPropagation(); if(confirm('Bu kaydı silmek istediğinize emin misiniz?')) { /* Silme Linki */ }">
@@ -271,6 +302,19 @@
         // Yeni arama/filtreleme yapıldığında sayfayı 1'e sıfırlar
         function resetPage() {
             document.getElementById('currentPageInput').value = 1;
+        }
+
+        // YENİ EKLENEN: Sıralama Değiştirme Fonksiyonu
+        function changeSort(sortOrder) {
+            document.getElementById('sortOrderInput').value = sortOrder;
+            resetPage(); // Sıralama değişince sayfa 1'e dön
+            document.getElementById('mainFilterForm').submit();
+        }
+
+        // Dropdown içindeki Uygula butonları için (Opsiyonel: Eğer dropdown içinden de submit yapılıyorsa)
+        function submitMainForm() {
+            resetPage();
+            document.getElementById('mainFilterForm').submit();
         }
     </script>
 }

@@ -5,12 +5,12 @@ namespace MEC.AssetManagementUI.Models.AssetModel
 {
     public class AssetCreateViewModel
     {
-        [Display(Name = "Demirbaş Adı")]
-        [Required(ErrorMessage = "Demirbaş adı zorunludur.")]
+        [Display(Name = "Ad")]
+        [Required(ErrorMessage = "Ad zorunludur.")]
         public string Name { get; set; }
 
         [Display(Name = "Seri Numarası")]
-        public string SerialNumber { get; set; }
+        public string? SerialNumber { get; set; }
 
         [Display(Name = "Açıklama")]
         public string? Description { get; set; }

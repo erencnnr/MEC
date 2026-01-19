@@ -23,7 +23,7 @@ namespace MEC.Application.Service.AssetService
             return attachments.ToList();
         }
 
-        // 2. Belirli Bir Demirbaşa Ait Ekleri Getir
+        // 2. Belirli Bir Eşyaya Ait Ekleri Getir
         public async Task<List<AssetAttachment>> GetAttachmentsByAssetIdAsync(int assetId)
         {
             var attachments = await _repository.GetAllAsync(x => x.AssetId == assetId);
