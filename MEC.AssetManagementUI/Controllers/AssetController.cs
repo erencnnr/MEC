@@ -4,12 +4,14 @@ using MEC.Application.Abstractions.Service.AssetService.Model;
 using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.LoanService;
 using MEC.Application.Abstractions.Service.SchoolService;
+using MEC.Application.Abstractions.Service.ServiceHistoryService;
 using MEC.Application.Service.AssetService;
 using MEC.Application.Service.LoanService;
 using MEC.Application.Service.SchoolService;
 using MEC.AssetManagementUI.Extensions;
 using MEC.AssetManagementUI.Models.AssetModel;
 using MEC.AssetManagementUI.Models.LoanModel;
+using MEC.AssetManagementUI.Models.ServiceHistoryModel;
 using MEC.Domain.Common;
 using MEC.Domain.Entity.Asset;
 using Microsoft.AspNetCore.Mvc;
@@ -30,11 +32,12 @@ namespace MEC.AssetManagementUI.Controllers
         private readonly ISchoolClassService _schoolClassService;
         private readonly IAssetImageService _assetImageService;
         private readonly IAssetAttachmentService _assetAttachmentService;
+        private readonly IServiceHistoryService _serviceHistoryService;
         
 
         public AssetController(IAssetService assetService, ISchoolService schoolService, IAssetTypeService assetTypeService, IAssetStatusService assetStatusService,
             ILoanService loanService, IAssetImageService imageService, IEmployeeService employeeService, ILoanStatusService loanStatusService, ISchoolClassService schoolClassService,
-            IAssetImageService assetImageService, IAssetAttachmentService assetAttachmentService)
+            IAssetImageService assetImageService, IAssetAttachmentService assetAttachmentService, IServiceHistoryService serviceHistoryService)
         {
             _assetService = assetService;
             _schoolService = schoolService;
@@ -47,6 +50,7 @@ namespace MEC.AssetManagementUI.Controllers
             _schoolClassService = schoolClassService;
             _assetImageService = assetImageService;
             _assetAttachmentService = assetAttachmentService;
+            _serviceHistoryService = serviceHistoryService;
             
         }
         [HttpGet]
@@ -121,7 +125,7 @@ namespace MEC.AssetManagementUI.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> AssetInfo(int id)
+        public async Task<IActionResult> AssetInfo(int id, string? serviceSort = null, string? activeTab = null)
         {
             // 1. Varlık bilgisini (Fatura dahil) çek
             var asset = await _assetService.GetAssetByIdAsync(id);
@@ -130,6 +134,7 @@ namespace MEC.AssetManagementUI.Controllers
             // 2. Resim ve Zimmet listelerini servislerden çek
             var assetImages = await _imageService.GetImagesByAssetIdAsync(id);
             var assetLoans = await _loanService.GetLoansByAssetIdAsync(id);
+            var serviceHistories = await _serviceHistoryService.GetServiceHistoriesByAssetIdAsync(id, serviceSort);
             var employees = await _employeeService.GetAllEmployeesAsync();
             // 3. ViewModel'i Doldur
             var model = new AssetInfoViewModel
@@ -145,7 +150,8 @@ namespace MEC.AssetManagementUI.Controllers
                 // Yeni Alanlar
                 Invoice = asset.Invoice,
                 Images = assetImages,
-                Loans = assetLoans
+                Loans = assetLoans,
+                ServiceHistories = serviceHistories
             };
 
             // 4. Dropdownları Hazırla
@@ -159,6 +165,8 @@ namespace MEC.AssetManagementUI.Controllers
                                             .OrderBy(x => x.FullName),
                                     "Id", "FullName");
             ViewBag.AssetId = id;
+            ViewBag.ServiceSort = serviceSort;
+            ViewBag.ActiveTab = activeTab ?? TempData["ActiveTab"]?.ToString();
 
             return View(model);
         }
@@ -434,6 +442,50 @@ namespace MEC.AssetManagementUI.Controllers
             {
                 return Json(new { success = false, message = "DB Hatası: " + ex.Message });
             }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> CreateServiceHistory(int assetId)
+        {
+            var asset = await _assetService.GetAssetByIdAsync(assetId);
+            if (asset == null) return NotFound();
+
+            ViewBag.AssetName = asset.Name;
+
+            var model = new ServiceHistoryCreateViewModel
+            {
+                AssetId = assetId,
+                SendDate = DateTime.Now.Date
+            };
+
+            return View(model);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateServiceHistory(ServiceHistoryCreateViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                ViewBag.AssetName = (await _assetService.GetAssetByIdAsync(model.AssetId))?.Name;
+                return View(model);
+            }
+
+            var entity = new ServiceHistory
+            {
+                AssetId = model.AssetId,
+                SendDate = model.SendDate,
+                ReturnDate = model.ReturnDate,
+                Description = model.Description,
+                ServiceCompany = model.ServiceCompany,
+                Cost = model.Cost,
+                IsWarranty = model.IsWarranty
+            };
+
+            await _serviceHistoryService.AddServiceHistoryAsync(entity);
+
+            TempData["Success"] = "Servis kaydı başarıyla eklendi.";
+            TempData["ActiveTab"] = "service";
+            return RedirectToAction("AssetInfo", new { id = model.AssetId });
         }
     }
 }

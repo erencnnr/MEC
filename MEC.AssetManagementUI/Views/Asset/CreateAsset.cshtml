@@ -56,19 +56,20 @@
 
                     <div class="col-md-6">
                         <div class="mb-3">
-                            <label asp-for="WarrantyEndDate" class="form-label fw-bold"></label>
-                            <input asp-for="WarrantyEndDate" class="form-control" type="date" />
-                            <span asp-validation-for="WarrantyEndDate" class="text-danger small"></span>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="mb-3">
                             <label asp-for="InvoiceDate" class="form-label fw-bold"></label>
                             <input asp-for="InvoiceDate" class="form-control" type="date" />
                             <span asp-validation-for="InvoiceDate" class="text-danger small"></span>
                         </div>
                     </div>
 
+                    <div class="col-md-6" id="WarrantyArea" style="display: none;">
+    <div class="mb-3">
+        <label asp-for="WarrantyEndDate" class="form-label fw-bold"></label>
+        <input asp-for="WarrantyEndDate" id="WarrantyEndDate" class="form-control" type="date" />
+        <span asp-validation-for="WarrantyEndDate" class="text-danger small"></span>
+    </div>
+</div>
+                    
                     <div class="col-12">
                         <div class="mb-3">
                             <label asp-for="Description" class="form-label fw-bold"></label>
@@ -134,6 +135,36 @@
                     $classDropdown.prop('disabled', true);
                 }
             });
+            var initialInvoiceDate = $('#InvoiceDate').val();
+            if (initialInvoiceDate) {
+                $('#WarrantyArea').show(); // Eğer doluysa göster
+            } else {
+                $('#WarrantyArea').hide(); // Değilse gizle
+            }
+            // Fatura tarihi ve Garanti hesaplama
+            $('#InvoiceDate').on('change', function () {
+                var invoiceDateVal = $(this).val();
+                var $warrantyArea = $('#WarrantyArea');
+                var $warrantyInput = $('#WarrantyEndDate');
+
+                if (invoiceDateVal) {
+                    var date = new Date(invoiceDateVal);
+                    // 2 Yıl Ekleme Mantığı
+                    date.setFullYear(date.getFullYear() + 2);
+
+                    var day = ("0" + date.getDate()).slice(-2);
+                    var month = ("0" + (date.getMonth() + 1)).slice(-2);
+                    var year = date.getFullYear();
+                    var formattedDate = year + "-" + month + "-" + day;
+
+                    $warrantyInput.val(formattedDate);
+                    $warrantyArea.fadeIn(); // Alanı göster
+                } else {
+                    $warrantyArea.hide(); // Fatura silinirse gizle
+                    $warrantyInput.val('');
+                }
+            });
         });
+
     </script>
 }

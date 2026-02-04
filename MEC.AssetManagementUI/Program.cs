@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
+ï»¿using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using MEC.Application.Service.SchoolService;
@@ -17,6 +17,8 @@ using MEC.Application.Service.EmployeeService;
 using MEC.Application.Service.LoginService; 
 using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.LoginService;
+using MEC.Application.Abstractions.Service.ServiceHistoryService;
+using MEC.Application.Service.ServiceHistoryService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,7 +26,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
-// Generic Repository ve Servis Kayýtlarý
+// Generic Repository ve Servis KayÄ±tlarÄ±
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<ISchoolService, SchoolService>();
 builder.Services.AddScoped<IAssetService, AssetService>();
@@ -39,6 +41,7 @@ builder.Services.AddScoped<ISchoolClassService, SchoolClassService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IEmployeeTypeService, EmployeeTypeService>();
 builder.Services.AddScoped<ILoginService, LoginService>();
+builder.Services.AddScoped<IServiceHistoryService, ServiceHistoryService>();
 
 // MVC Servisleri
 builder.Services.AddControllersWithViews(options =>
@@ -49,23 +52,23 @@ builder.Services.AddControllersWithViews(options =>
     options.Filters.Add(new AuthorizeFilter(policy)); // Filtreyi ekle
 });
 
-// 2. Cookie Authentication Ayarlarý
+// 2. Cookie Authentication AyarlarÄ±
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.LoginPath = "/Account/Login"; // Giriþ yapmamýþ kullanýcý buraya atýlýr
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(20); // Oturum süresi
+        options.LoginPath = "/Account/Login"; // GiriÅŸ yapmamÄ±ÅŸ kullanÄ±cÄ± buraya atÄ±lÄ±r
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(20); // Oturum sÃ¼resi
     });
 
 var app = builder.Build();
 
-// ... Diðer middleware ayarlarý (Hsts, HttpsRedirection vs.) ...
+// ... DiÄŸer middleware ayarlarÄ± (Hsts, HttpsRedirection vs.) ...
 
 app.UseStaticFiles();
 
 app.UseRouting();
 
-// 3. Bu sýralama ÇOK ÖNEMLÝ: UseRouting'den sonra, UseAuthorization'dan önce olmalý.
+// 3. Bu sÄ±ralama Ã‡OK Ã–NEMLÄ°: UseRouting'den sonra, UseAuthorization'dan Ã¶nce olmalÄ±.
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -74,3 +77,4 @@ app.MapControllerRoute(
     pattern: "{controller=Asset}/{action=Index}/{id?}");
 
 app.Run();
+
