@@ -4,6 +4,7 @@
 @{
     ViewData["Title"] = "Eşya Bilgisi";
     bool hasActiveLoan = Model.Loans != null && Model.Loans.Any(x => x.ReturnDate == null);
+    var activeTab = (ViewBag.ActiveTab as string) ?? "general";
 }
 
 <style>
@@ -97,22 +98,27 @@
 
     <ul class="nav nav-tabs mb-4" id="assetTabs" role="tablist">
         <li class="nav-item">
-            <button class="nav-link active fw-bold" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button">
+            <button class="nav-link fw-bold @(activeTab == "general" ? "active" : "")" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button">
                 <i class="bi bi-info-circle me-1"></i> Genel Bilgiler
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link fw-bold" id="images-tab" data-bs-toggle="tab" data-bs-target="#images" type="button" onclick="loadAssetImages()">
+            <button class="nav-link fw-bold @(activeTab == "images" ? "active" : "")" id="images-tab" data-bs-toggle="tab" data-bs-target="#images" type="button" onclick="loadAssetImages()">
                 <i class="bi bi-images me-1"></i> Resimler
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link fw-bold" id="attachments-tab" data-bs-toggle="tab" data-bs-target="#attachments" type="button" onclick="loadAttachments()">
+            <button class="nav-link fw-bold @(activeTab == "attachments" ? "active" : "")" id="attachments-tab" data-bs-toggle="tab" data-bs-target="#attachments" type="button" onclick="loadAttachments()">
                 <i class="bi bi-paperclip me-1"></i> Dokümanlar
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link fw-bold" id="loans-tab" data-bs-toggle="tab" data-bs-target="#loans" type="button">
+            <button class="nav-link fw-bold @(activeTab == "service" ? "active" : "")" id="service-tab" data-bs-toggle="tab" data-bs-target="#service-history" type="button">
+                <i class="bi bi-tools me-1"></i> Teknik Servis Geçmişi
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link fw-bold @(activeTab == "loans" ? "active" : "")" id="loans-tab" data-bs-toggle="tab" data-bs-target="#loans" type="button">
                 <i class="bi bi-person-badge me-1"></i> Zimmet Geçmişi
             </button>
         </li>
@@ -120,7 +126,7 @@
 
     <div class="tab-content" id="assetTabsContent">
 
-        <div class="tab-pane fade show active" id="general" role="tabpanel">
+        <div class="tab-pane fade @(activeTab == "general" ? "show active" : "")" id="general" role="tabpanel">
             <div class="card shadow mb-4">
                 <div class="card-body">
                     <form asp-action="AssetInfo" asp-route-id="@Model.Id" method="post">
@@ -176,7 +182,7 @@
             </div>
         </div>
 
-        <div class="tab-pane fade" id="images" role="tabpanel">
+        <div class="tab-pane fade @(activeTab == "images" ? "show active" : "")" id="images" role="tabpanel">
             <div class="card shadow mb-4">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold text-primary">Resimler</h6>
@@ -194,7 +200,7 @@
             </div>
         </div>
 
-        <div class="tab-pane fade" id="attachments" role="tabpanel">
+        <div class="tab-pane fade @(activeTab == "attachments" ? "show active" : "")" id="attachments" role="tabpanel">
             <div class="card shadow mb-4">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold text-primary">Bağlı Dokümanlar & Ekler</h6>
@@ -235,7 +241,80 @@
             </div>
         </div>
 
-        <div class="tab-pane fade" id="loans" role="tabpanel">
+        <div class="tab-pane fade @(activeTab == "service" ? "show active" : "")" id="service-history" role="tabpanel">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Teknik Servis Geçmişi</h6>
+                    <div class="d-flex align-items-center gap-2">
+                        <form class="d-flex align-items-center gap-2" method="get" asp-action="AssetInfo" asp-route-id="@Model.Id">
+                            <input type="hidden" name="activeTab" value="service" />
+                            <select name="serviceSort" class="form-select form-select-sm">
+                                <option value="">Sıralama Seç</option>
+                                <option value="SendDate_Desc" selected="@(ViewBag.ServiceSort == "SendDate_Desc" ? "selected" : null)">Gönderim Tarihi (Yeni - Eski)</option>
+                                <option value="SendDate_Asc" selected="@(ViewBag.ServiceSort == "SendDate_Asc" ? "selected" : null)">Gönderim Tarihi (Eski - Yeni)</option>
+                                <option value="ReturnDate_Desc" selected="@(ViewBag.ServiceSort == "ReturnDate_Desc" ? "selected" : null)">Dönüş Tarihi (Yeni - Eski)</option>
+                                <option value="ReturnDate_Asc" selected="@(ViewBag.ServiceSort == "ReturnDate_Asc" ? "selected" : null)">Dönüş Tarihi (Eski - Yeni)</option>
+                                <option value="Description_Asc" selected="@(ViewBag.ServiceSort == "Description_Asc" ? "selected" : null)">Açıklama (A - Z)</option>
+                                <option value="Description_Desc" selected="@(ViewBag.ServiceSort == "Description_Desc" ? "selected" : null)">Açıklama (Z - A)</option>
+                                <option value="ServiceCompany_Asc" selected="@(ViewBag.ServiceSort == "ServiceCompany_Asc" ? "selected" : null)">Servis Firması (A - Z)</option>
+                                <option value="ServiceCompany_Desc" selected="@(ViewBag.ServiceSort == "ServiceCompany_Desc" ? "selected" : null)">Servis Firması (Z - A)</option>
+                            </select>
+                            <button class="btn btn-sm btn-outline-secondary" type="submit">Uygula</button>
+                        </form>
+                        <a asp-action="CreateServiceHistory" asp-route-assetId="@Model.Id" class="btn btn-sm btn-primary">
+                            <i class="bi bi-plus-lg me-1"></i> Yeni Servis Kaydı
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Gönderim</th>
+                                    <th>Dönüş</th>
+                                    <th>Servis Firması</th>
+                                    <th>Garanti</th>
+                                    <th>Maliyet</th>
+                                    <th>Açıklama</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (Model.ServiceHistories != null && Model.ServiceHistories.Any())
+                                {
+                                    foreach (var item in Model.ServiceHistories)
+                                    {
+                                        <tr>
+                                            <td>@item.SendDate.ToString("dd.MM.yyyy")</td>
+                                            <td>@(item.ReturnDate.HasValue ? item.ReturnDate.Value.ToString("dd.MM.yyyy") : "-")</td>
+                                            <td>@(string.IsNullOrWhiteSpace(item.ServiceCompany) ? "-" : item.ServiceCompany)</td>
+                                            <td>
+                                                @if (item.IsWarranty)
+                                                {
+                                                    <span class="badge bg-success">Garanti</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">Garanti Dışı</span>
+                                                }
+                                            </td>
+                                            <td>@(item.Cost.HasValue ? item.Cost.Value.ToString("N2") : "-")</td>
+                                            <td>@item.Description</td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr><td colspan="6" class="text-center py-4 text-muted">Kayıt Yok</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade @(activeTab == "loans" ? "show active" : "")" id="loans" role="tabpanel">
             <div class="card shadow mb-4">
                 <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold text-primary">Zimmet Hareketleri</h6>

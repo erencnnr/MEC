@@ -27,6 +27,7 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<AssetStatus> AssetStatuses { get; set; }
         public DbSet<AssetImage> AssetImages { get; set; }
         public DbSet<AssetAttachment> AssetAttachments { get; set; }
+        public DbSet<ServiceHistory> ServiceHistories { get; set; }
         public DbSet<Invoice> Invoices { get; set; }
         public DbSet<Loan> Loans { get; set; }
         public DbSet<LoanStatus> LoanStatuses { get; set; }
