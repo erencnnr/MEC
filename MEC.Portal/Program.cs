@@ -1,29 +1,39 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
+
+// 1. ADIM: Önce Builder oluþturulur (En baþa bunu alýyoruz)
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// 2. ADIM: Servisler eklenir (Artýk builder var olduðu için hata vermez)
 builder.Services.AddControllersWithViews();
 
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Account/Login"; // Giriþ sayfasý yolu
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(20); // Oturum süresi
+    });
+
+// 3. ADIM: Uygulama inþa edilir (Build)
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// 4. ADIM: Uygulama ayarlarý (Middleware)
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles(); // Resim, CSS vb. dosyalar için gerekli standart kod
+
 app.UseRouting();
 
-app.UseAuthorization();
-
-app.MapStaticAssets();
+// BU ÝKÝLÝNÝN YERÝ ÇOK ÖNEMLÝ (Routing'den SONRA gelmeli)
+app.UseAuthentication(); // Kimlik kontrolü
+app.UseAuthorization();  // Yetki kontrolü
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}")
-    .WithStaticAssets();
-
+    pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
