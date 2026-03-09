@@ -1,0 +1,64 @@
+﻿@model MEC.Domain.Entity.Employee.EmployeePortal
+
+@{
+    ViewData["Title"] = "Profilim";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow border-0 rounded-lg">
+                <div class="card-header bg-primary text-white text-center py-4">
+                    <h3 class="mb-0 fw-bold">Profil Bilgilerim</h3>
+                </div>
+
+                <div class="card-body p-5">
+                    @if (Model == null)
+                    {
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle-fill"></i> @ViewBag.Error
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="row mb-4">
+                            <div class="col-sm-4 text-muted fw-bold">Ad Soyad:</div>
+                            <div class="col-sm-8 border-bottom pb-1">@Model.FirstName @Model.LastName</div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-sm-4 text-muted fw-bold">E-Posta:</div>
+                            <div class="col-sm-8 border-bottom pb-1">@Model.Email</div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-sm-4 text-muted fw-bold">Telefon:</div>
+                            <div class="col-sm-8 border-bottom pb-1">@Model.PhoneNumber</div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-sm-4 text-muted fw-bold">İşe Giriş Tarihi:</div>
+                            <div class="col-sm-8 border-bottom pb-1">@Model.HireDate.ToString("dd MMMM yyyy")</div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-sm-4 text-muted fw-bold">Doğum Tarihi:</div>
+                            <div class="col-sm-8 border-bottom pb-1">@Model.BirthDate.ToString("dd MMMM yyyy")</div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-sm-4 text-muted fw-bold">Kalan İzin Hakkı:</div>
+                            <div class="col-sm-8">
+                                <span class="badge bg-success fs-6 px-3 py-2">@Model.LeaveDays Gün</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="card-footer bg-light text-center py-3">
+                    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary">Ana Sayfaya Dön</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

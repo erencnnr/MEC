@@ -1,8 +1,43 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Ana Sayfa";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="text-center mt-5 mb-5">
+    <h1 class="display-5 fw-bold text-dark">MEC Portal'a Hoş Geldiniz</h1>
+    <p class="lead text-muted">Aşağıdaki menülerden yapmak istediğiniz işlemi seçebilirsiniz.</p>
+</div>
+
+<div class="row g-4 mt-2">
+    <!-- Kart 1 -->
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-body text-center p-4">
+                <h4 class="card-title text-primary fw-bold">Zimmetlerim</h4>
+                <p class="card-text text-muted mt-3 mb-4">Üzerinize kayıtlı olan tüm donanım ve demirbaş varlıklarını görüntüleyin.</p>
+                <a href="#" class="btn btn-primary w-100">Görüntüle</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kart 2 -->
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-body text-center p-4">
+                <h4 class="card-title text-success fw-bold">Yeni Talep</h4>
+                <p class="card-text text-muted mt-3 mb-4">İhtiyacınız olan yeni donanım, yazılım veya servis taleplerini oluşturun.</p>
+                <a href="#" class="btn btn-success w-100">Talep Oluştur</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kart 3 -->
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-body text-center p-4">
+                <h4 class="card-title text-secondary fw-bold">Geçmiş İşlemler</h4>
+                <p class="card-text text-muted mt-3 mb-4">Daha önce yaptığınız işlemleri ve servis hareketlerini inceleyin.</p>
+                <a href="#" class="btn btn-secondary w-100">Geçmişe Git</a>
+            </div>
+        </div>
+    </div>
 </div>

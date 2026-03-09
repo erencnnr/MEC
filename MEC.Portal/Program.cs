@@ -1,7 +1,46 @@
+using MEC.Application.Abstractions.Service.EmployeeService;
+using MEC.Application.Abstractions.Service.LoginService;
+using MEC.Application.Service.EmployeeService;
+using MEC.Application.Service.LoginService;
+using MEC.DAL.Config.Abstractions.Common;
+using MEC.DAL.Config.Applicaiton.EntityFramework;
+using MEC.DAL.Config.Contexts;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Authorization;
+using Microsoft.EntityFrameworkCore;
+
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Services.AddControllersWithViews();
+// 1. Veritabanı (DbContext) Kaydı
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+
+// 2. Generic Repository Kaydı (Hatanın temel çözüm noktası)
+builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+
+// Sisteme giren herkesin giriş yapmış olmasını zorunlu kılan filtre ayarı
+builder.Services.AddControllersWithViews(options =>
+{
+    var policy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser() // Herkes login olmak zorunda
+        .Build();
+    options.Filters.Add(new AuthorizeFilter(policy)); // Filtreyi tüm sisteme ekle
+});
+
+// Servis Kayıtları
+builder.Services.AddScoped<ILoginService, LoginService>();
+builder.Services.AddScoped<IEmployeePortalService, EmployeePortalService>();
+// Cookie Authentication Ayarları
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/Account/Login";
+        options.LogoutPath = "/Account/Logout";
+        options.AccessDeniedPath = "/Account/AccessDenied";
+    });
 
 var app = builder.Build();
 
@@ -9,7 +48,6 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
@@ -18,6 +56,8 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+// UseAuthentication ve UseAuthorization sıralaması
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(
