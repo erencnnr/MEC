@@ -25,7 +25,11 @@
                         <li class="nav-item me-3">
                             <span class="text-muted fw-bold">Hoş Geldiniz, @User.Identity?.Name</span>
                         </li>
-
+                        <li class="nav-item me-2">
+                            <a class="btn btn-outline-success fw-bold" asp-controller="Leave" asp-action="RequestLeave">
+                                <i class="bi bi-calendar-plus"></i> İzin Talep Et
+                            </a>
+                        </li>
                         @if (User.Identity.IsAuthenticated && User.IsInRole("Admin"))
                         {
                             <li class="nav-item me-2">
