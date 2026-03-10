@@ -1,7 +1,9 @@
 using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.LoginService;
+using MEC.Application.Abstractions.Service.SchoolService;
 using MEC.Application.Service.EmployeeService;
 using MEC.Application.Service.LoginService;
+using MEC.Application.Service.SchoolService;
 using MEC.DAL.Config.Abstractions.Common;
 using MEC.DAL.Config.Applicaiton.EntityFramework;
 using MEC.DAL.Config.Contexts;
@@ -33,6 +35,7 @@ builder.Services.AddControllersWithViews(options =>
 // Servis Kayıtları
 builder.Services.AddScoped<ILoginService, LoginService>();
 builder.Services.AddScoped<IEmployeePortalService, EmployeePortalService>();
+builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
 // Cookie Authentication Ayarları
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

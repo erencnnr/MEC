@@ -1,0 +1,68 @@
+﻿@model MEC.Domain.Entity.School.Announcement
+
+@{
+    ViewData["Title"] = "Yeni Duyuru Ekle";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container mt-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">Yeni Duyuru Ekle</h4>
+        </div>
+        <div class="card-body">
+            <form asp-action="Create" method="post">
+                <div class="mb-3">
+                    <label asp-for="Title" class="form-label fw-bold">Duyuru Başlığı</label>
+                    <input asp-for="Title" class="form-control" placeholder="Duyuru başlığını giriniz..." required />
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Content" class="form-label fw-bold">Duyuru İçeriği</label>
+                    <!-- ID kısmına summernote ekledik -->
+                    <textarea asp-for="Content" id="summernote" class="form-control" required></textarea>
+                </div>
+
+                <div class="mb-3 form-check">
+                    <input asp-for="IsActive" class="form-check-input" type="checkbox" checked="checked" />
+                    <label asp-for="IsActive" class="form-check-label">
+                        Aktif (Ana sayfada hemen yayınla)
+                    </label>
+                </div>
+
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-save"></i> Kaydet
+                    </button>
+                    <a asp-action="Index" class="btn btn-secondary">İptal / Geri Dön</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- Summernote CSS ve JS Dosyaları -->
+    <link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            // Textarea'yı Rich Text Editor'e çeviriyoruz
+            $('#summernote').summernote({
+                placeholder: 'Duyuru detaylarını yazın, resim veya link ekleyin...',
+                tabsize: 2,
+                height: 300, // Editörün yüksekliği
+                toolbar: [
+                  ['style', ['style']],
+                  ['font', ['bold', 'underline', 'clear']],
+                  ['color', ['color']],
+                  ['para', ['ul', 'ol', 'paragraph']],
+                  ['table', ['table']],
+                  ['insert', ['link', 'picture', 'video']],
+                  ['view', ['fullscreen', 'codeview', 'help']]
+                ]
+            });
+        });
+    </script>
+}

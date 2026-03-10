@@ -36,7 +36,7 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<Employee> Employees { get; set; }
         public DbSet<EmployeeType> EmployeeTypes { get; set; }
         public DbSet<EmployeePortal> EmployeePortals { get; set; }
-
+        public DbSet<Announcement> Announcements { get; set; }
 
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
