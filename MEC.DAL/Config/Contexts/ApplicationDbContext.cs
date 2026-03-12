@@ -38,7 +38,7 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<EmployeePortal> EmployeePortals { get; set; }
         public DbSet<Announcement> Announcements { get; set; }
 
-
+        public DbSet<Leave> Leaves { get; set; }
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
         {
             // Projedeki (aksi belirtilmeyen) TÜM string property'ler veritabanında varchar(255) olsun.

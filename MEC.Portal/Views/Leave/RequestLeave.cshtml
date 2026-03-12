@@ -5,6 +5,13 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
+<style>
+    .weekend-day {
+        color: #dc3545 !important; /* Kırmızı renk */
+        font-weight: bold;
+    }
+</style>
+
 <div class="container mt-5">
     <div class="row justify-content-center">
         <div class="col-md-8">
@@ -22,11 +29,11 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Başlangıç Tarihi</label>
-                                <input asp-for="StartDate" class="form-control datepicker" placeholder="Tarih Seçiniz" required autocomplete="off" />
+                                <input asp-for="StartDate" class="form-control" placeholder="Tarih Seçiniz" required autocomplete="off" />
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Bitiş Tarihi</label>
-                                <input asp-for="EndDate" class="form-control datepicker" placeholder="Tarih Seçiniz" required autocomplete="off" />
+                                <input asp-for="EndDate" class="form-control" placeholder="Tarih Seçiniz" required autocomplete="off" />
                             </div>
                         </div>
 
@@ -52,20 +59,53 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://npmcdn.com/flatpickr/dist/l10n/tr.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <script>
         $(document).ready(function () {
-            // "datepicker" class'ına sahip inputları harika bir takvime dönüştürüyoruz
-            flatpickr(".datepicker", {
-                locale: "tr", // Takvimi Türkçe yap
-                dateFormat: "d.m.Y", // Türkiye tarih formatı (Gün.Ay.Yıl)
-                minDate: "today", // Geçmiş tarihler seçilemesin
-                disable: [
-                    function(date) {
-                        // (Opsiyonel) Hafta sonlarını (Cumartesi-Pazar) seçime kapatmak istersen bu kodu açabilirsin
-                        return (date.getDay() === 0 || date.getDay() === 6);
+
+            // 1. ORTAK AYAR: Hafta sonlarını (Cumartesi=6, Pazar=0) bulup kırmızı sınıfını ekleyen fonksiyon
+            const flatpickrConfig = {
+                locale: "tr",
+                dateFormat: "d.m.Y",
+                onDayCreate: function(dObj, dStr, fp, dayElem) {
+                    if (dayElem.dateObj.getDay() === 0 || dayElem.dateObj.getDay() === 6) {
+                        dayElem.classList.add("weekend-day");
                     }
-                ]
+                }
+            };
+
+            // 2. BİTİŞ TAKVİMİNİ OLUŞTUR (Önce bunu oluşturuyoruz ki başlangıç değişince buna müdahale edebilelim)
+            const endDatePicker = flatpickr("#EndDate", flatpickrConfig);
+
+            // 3. BAŞLANGIÇ TAKVİMİNİ OLUŞTUR VE BİTİŞE BAĞLA
+            flatpickr("#StartDate", {
+                ...flatpickrConfig, // Ortak ayarları (hafta sonu kırmızısı vs.) dahil et
+                onChange: function(selectedDates, dateStr, instance) {
+                    // Kullanıcı başlangıç tarihi seçtiğinde çalışır
+                    if (selectedDates.length > 0) {
+                        // Bitiş takviminin seçilebilir en küçük gününü (minDate), Başlangıç tarihi olarak ayarla!
+                        endDatePicker.set("minDate", selectedDates[0]);
+                    } else {
+                        // Eğer başlangıç tarihi silinirse kısıtlamayı kaldır
+                        endDatePicker.set("minDate", null);
+                    }
+                }
             });
+
+            // BAŞARI MESAJI (Aynı kaldı)
+            var successMessage = '@Html.Raw(TempData["LeaveSuccess"] ?? "")';
+
+            if (successMessage && successMessage !== '') {
+                Swal.fire({
+                    title: 'Başarılı!',
+                    text: successMessage,
+                    icon: 'success',
+                    confirmButtonText: 'Tamam',
+                    confirmButtonColor: '#198754'
+                });
+            }
         });
     </script>
 }
