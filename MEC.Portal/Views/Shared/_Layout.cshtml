@@ -32,10 +32,8 @@
                         </li>
                         @if (User.Identity.IsAuthenticated && User.IsInRole("Admin"))
                         {
-                            <li class="nav-item me-2">
-                                <a class="btn btn-warning fw-bold" asp-controller="Announcement" asp-action="Index">
-                                    Admin Paneli
-                                </a>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark font-weight-bold" asp-area="" asp-controller="Admin" asp-action="Index">Admin Panel</a>
                             </li>
                         }
                         <li class="nav-item me-2">

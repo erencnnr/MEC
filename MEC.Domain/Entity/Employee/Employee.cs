@@ -2,9 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using MEC.Domain.Entity.Leave; // Bu satırın olduğundan emin olun
 
 namespace MEC.Domain.Entity.Employee
 {
@@ -19,6 +17,8 @@ namespace MEC.Domain.Entity.Employee
         public bool IsDeleted { get; set; } = false;
         public int? EmployeeTypeId { get; set; }
         public EmployeeType? EmployeeType { get; set; }
-        public ICollection<Leave>? Leaves { get; set; }
+
+        // HATA VEREN SATIRI BU ŞEKİLDE DEĞİŞTİRİN:
+        public ICollection<MEC.Domain.Entity.Leave.Leave>? Leaves { get; set; }
     }
 }

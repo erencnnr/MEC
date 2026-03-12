@@ -1,4 +1,5 @@
 using MEC.Application.Abstractions.Service.EmployeeService;
+using MEC.Application.Abstractions.Service.LeaveService;
 using MEC.Application.Abstractions.Service.LoginService;
 using MEC.Application.Abstractions.Service.SchoolService;
 using MEC.Application.Service.EmployeeService;
@@ -7,11 +8,11 @@ using MEC.Application.Service.SchoolService;
 using MEC.DAL.Config.Abstractions.Common;
 using MEC.DAL.Config.Applicaiton.EntityFramework;
 using MEC.DAL.Config.Contexts;
+using MEC.Portal.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
-using MEC.Portal.Services;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -38,6 +39,7 @@ builder.Services.AddScoped<ILoginService, LoginService>();
 builder.Services.AddScoped<IEmployeePortalService, EmployeePortalService>();
 builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<ILeaveService, LeaveService>();
 // Cookie Authentication Ayarları
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
