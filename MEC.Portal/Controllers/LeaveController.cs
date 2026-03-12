@@ -1,45 +1,101 @@
-﻿using MEC.Application.Abstractions.Service.LeaveService;
+using System;
+using System.Globalization;
+using System.Linq;
 using MEC.DAL.Config.Abstractions.Common;
+using MEC.Domain.Entity.Employee;
 using MEC.Domain.Entity.Leave;
-using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Linq; // OrderByDescending ve ToList için gerekli
-using System.Threading.Tasks;
+using MEC.Portal.Models;
+using Microsoft.AspNetCore.Mvc;
 
-namespace MEC.Application.Service.LeaveService
+namespace MEC.Portal.Controllers
 {
-    public class LeaveService : ILeaveService
+    public class LeaveController : Controller
     {
-        // İsim çakışmasını (namespace vs class) önlemek için tam yol kullanıyoruz
-        private readonly IGenericRepository<MEC.Domain.Entity.Leave.Leave> _leaveRepository;
+        private static readonly string[] SupportedDateFormats = { "d.M.yyyy", "dd.MM.yyyy" };
 
-        public LeaveService(IGenericRepository<MEC.Domain.Entity.Leave.Leave> leaveRepository)
+        private readonly IGenericRepository<Leave> _leaveRepository;
+        private readonly IGenericRepository<Employee> _employeeRepository;
+
+        public LeaveController(
+            IGenericRepository<Leave> leaveRepository,
+            IGenericRepository<Employee> employeeRepository)
         {
             _leaveRepository = leaveRepository;
+            _employeeRepository = employeeRepository;
         }
 
-        public async Task<List<MEC.Domain.Entity.Leave.Leave>> GetAllLeavesAsync()
+        [HttpGet]
+        public IActionResult RequestLeave()
         {
-            // 1. HATA ÇÖZÜMÜ: Arayüzündeki metodun adı 'GetAll' değil 'GetAllAsync()'
-            var leaves = await _leaveRepository.GetAllAsync();
-
-            // IEnumerable sonucunu tarihe göre sıralayıp Listeye çeviriyoruz
-            return leaves.OrderByDescending(x => x.CreatedDate).ToList();
+            return View(new LeaveRequestViewModel());
         }
 
-        public async Task<bool> UpdateLeaveStatusAsync(int leaveId, int status)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RequestLeave(LeaveRequestViewModel model)
         {
-            var leave = await _leaveRepository.GetByIdAsync(leaveId);
-            if (leave == null) return false;
+            if (!TryParseDate(model.StartDate, out var startDate))
+            {
+                ModelState.AddModelError(nameof(model.StartDate), "Baslangic tarihi gecersiz.");
+            }
 
-            leave.Status = status;
+            if (!TryParseDate(model.EndDate, out var endDate))
+            {
+                ModelState.AddModelError(nameof(model.EndDate), "Bitis tarihi gecersiz.");
+            }
 
-            // 2. HATA ÇÖZÜMÜ: IGenericRepository arayüzünde 'SaveAsync' metodu bulunmuyor
-            // Ancak GenericRepository.Update metodun kendi içinde zaten '_context.SaveChanges()' çağırıyor
-            // Bu yüzden harici bir kaydetme metoduna ihtiyacın yok.
-            _leaveRepository.Update(leave);
+            if (ModelState.IsValid && endDate < startDate)
+            {
+                ModelState.AddModelError(nameof(model.EndDate), "Bitis tarihi baslangic tarihinden once olamaz.");
+            }
 
-            return true;
+            if (string.IsNullOrWhiteSpace(model.Reason))
+            {
+                ModelState.AddModelError(nameof(model.Reason), "Izin nedeni zorunludur.");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            var userEmail = User.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(userEmail))
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            var employee = (await _employeeRepository.GetAllAsync(x => x.Email == userEmail && !x.IsDeleted)).FirstOrDefault();
+            if (employee == null)
+            {
+                ModelState.AddModelError(string.Empty, "Kullanici kaydi bulunamadi.");
+                return View(model);
+            }
+
+            var leaveRequest = new Leave
+            {
+                EmployeeId = employee.Id,
+                StartDate = startDate,
+                EndDate = endDate,
+                Reason = model.Reason.Trim(),
+                Status = 0,
+                CreatedDate = DateTime.Now
+            };
+
+            await _leaveRepository.AddAsync(leaveRequest);
+
+            TempData["LeaveSuccess"] = "Izin talebiniz basariyla gonderildi.";
+            return RedirectToAction(nameof(RequestLeave));
+        }
+
+        private static bool TryParseDate(string? value, out DateTime date)
+        {
+            return DateTime.TryParseExact(
+                value,
+                SupportedDateFormats,
+                CultureInfo.GetCultureInfo("tr-TR"),
+                DateTimeStyles.None,
+                out date);
         }
     }
 }
