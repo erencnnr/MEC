@@ -1,30 +1,158 @@
-﻿@{
+@model MEC.Portal.Models.AdminDashboardViewModel
+
+@{
     ViewData["Title"] = "Admin Dashboard";
-    Layout = "_AdminLayout"; // Özel layout'umuzu kullanıyoruz
-}
-
-<h2 class="mb-4">Admin Dashboard'a Hoş Geldiniz</h2>
-<p>Buradan portalın genel yönetimini gerçekleştirebilirsiniz. İşlem yapmak istediğiniz modülü sağdaki menüden seçin.</p>
-@{
-    ViewData["Title"] = "Duyuru Yönetimi";
     Layout = "_AdminLayout";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Duyuru Yönetimi</h2>
-    <button class="btn btn-primary">+ Yeni Duyuru Ekle</button>
-</div>
+<section class="dashboard-hero">
+    <div>
+        <span class="dashboard-hero__eyebrow">Yonetim merkezi</span>
+        <h1>Hos geldiniz, @Model.AdminName</h1>
+        <p>
+            Izin sureclerini, duyuru trafigini ve personel durumunu tek ekrandan takip edebilirsiniz.
+        </p>
+    </div>
 
-<p>Sistemdeki duyuruların listesi ve yönetim paneli burada yer alacak.</p>
+    <div class="dashboard-hero__meta">
+        <span>Guncellenme</span>
+        <strong>@Model.GeneratedAt.ToString("dd MMMM yyyy, HH:mm")</strong>
+    </div>
+</section>
 
-@{
-    ViewData["Title"] = "Duyuru Yönetimi";
-    Layout = "_AdminLayout";
-}
+<section class="dashboard-metrics">
+    <article class="dashboard-metric-card">
+        <span class="dashboard-metric-card__label">Bekleyen izin talepleri</span>
+        <strong>@Model.PendingLeaveCount</strong>
+        <p>Onay bekleyen personel izin talepleri</p>
+    </article>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Duyuru Yönetimi</h2>
-    <button class="btn btn-primary">+ Yeni Duyuru Ekle</button>
-</div>
+    <article class="dashboard-metric-card">
+        <span class="dashboard-metric-card__label">Toplam duyuru</span>
+        <strong>@Model.TotalAnnouncementCount</strong>
+        <p>Sistemde kayitli tum duyurular</p>
+    </article>
 
-<p>Sistemdeki duyuruların listesi ve yönetim paneli burada yer alacak.</p>
+    <article class="dashboard-metric-card">
+        <span class="dashboard-metric-card__label">Bugun eklenen duyuru</span>
+        <strong>@Model.TodayAnnouncementCount</strong>
+        <p>Gun icinde yayinlanan yeni duyurular</p>
+    </article>
+
+    <article class="dashboard-metric-card dashboard-metric-card--alert">
+        <span class="dashboard-metric-card__label">Negatif izin bakiyesi</span>
+        <strong>@Model.NegativeLeaveBalanceCount</strong>
+        <p>Takip edilmesi gereken personel sayisi</p>
+    </article>
+</section>
+
+<section class="dashboard-grid">
+    <article class="dashboard-panel">
+        <div class="dashboard-panel__head">
+            <div>
+                <span class="dashboard-panel__eyebrow">Son izin talepleri</span>
+                <h2>Yakin donem istekleri</h2>
+            </div>
+            <a class="dashboard-panel__link" asp-controller="Admin" asp-action="LeaveRequests">Tum talepler</a>
+        </div>
+
+        @if (Model.RecentLeaveRequests.Any())
+        {
+            <div class="dashboard-activity-list">
+                @foreach (var item in Model.RecentLeaveRequests)
+                {
+                    <div class="dashboard-activity-item">
+                        <div>
+                            <h3>@item.EmployeeName</h3>
+                            <p>@item.LeaveType - @item.RequestedDays Gun</p>
+                            <small>@item.StartDate.ToString("dd.MM.yyyy") - @item.EndDate.ToString("dd.MM.yyyy")</small>
+                        </div>
+                        <div class="dashboard-activity-item__side">
+                            @if (item.Status == 0)
+                            {
+                                <span class="dashboard-badge dashboard-badge--pending">Bekliyor</span>
+                            }
+                            else if (item.Status == 1)
+                            {
+                                <span class="dashboard-badge dashboard-badge--success">Onaylandi</span>
+                            }
+                            else
+                            {
+                                <span class="dashboard-badge dashboard-badge--danger">Reddedildi</span>
+                            }
+                            <small>@(item.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</small>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="dashboard-empty-state">
+                <h3>Henuz izin talebi yok</h3>
+                <p>Yeni izin kayitlari olustugunda burada listelenecek.</p>
+            </div>
+        }
+    </article>
+
+    <article class="dashboard-panel">
+        <div class="dashboard-panel__head">
+            <div>
+                <span class="dashboard-panel__eyebrow">Son duyurular</span>
+                <h2>Yayin akisinin ozeti</h2>
+            </div>
+            <a class="dashboard-panel__link" asp-controller="Admin" asp-action="Announcements">Yonet</a>
+        </div>
+
+        @if (Model.RecentAnnouncements.Any())
+        {
+            <div class="dashboard-announcement-list">
+                @foreach (var item in Model.RecentAnnouncements)
+                {
+                    <div class="dashboard-announcement-item">
+                        <div>
+                            <h3>@item.Title</h3>
+                            <small>@(item.CreatedDate?.ToString("dd MMMM yyyy, HH:mm") ?? "-")</small>
+                        </div>
+                        <span class="dashboard-badge @(item.IsActive ? "dashboard-badge--info" : "dashboard-badge--muted")">
+                            @(item.IsActive ? "Aktif" : "Pasif")
+                        </span>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="dashboard-empty-state">
+                <h3>Henuz duyuru yok</h3>
+                <p>Yeni duyurular olusturuldugunda burada listelenecek.</p>
+            </div>
+        }
+    </article>
+</section>
+
+<section class="dashboard-actions-panel">
+    <div class="dashboard-panel__head">
+        <div>
+            <span class="dashboard-panel__eyebrow">Hizli islemler</span>
+            <h2>Yonetim kisayollari</h2>
+        </div>
+    </div>
+
+    <div class="dashboard-actions-grid">
+        <a class="dashboard-action-card" asp-controller="Admin" asp-action="Announcements">
+            <h3>Yeni duyuru olustur</h3>
+            <p>Okul genelindeki bilgilendirmeleri hizlica yayinlayin.</p>
+        </a>
+
+        <a class="dashboard-action-card" asp-controller="Admin" asp-action="LeaveRequests">
+            <h3>Izin taleplerini incele</h3>
+            <p>Bekleyen talepleri onaylayin veya reddedin.</p>
+        </a>
+
+        <a class="dashboard-action-card" asp-controller="Profile" asp-action="Index">
+            <h3>Profil akisina git</h3>
+            <p>Personel tarafinda gorulen izin ve gecmis deneyimini kontrol edin.</p>
+        </a>
+    </div>
+</section>

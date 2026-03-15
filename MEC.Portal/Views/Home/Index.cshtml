@@ -1,56 +1,125 @@
-﻿@model IEnumerable<MEC.Domain.Entity.School.Announcement>
+@model IEnumerable<MEC.Domain.Entity.School.Announcement>
 
 @{
     ViewData["Title"] = "Ana Sayfa";
+
+    var announcements = Model?.OrderByDescending(x => x.CreatedDate).ToList() ?? new System.Collections.Generic.List<MEC.Domain.Entity.School.Announcement>();
+    var latestAnnouncement = announcements.FirstOrDefault();
+    var announcementCount = announcements.Count;
 }
 
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8">
-            <div class="p-5 mb-4 bg-light rounded-3 shadow-sm border">
-                <div class="container-fluid py-2">
-                    <h1 class="display-5 fw-bold text-primary">MEC Portal'a Hoş Geldiniz</h1>
-                    <p class="col-md-10 fs-5 mt-3">
-                        Burası okul yönetim sistemimizin ana sayfasıdır. Güncel gelişmeleri sağ taraftaki duyurular panelinden takip edebilirsiniz.
-                    </p>
-                </div>
-            </div>
+<section class="home-hero">
+    <div class="home-hero__content">
+        <span class="home-hero__eyebrow">MEC Okul Portali</span>
+        <h1>Dijital okul akisini tek ekranda yonetin.</h1>
+        <p>
+            Personel islemleri, izin surecleri ve kurumsal duyurular sade, hizli ve guvenilir bir deneyimle ayni
+            merkezde bulusuyor.
+        </p>
+
+        <div class="home-hero__actions">
+            <a class="home-btn home-btn--primary" asp-controller="Leave" asp-action="RequestLeave">Izin Talep Et</a>
+            <a class="home-btn home-btn--secondary" asp-controller="Home" asp-action="Announcements">Duyurulari Incele</a>
         </div>
 
-        <div class="col-md-4">
-            <div class="card-header bg-info text-white fw-bold d-flex justify-content-between align-items-center">
-                <span class="fs-5">🔔 Güncel Duyurular</span>
-                <a asp-controller="Home" asp-action="Announcements" class="btn btn-sm btn-light text-info fw-bold shadow-sm">
-                    Tümünü Gör
-                </a>
+        <div class="home-hero__stats">
+            <div class="home-stat-card">
+                <span class="home-stat-card__label">Aktif duyuru</span>
+                <strong>@announcementCount</strong>
             </div>
-                <div class="card-body p-0">
-                    <ul class="list-group list-group-flush">
-                        @if (Model != null && Model.Any())
-                        {
-                            // Duyuruları en yeni tarihli olan en üstte çıkacak şekilde sıralıyoruz
-                            foreach (var item in Model.OrderByDescending(x => x.CreatedDate))
-                            {
-                                <li class="list-group-item p-3 hover-shadow">
-                                    <h6 class="mb-1 text-primary fw-bold">@item.Title</h6>
-                                    <p class="mb-2 text-muted" style="font-size: 0.9rem;">
-                                    @Html.Raw(item.Content)
-                                    </p>
-                                    <div class="text-end text-secondary" style="font-size: 0.75rem;">
-                                        <em>@(item.CreatedDate?.ToString("dd MMMM yyyy, HH:mm") ?? "")</em>
-                                    </div>
-                                </li>
-                            }
-                        }
-                        else
-                        {
-                            <li class="list-group-item text-muted text-center py-4">
-                                <em>Şu an için aktif bir duyuru bulunmamaktadır.</em>
-                            </li>
-                        }
-                    </ul>
-                </div>
+            <div class="home-stat-card">
+                <span class="home-stat-card__label">Portal alani</span>
+                <strong>Personel ve yonetim</strong>
+            </div>
+            <div class="home-stat-card">
+                <span class="home-stat-card__label">Sistem odagi</span>
+                <strong>Okul surecleri</strong>
             </div>
         </div>
     </div>
-</div>
+
+    <div class="home-hero__panel">
+        <div class="home-hero__panel-card home-hero__panel-card--primary">
+            <span class="home-panel__label">Bugunun ozeti</span>
+            <h2>Kurumsal iletisim ve personel takibi modern bir duzende.</h2>
+            <p>Logo renkleriyle uyumlu bir arayuzde duyuru, izin ve profil akislari birbirini tamamliyor.</p>
+        </div>
+
+        <div class="home-hero__panel-card home-hero__panel-card--glass">
+            <span class="home-panel__label">Son duyuru</span>
+            @if (latestAnnouncement != null)
+            {
+                <h3>@latestAnnouncement.Title</h3>
+                <p>@(latestAnnouncement.CreatedDate?.ToString("dd.MM.yyyy HH:mm") ?? "-")</p>
+            }
+            else
+            {
+                <h3>Henuz aktif duyuru yok</h3>
+                <p>Yeni duyurular yayinlandiginda burada gorunecek.</p>
+            }
+        </div>
+    </div>
+</section>
+
+<section class="home-overview">
+    <div class="home-section-head">
+        <div>
+            <span class="home-section-head__eyebrow">Hizli erisim</span>
+            <h2>Gunluk kullanim icin temel alanlar</h2>
+        </div>
+    </div>
+
+    <div class="home-feature-grid">
+        <article class="home-feature-card">
+            <span class="home-feature-card__accent"></span>
+            <h3>Izin surecleri</h3>
+            <p>Personel izin taleplerini iletir, yonetim tek panelden durum gunceller.</p>
+        </article>
+
+        <article class="home-feature-card">
+            <span class="home-feature-card__accent"></span>
+            <h3>Duyuru akisi</h3>
+            <p>Okul genelindeki gelismeler tek merkezden yayinlanir ve herkes tarafindan hizla gorulur.</p>
+        </article>
+
+        <article class="home-feature-card">
+            <span class="home-feature-card__accent"></span>
+            <h3>Profil ve takip</h3>
+            <p>Calisanlar kalan izinlerini, bekleyen taleplerini ve gecmis kayitlarini profil ekranindan izler.</p>
+        </article>
+    </div>
+</section>
+
+<section class="home-announcements">
+    <div class="home-section-head home-section-head--spaced">
+        <div>
+            <span class="home-section-head__eyebrow">Guncel duyurular</span>
+            <h2>Okuldan son paylasimlar</h2>
+        </div>
+        <a class="home-link-pill" asp-controller="Home" asp-action="Announcements">Tum duyurular</a>
+    </div>
+
+    @if (announcements.Any())
+    {
+        <div class="home-announcement-grid">
+            @foreach (var item in announcements.Take(4))
+            {
+                <article class="home-announcement-card">
+                    <div class="home-announcement-card__meta">
+                        <span>Yayin tarihi</span>
+                        <strong>@(item.CreatedDate?.ToString("dd MMMM yyyy") ?? "-")</strong>
+                    </div>
+                    <h3>@item.Title</h3>
+                    <div class="home-announcement-card__content">@Html.Raw(item.Content)</div>
+                </article>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="home-empty-state">
+            <h3>Su an aktif duyuru bulunmuyor.</h3>
+            <p>Yeni duyurular yayinlandiginda bu alanda listelenecek.</p>
+        </div>
+    }
+</section>

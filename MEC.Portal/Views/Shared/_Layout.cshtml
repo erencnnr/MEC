@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="utf-8" />
@@ -8,47 +8,55 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body class="bg-light">
-    <header>
-        <nav class="navbar navbar-expand-lg navbar-white bg-white border-bottom shadow-sm mb-4 py-3">
-            <div class="container-fluid px-4">
+    @{
+        var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+        var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
 
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">
-                    <img src="~/content/images/logo.png" alt="MEC Logo" style="height: 40px;" />
+        string HeaderNavState(string controller, string action)
+        {
+            return string.Equals(currentController, controller, System.StringComparison.OrdinalIgnoreCase) &&
+                   string.Equals(currentAction, action, System.StringComparison.OrdinalIgnoreCase)
+                ? "portal-header__nav-link is-active"
+                : "portal-header__nav-link";
+        }
+    }
+
+    <header>
+        <nav class="navbar navbar-expand-lg portal-header mb-4">
+            <div class="container-fluid px-4 portal-header__inner">
+                <a class="navbar-brand portal-header__brand" asp-area="" asp-controller="Home" asp-action="Index">
+                    <span class="portal-header__brand-mark">
+                        <img src="~/content/images/logo.png" alt="MEC Logo" />
+                    </span>
+                    <span class="portal-header__brand-text">
+                        <strong>MEC Portal</strong>
+                        <small>Okul Yonetim Platformu</small>
+                    </span>
                 </a>
 
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+                <button class="navbar-toggler portal-header__toggle" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
-                <div class="collapse navbar-collapse justify-content-end" id="navbarContent">
-                    <ul class="navbar-nav align-items-center">
-                        <li class="nav-item me-3">
-                            <span class="text-muted fw-bold">Hoş Geldiniz, @User.Identity?.Name</span>
-                        </li>
-                        <li class="nav-item me-2">
-                            <a class="btn btn-outline-success fw-bold" asp-controller="Leave" asp-action="RequestLeave">
-                                <i class="bi bi-calendar-plus"></i> İzin Talep Et
-                            </a>
-                        </li>
-                        @if (User.Identity.IsAuthenticated && User.IsInRole("Admin"))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark font-weight-bold" asp-area="" asp-controller="Admin" asp-action="Index">Admin Panel</a>
-                            </li>
-                        }
-                        <li class="nav-item me-2">
-                            <a class="btn btn-outline-primary" asp-controller="Profile" asp-action="Index">
-                                Profilim
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="btn btn-danger" asp-controller="Account" asp-action="Logout">
-                                Çıkış Yap
-                            </a>
-                        </li>
-                    </ul>
-                </div>
+                <div class="collapse navbar-collapse" id="navbarContent">
+                    <div class="portal-header__content ms-auto">
+                        <div class="portal-header__nav">
+                            <a class="@HeaderNavState("Home", "Index")" asp-controller="Home" asp-action="Index">Ana Sayfa</a>
+                            <a class="@HeaderNavState("Home", "Announcements")" asp-controller="Home" asp-action="Announcements">Duyurular</a>
+                            <a class="@HeaderNavState("Profile", "Index")" asp-controller="Profile" asp-action="Index">Profilim</a>
+                            @if (User.Identity.IsAuthenticated && User.IsInRole("Admin"))
+                            {
+                                <a class="@HeaderNavState("Admin", "Index")" asp-area="" asp-controller="Admin" asp-action="Index">Admin Panel</a>
+                            }
+                        </div>
 
+                        <div class="portal-header__actions">
+                            <span class="portal-header__welcome">Hos geldiniz, @User.Identity?.Name</span>
+                            <a class="portal-header__button portal-header__button--primary" asp-controller="Leave" asp-action="RequestLeave">Izin Talep Et</a>
+                            <a class="portal-header__button portal-header__button--ghost" asp-controller="Account" asp-action="Logout">Cikis Yap</a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </nav>
     </header>

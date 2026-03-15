@@ -12,6 +12,14 @@ namespace MEC.Portal.Controllers
     public class LeaveController : Controller
     {
         private static readonly string[] SupportedDateFormats = { "d.M.yyyy", "dd.MM.yyyy" };
+        private static readonly string[] AllowedLeaveTypes =
+        {
+            "Yıllık İzin",
+            "Hastalık İzni",
+            "Mazeret İzni",
+            "Ücretsiz İzin",
+            "Diğer"
+        };
 
         private readonly IGenericRepository<Leave> _leaveRepository;
         private readonly IGenericRepository<Employee> _employeeRepository;
@@ -54,6 +62,11 @@ namespace MEC.Portal.Controllers
                 ModelState.AddModelError(nameof(model.Reason), "Izin nedeni zorunludur.");
             }
 
+            if (string.IsNullOrWhiteSpace(model.LeaveType) || !AllowedLeaveTypes.Contains(model.LeaveType))
+            {
+                ModelState.AddModelError(nameof(model.LeaveType), "Gecerli bir izin turu seciniz.");
+            }
+
             if (!ModelState.IsValid)
             {
                 return View(model);
@@ -77,6 +90,8 @@ namespace MEC.Portal.Controllers
                 EmployeeId = employee.Id,
                 StartDate = startDate,
                 EndDate = endDate,
+                LeaveType = model.LeaveType.Trim(),
+                RequestedDays = (endDate.Date - startDate.Date).Days + 1,
                 Reason = model.Reason.Trim(),
                 Status = 0,
                 CreatedDate = DateTime.Now

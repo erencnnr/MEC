@@ -1,7 +1,10 @@
-﻿@model MEC.Domain.Entity.Employee.EmployeePortal
+@model MEC.Portal.Models.ProfileViewModel
 
 @{
     ViewData["Title"] = "Profilim";
+    const int annualLeaveAllowance = 14;
+    var profile = Model?.Profile;
+    var usedLeaveDays = profile == null ? 0 : annualLeaveAllowance - profile.LeaveDays;
 }
 
 <div class="container mt-5">
@@ -13,7 +16,7 @@
                 </div>
 
                 <div class="card-body p-5">
-                    @if (Model == null)
+                    @if (profile == null)
                     {
                         <div class="alert alert-warning">
                             <i class="bi bi-exclamation-triangle-fill"></i> @ViewBag.Error
@@ -21,39 +24,126 @@
                     }
                     else
                     {
+                        @if (Model.PendingAnnualLeaveCount > 0)
+                        {
+                            <div class="alert alert-warning d-flex justify-content-between align-items-center mb-4">
+                                <div>
+                                    <strong>Bekleyen yıllık izin talebiniz var.</strong>
+                                    Admin onayı bekleniyor.
+                                </div>
+                                <span class="badge bg-dark">@Model.PendingAnnualLeaveCount Talep / @Model.PendingAnnualLeaveDays Gün</span>
+                            </div>
+                        }
+
                         <div class="row mb-4">
                             <div class="col-sm-4 text-muted fw-bold">Ad Soyad:</div>
-                            <div class="col-sm-8 border-bottom pb-1">@Model.FirstName @Model.LastName</div>
+                            <div class="col-sm-8 border-bottom pb-1">@profile.FirstName @profile.LastName</div>
                         </div>
 
                         <div class="row mb-4">
                             <div class="col-sm-4 text-muted fw-bold">E-Posta:</div>
-                            <div class="col-sm-8 border-bottom pb-1">@Model.Email</div>
+                            <div class="col-sm-8 border-bottom pb-1">@profile.Email</div>
                         </div>
 
                         <div class="row mb-4">
                             <div class="col-sm-4 text-muted fw-bold">Telefon:</div>
-                            <div class="col-sm-8 border-bottom pb-1">@Model.PhoneNumber</div>
+                            <div class="col-sm-8 border-bottom pb-1">@profile.PhoneNumber</div>
                         </div>
 
                         <div class="row mb-4">
                             <div class="col-sm-4 text-muted fw-bold">İşe Giriş Tarihi:</div>
-                            <div class="col-sm-8 border-bottom pb-1">@Model.HireDate.ToString("dd MMMM yyyy")</div>
+                            <div class="col-sm-8 border-bottom pb-1">@profile.HireDate.ToString("dd MMMM yyyy")</div>
                         </div>
 
                         <div class="row mb-4">
                             <div class="col-sm-4 text-muted fw-bold">Doğum Tarihi:</div>
-                            <div class="col-sm-8 border-bottom pb-1">@Model.BirthDate.ToString("dd MMMM yyyy")</div>
+                            <div class="col-sm-8 border-bottom pb-1">@profile.BirthDate.ToString("dd MMMM yyyy")</div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-sm-4 text-muted fw-bold">Yıllık İzin Hakkı:</div>
+                            <div class="col-sm-8 border-bottom pb-1">14 Gün</div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-sm-4 text-muted fw-bold">Kullanılan Yıllık İzin:</div>
+                            <div class="col-sm-8">
+                                <span class="badge bg-secondary fs-6 px-3 py-2">@usedLeaveDays Gün</span>
+                            </div>
                         </div>
 
                         <div class="row mb-4">
                             <div class="col-sm-4 text-muted fw-bold">Kalan İzin Hakkı:</div>
                             <div class="col-sm-8">
-                                <span class="badge bg-success fs-6 px-3 py-2">@Model.LeaveDays Gün</span>
+                                <span class="badge @(profile.LeaveDays < 0 ? "bg-danger" : "bg-success") fs-6 px-3 py-2">@profile.LeaveDays Gün</span>
                             </div>
                         </div>
                     }
                 </div>
+
+                @if (profile != null)
+                {
+                    <div class="card-footer bg-white border-top-0 px-5 pb-4">
+                        <h5 class="fw-bold mb-3">İzin Geçmişim</h5>
+
+                        @if (!Model.LeaveHistory.Any())
+                        {
+                            <div class="alert alert-light border mb-0">Henüz oluşturulmuş izin talebiniz bulunmuyor.</div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Tarih</th>
+                                            <th>İzin Türü</th>
+                                            <th>Aralık</th>
+                                            <th>Gün</th>
+                                            <th>Durum</th>
+                                            <th>Kalan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in Model.LeaveHistory)
+                                        {
+                                            <tr>
+                                                <td>@(item.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</td>
+                                                <td>@item.LeaveType</td>
+                                                <td>@item.StartDate.ToString("dd.MM.yyyy") - @item.EndDate.ToString("dd.MM.yyyy")</td>
+                                                <td>@item.RequestedDays Gün</td>
+                                                <td>
+                                                    @if (item.Status == 0)
+                                                    {
+                                                        <span class="badge bg-warning text-dark">Bekliyor</span>
+                                                    }
+                                                    else if (item.Status == 1)
+                                                    {
+                                                        <span class="badge bg-success">Onaylandı</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-danger">Reddedildi</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (item.Status == 1)
+                                                    {
+                                                        <span class="badge @(item.RemainingLeaveDays < 0 ? "bg-danger" : "bg-info")">@item.RemainingLeaveDays Gün</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">-</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                }
 
                 <div class="card-footer bg-light text-center py-3">
                     <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary">Ana Sayfaya Dön</a>

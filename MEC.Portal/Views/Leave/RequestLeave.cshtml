@@ -25,21 +25,38 @@
                     </p>
 
                     <form asp-action="RequestLeave" method="post">
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Başlangıç Tarihi</label>
                                 <input asp-for="StartDate" class="form-control" placeholder="Tarih Seçiniz" required autocomplete="off" />
+                                <span asp-validation-for="StartDate" class="text-danger small"></span>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Bitiş Tarihi</label>
                                 <input asp-for="EndDate" class="form-control" placeholder="Tarih Seçiniz" required autocomplete="off" />
+                                <span asp-validation-for="EndDate" class="text-danger small"></span>
                             </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="LeaveType" class="form-label fw-bold">İzin Türü</label>
+                            <select asp-for="LeaveType" class="form-select" required>
+                                <option value="">İzin türü seçiniz</option>
+                                <option value="Yıllık İzin">Yıllık İzin</option>
+                                <option value="Hastalık İzni">Hastalık İzni</option>
+                                <option value="Mazeret İzni">Mazeret İzni</option>
+                                <option value="Ücretsiz İzin">Ücretsiz İzin</option>
+                                <option value="Diğer">Diğer</option>
+                            </select>
+                            <span asp-validation-for="LeaveType" class="text-danger small"></span>
                         </div>
 
                         <div class="mb-4">
                             <label class="form-label fw-bold">İzin Nedeni / Açıklama</label>
                             <textarea asp-for="Reason" class="form-control" rows="4" placeholder="Örn: Yıllık izin, Sağlık sorunu, Özel işlerim vb..." required></textarea>
+                            <span asp-validation-for="Reason" class="text-danger small"></span>
                         </div>
 
                         <div class="d-grid gap-2">
