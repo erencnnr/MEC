@@ -22,6 +22,18 @@ namespace MEC.Portal.Controllers
             return View(announcements);
         }
 
+        [HttpGet("/Announcement/{id:int}", Name = "AnnouncementDetail")]
+        public async Task<IActionResult> Detail(int id)
+        {
+            var announcement = await _announcementService.GetAnnouncementByIdAsync(id);
+            if (announcement == null)
+            {
+                return NotFound();
+            }
+
+            return View(announcement);
+        }
+
         // 2. Yeni Duyuru Ekleme Sayfasını Açan Metot (GET)
         [HttpGet]
         public IActionResult Create()

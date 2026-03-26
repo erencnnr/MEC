@@ -19,18 +19,20 @@
             @foreach (var item in Model)
             {
                 <div class="col-12 mb-3">
-                    <div class="card shadow-sm border-info border-opacity-50">
-                        <div class="card-body">
-                            <h4 class="card-title text-primary fw-bold">@item.Title</h4>
-                            <h6 class="card-subtitle mb-3 text-muted">
-                                @* Tarihi şık bir formatta gösteriyoruz *@
-                                Yayınlanma Tarihi: @(item.CreatedDate?.ToString("dd MMMM yyyy, HH:mm") ?? "-")
-                            </h6>
-                            <p class="card-text text-dark" style="font-size: 1.1rem; line-height: 1.6;">
-                                @Html.Raw(item.Content)
-                            </p>
+                    <a asp-controller="Announcement" asp-action="Detail" asp-route-id="@item.Id" class="announcement-list-card text-decoration-none">
+                        <div class="card announcement-list-card__surface">
+                            <div class="card-body">
+                                <h4 class="card-title fw-bold announcement-list-card__title">@item.Title</h4>
+                                <h6 class="card-subtitle mb-3 text-muted">
+                                    @* Tarihi şık bir formatta gösteriyoruz *@
+                                    Yayınlanma Tarihi: @(item.CreatedDate?.ToString("dd MMMM yyyy, HH:mm") ?? "-")
+                                </h6>
+                                <p class="card-text text-dark" style="font-size: 1.1rem; line-height: 1.6;">
+                                    @Html.Raw(item.Content)
+                                </p>
+                            </div>
                         </div>
-                    </div>
+                    </a>
                 </div>
             }
         </div>

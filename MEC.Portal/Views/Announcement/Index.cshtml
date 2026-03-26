@@ -41,6 +41,7 @@
                                 </td>
                                 <td>@(item.CreatedDate?.ToString("dd.MM.yyyy HH:mm") ?? "-")</td>
                                 <td class="text-center">
+                                    <a asp-action="Detail" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary me-2">Goruntule</a>
                                     <form asp-action="Delete" asp-route-id="@item.Id" method="post" style="display:inline;">
                                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Bu duyuruyu silmek istediğinize emin misiniz?');">Sil</button>
                                     </form>

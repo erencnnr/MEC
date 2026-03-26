@@ -8,118 +8,113 @@
     var announcementCount = announcements.Count;
 }
 
-<section class="home-hero">
-    <div class="home-hero__content">
-        <span class="home-hero__eyebrow">MEC Okul Portali</span>
-        <h1>Dijital okul akisini tek ekranda yonetin.</h1>
-        <p>
-            Personel islemleri, izin surecleri ve kurumsal duyurular sade, hizli ve guvenilir bir deneyimle ayni
-            merkezde bulusuyor.
-        </p>
+<section class="home-page">
+    <section class="home-hero">
+        <div class="home-hero__content">
+            <span class="home-hero__eyebrow">MEC okul portalı</span>
+            <h1>Okul süreçlerini daha düzenli ve net bir yapıda yönetin.</h1>
+            <p>
+                Duyurular, izin işlemleri ve personel takibi tek merkezde daha sade, okunaklı ve düzenli bir akışla sunulur.
+            </p>
 
-        <div class="home-hero__actions">
-            <a class="home-btn home-btn--primary" asp-controller="Leave" asp-action="RequestLeave">Izin Talep Et</a>
-            <a class="home-btn home-btn--secondary" asp-controller="Home" asp-action="Announcements">Duyurulari Incele</a>
-        </div>
-
-        <div class="home-hero__stats">
-            <div class="home-stat-card">
-                <span class="home-stat-card__label">Aktif duyuru</span>
-                <strong>@announcementCount</strong>
-            </div>
-            <div class="home-stat-card">
-                <span class="home-stat-card__label">Portal alani</span>
-                <strong>Personel ve yonetim</strong>
-            </div>
-            <div class="home-stat-card">
-                <span class="home-stat-card__label">Sistem odagi</span>
-                <strong>Okul surecleri</strong>
+            <div class="home-hero__actions">
+                <a class="home-btn home-btn--primary" asp-controller="Leave" asp-action="RequestLeave">İzin talep et</a>
+                <a class="home-btn home-btn--secondary" asp-controller="Home" asp-action="Announcements">Tüm duyurular</a>
             </div>
         </div>
-    </div>
 
-    <div class="home-hero__panel">
-        <div class="home-hero__panel-card home-hero__panel-card--primary">
-            <span class="home-panel__label">Bugunun ozeti</span>
-            <h2>Kurumsal iletisim ve personel takibi modern bir duzende.</h2>
-            <p>Logo renkleriyle uyumlu bir arayuzde duyuru, izin ve profil akislari birbirini tamamliyor.</p>
+        <aside class="home-hero__aside">
+            <div class="home-summary-card">
+                <span class="home-summary-card__label">Son duyuru</span>
+                @if (latestAnnouncement != null)
+                {
+                    <h2>@latestAnnouncement.Title</h2>
+                    <p>@(latestAnnouncement.CreatedDate?.ToString("dd.MM.yyyy HH:mm") ?? "-")</p>
+                    <a asp-controller="Announcement" asp-action="Detail" asp-route-id="@latestAnnouncement.Id" class="home-text-link">Duyuruya git</a>
+                }
+                else
+                {
+                    <h2>Aktif duyuru bulunmuyor</h2>
+                    <p>Yeni duyurular yayınlandığında burada görünecek.</p>
+                }
+            </div>
+        </aside>
+    </section>
+
+    <section class="home-stats">
+        <div class="home-stat-card">
+            <span class="home-stat-card__label">Aktif duyuru</span>
+            <strong>@announcementCount</strong>
+        </div>
+        <div class="home-stat-card">
+            <span class="home-stat-card__label">Kullanım alanı</span>
+            <strong>Personel ve yönetim</strong>
+        </div>
+        <div class="home-stat-card">
+            <span class="home-stat-card__label">Odak</span>
+            <strong>Düzenli okul akış yönetimi</strong>
+        </div>
+    </section>
+
+    <section class="home-overview">
+        <div class="home-section-head">
+            <div>
+                <span class="home-section-head__eyebrow">Temel alanlar</span>
+                <h2>Günlük kullanımda en çok ihtiyaç duyulan bölümler</h2>
+            </div>
         </div>
 
-        <div class="home-hero__panel-card home-hero__panel-card--glass">
-            <span class="home-panel__label">Son duyuru</span>
-            @if (latestAnnouncement != null)
-            {
-                <h3>@latestAnnouncement.Title</h3>
-                <p>@(latestAnnouncement.CreatedDate?.ToString("dd.MM.yyyy HH:mm") ?? "-")</p>
-            }
-            else
-            {
-                <h3>Henuz aktif duyuru yok</h3>
-                <p>Yeni duyurular yayinlandiginda burada gorunecek.</p>
-            }
+        <div class="home-feature-grid">
+            <article class="home-feature-card">
+                <h3>İzin süreçleri</h3>
+                <p>Personel izin taleplerini iletir, yönetim ise tek panelden onay veya red işlemlerini yürütür.</p>
+            </article>
+
+            <article class="home-feature-card">
+                <h3>Duyuru yönetimi</h3>
+                <p>Okul genelindeki gelişmeler tek merkezde yayımlanır ve herkes tarafından kolayca takip edilir.</p>
+            </article>
+
+            <article class="home-feature-card">
+                <h3>Profil ve takip</h3>
+                <p>Çalışanlar kalan izinlerini, bekleyen taleplerini ve geçmiş kayıtlarını tek ekranda görür.</p>
+            </article>
         </div>
-    </div>
-</section>
+    </section>
 
-<section class="home-overview">
-    <div class="home-section-head">
-        <div>
-            <span class="home-section-head__eyebrow">Hizli erisim</span>
-            <h2>Gunluk kullanim icin temel alanlar</h2>
+    <section class="home-announcements">
+        <div class="home-section-head home-section-head--spaced">
+            <div>
+                <span class="home-section-head__eyebrow">Duyurular</span>
+                <h2>Okuldan son paylaşımlar</h2>
+            </div>
+            <a class="home-link-pill" asp-controller="Home" asp-action="Announcements">Tümünü gör</a>
         </div>
-    </div>
 
-    <div class="home-feature-grid">
-        <article class="home-feature-card">
-            <span class="home-feature-card__accent"></span>
-            <h3>Izin surecleri</h3>
-            <p>Personel izin taleplerini iletir, yonetim tek panelden durum gunceller.</p>
-        </article>
-
-        <article class="home-feature-card">
-            <span class="home-feature-card__accent"></span>
-            <h3>Duyuru akisi</h3>
-            <p>Okul genelindeki gelismeler tek merkezden yayinlanir ve herkes tarafindan hizla gorulur.</p>
-        </article>
-
-        <article class="home-feature-card">
-            <span class="home-feature-card__accent"></span>
-            <h3>Profil ve takip</h3>
-            <p>Calisanlar kalan izinlerini, bekleyen taleplerini ve gecmis kayitlarini profil ekranindan izler.</p>
-        </article>
-    </div>
-</section>
-
-<section class="home-announcements">
-    <div class="home-section-head home-section-head--spaced">
-        <div>
-            <span class="home-section-head__eyebrow">Guncel duyurular</span>
-            <h2>Okuldan son paylasimlar</h2>
-        </div>
-        <a class="home-link-pill" asp-controller="Home" asp-action="Announcements">Tum duyurular</a>
-    </div>
-
-    @if (announcements.Any())
-    {
-        <div class="home-announcement-grid">
-            @foreach (var item in announcements.Take(4))
-            {
-                <article class="home-announcement-card">
-                    <div class="home-announcement-card__meta">
-                        <span>Yayin tarihi</span>
-                        <strong>@(item.CreatedDate?.ToString("dd MMMM yyyy") ?? "-")</strong>
-                    </div>
-                    <h3>@item.Title</h3>
-                    <div class="home-announcement-card__content">@Html.Raw(item.Content)</div>
-                </article>
-            }
-        </div>
-    }
-    else
-    {
-        <div class="home-empty-state">
-            <h3>Su an aktif duyuru bulunmuyor.</h3>
-            <p>Yeni duyurular yayinlandiginda bu alanda listelenecek.</p>
-        </div>
-    }
+        @if (announcements.Any())
+        {
+            <div class="home-announcement-grid">
+                @foreach (var item in announcements.Take(4))
+                {
+                    <a asp-controller="Announcement" asp-action="Detail" asp-route-id="@item.Id" class="home-announcement-card-link">
+                        <article class="home-announcement-card">
+                            <div class="home-announcement-card__meta">
+                                <span>Yayın tarihi</span>
+                                <strong>@(item.CreatedDate?.ToString("dd MMMM yyyy") ?? "-")</strong>
+                            </div>
+                            <h3 class="home-announcement-card__title">@item.Title</h3>
+                            <div class="home-announcement-card__content">@Html.Raw(item.Content)</div>
+                        </article>
+                    </a>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="home-empty-state">
+                <h3>Şu an aktif duyuru bulunmuyor.</h3>
+                <p>Yeni duyurular yayımlandığında bu alanda listelenecek.</p>
+            </div>
+        }
+    </section>
 </section>

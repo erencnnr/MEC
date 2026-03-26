@@ -1,21 +1,21 @@
 @model MEC.Portal.Models.AdminDashboardViewModel
 
 @{
-    ViewData["Title"] = "Admin Dashboard";
+    ViewData["Title"] = "Yönetim Paneli";
     Layout = "_AdminLayout";
 }
 
 <section class="dashboard-hero">
     <div>
-        <span class="dashboard-hero__eyebrow">Yonetim merkezi</span>
-        <h1>Hos geldiniz, @Model.AdminName</h1>
+        <span class="dashboard-hero__eyebrow">Yönetim merkezi</span>
+        <h1>Hoş geldiniz, @Model.AdminName</h1>
         <p>
-            Izin sureclerini, duyuru trafigini ve personel durumunu tek ekrandan takip edebilirsiniz.
+            İzin süreçlerini, duyuru trafiğini ve personel durumunu tek ekrandan takip edebilirsiniz.
         </p>
     </div>
 
     <div class="dashboard-hero__meta">
-        <span>Guncellenme</span>
+        <span>Güncellenme</span>
         <strong>@Model.GeneratedAt.ToString("dd MMMM yyyy, HH:mm")</strong>
     </div>
 </section>
@@ -30,19 +30,19 @@
     <article class="dashboard-metric-card">
         <span class="dashboard-metric-card__label">Toplam duyuru</span>
         <strong>@Model.TotalAnnouncementCount</strong>
-        <p>Sistemde kayitli tum duyurular</p>
+        <p>Sistemde kayıtlı tüm duyurular</p>
     </article>
 
     <article class="dashboard-metric-card">
-        <span class="dashboard-metric-card__label">Bugun eklenen duyuru</span>
+        <span class="dashboard-metric-card__label">Bugün eklenen duyuru</span>
         <strong>@Model.TodayAnnouncementCount</strong>
-        <p>Gun icinde yayinlanan yeni duyurular</p>
+        <p>Gün içinde yayımlanan yeni duyurular</p>
     </article>
 
     <article class="dashboard-metric-card dashboard-metric-card--alert">
         <span class="dashboard-metric-card__label">Negatif izin bakiyesi</span>
         <strong>@Model.NegativeLeaveBalanceCount</strong>
-        <p>Takip edilmesi gereken personel sayisi</p>
+        <p>Takip edilmesi gereken personel sayısı</p>
     </article>
 </section>
 
@@ -51,9 +51,9 @@
         <div class="dashboard-panel__head">
             <div>
                 <span class="dashboard-panel__eyebrow">Son izin talepleri</span>
-                <h2>Yakin donem istekleri</h2>
+                <h2>Yakın dönem istekleri</h2>
             </div>
-            <a class="dashboard-panel__link" asp-controller="Admin" asp-action="LeaveRequests">Tum talepler</a>
+            <a class="dashboard-panel__link" asp-controller="Admin" asp-action="LeaveRequests">Tüm talepler</a>
         </div>
 
         @if (Model.RecentLeaveRequests.Any())
@@ -64,7 +64,7 @@
                     <div class="dashboard-activity-item">
                         <div>
                             <h3>@item.EmployeeName</h3>
-                            <p>@item.LeaveType - @item.RequestedDays Gun</p>
+                            <p>@item.LeaveType - @item.RequestedDays Gün</p>
                             <small>@item.StartDate.ToString("dd.MM.yyyy") - @item.EndDate.ToString("dd.MM.yyyy")</small>
                         </div>
                         <div class="dashboard-activity-item__side">
@@ -74,7 +74,7 @@
                             }
                             else if (item.Status == 1)
                             {
-                                <span class="dashboard-badge dashboard-badge--success">Onaylandi</span>
+                                <span class="dashboard-badge dashboard-badge--success">Onaylandı</span>
                             }
                             else
                             {
@@ -89,8 +89,8 @@
         else
         {
             <div class="dashboard-empty-state">
-                <h3>Henuz izin talebi yok</h3>
-                <p>Yeni izin kayitlari olustugunda burada listelenecek.</p>
+                <h3>Henüz izin talebi yok</h3>
+                <p>Yeni izin kayıtları oluştuğunda burada listelenecek.</p>
             </div>
         }
     </article>
@@ -99,9 +99,9 @@
         <div class="dashboard-panel__head">
             <div>
                 <span class="dashboard-panel__eyebrow">Son duyurular</span>
-                <h2>Yayin akisinin ozeti</h2>
+                <h2>Yayın akışının özeti</h2>
             </div>
-            <a class="dashboard-panel__link" asp-controller="Admin" asp-action="Announcements">Yonet</a>
+            <a class="dashboard-panel__link" asp-controller="Admin" asp-action="Announcements">Yönet</a>
         </div>
 
         @if (Model.RecentAnnouncements.Any())
@@ -124,8 +124,8 @@
         else
         {
             <div class="dashboard-empty-state">
-                <h3>Henuz duyuru yok</h3>
-                <p>Yeni duyurular olusturuldugunda burada listelenecek.</p>
+                <h3>Henüz duyuru yok</h3>
+                <p>Yeni duyurular oluşturulduğunda burada listelenecek.</p>
             </div>
         }
     </article>
@@ -134,25 +134,25 @@
 <section class="dashboard-actions-panel">
     <div class="dashboard-panel__head">
         <div>
-            <span class="dashboard-panel__eyebrow">Hizli islemler</span>
-            <h2>Yonetim kisayollari</h2>
+            <span class="dashboard-panel__eyebrow">Hızlı işlemler</span>
+            <h2>Yönetim kısayolları</h2>
         </div>
     </div>
 
     <div class="dashboard-actions-grid">
         <a class="dashboard-action-card" asp-controller="Admin" asp-action="Announcements">
-            <h3>Yeni duyuru olustur</h3>
-            <p>Okul genelindeki bilgilendirmeleri hizlica yayinlayin.</p>
+            <h3>Yeni duyuru oluştur</h3>
+            <p>Okul genelindeki bilgilendirmeleri hızlıca yayımlayın.</p>
         </a>
 
         <a class="dashboard-action-card" asp-controller="Admin" asp-action="LeaveRequests">
-            <h3>Izin taleplerini incele</h3>
-            <p>Bekleyen talepleri onaylayin veya reddedin.</p>
+            <h3>İzin taleplerini incele</h3>
+            <p>Bekleyen talepleri onaylayın veya reddedin.</p>
         </a>
 
         <a class="dashboard-action-card" asp-controller="Profile" asp-action="Index">
-            <h3>Profil akisina git</h3>
-            <p>Personel tarafinda gorulen izin ve gecmis deneyimini kontrol edin.</p>
+            <h3>Profil akışına git</h3>
+            <p>Personel tarafında görülen izin ve geçmiş deneyimini kontrol edin.</p>
         </a>
     </div>
 </section>
