@@ -1,0 +1,156 @@
+@model MEC.Portal.Models.AdminLeaveReportViewModel
+
+@{
+    ViewData["Title"] = "İzin Raporlama";
+    Layout = "_AdminLayout";
+}
+
+<section class="dashboard-hero">
+    <div>
+        <span class="dashboard-hero__eyebrow">İzin raporlama</span>
+        <h1>İzin kayıtlarını filtreleyin ve raporlayın</h1>
+        <p>
+            Çalışan, izin türü ve tarih aralığına göre rapor oluşturabilir; tarih seçmeden bu yılın tüm izinlerini görüntüleyebilirsiniz.
+        </p>
+    </div>
+
+    <div class="dashboard-hero__meta">
+        <span>Uygulanan dönem</span>
+        <strong>@Model.AppliedPeriodLabel</strong>
+    </div>
+</section>
+
+<section class="report-filter-panel">
+    <form method="get" asp-controller="Admin" asp-action="LeaveReports" class="report-filter-grid">
+        <div>
+            <label class="form-label fw-semibold">Çalışan</label>
+            <select asp-for="EmployeeId" asp-items="Model.EmployeeOptions" class="form-select"></select>
+        </div>
+
+        <div>
+            <label class="form-label fw-semibold">İzin türü</label>
+            <select asp-for="LeaveType" asp-items="Model.LeaveTypeOptions" class="form-select"></select>
+        </div>
+
+        <div>
+            <label class="form-label fw-semibold">Başlangıç tarihi</label>
+            <input asp-for="StartDate" type="date" class="form-control" />
+        </div>
+
+        <div>
+            <label class="form-label fw-semibold">Bitiş tarihi</label>
+            <input asp-for="EndDate" type="date" class="form-control" />
+        </div>
+
+        <div class="report-filter-grid__actions">
+            <button type="submit" class="portal-header__button portal-header__button--primary">Raporu getir</button>
+            <a asp-controller="Admin" asp-action="LeaveReports" class="portal-header__button portal-header__button--ghost">Temizle</a>
+        </div>
+    </form>
+
+    <p class="report-filter-panel__hint mb-0">
+        Tarih alanlarını boş bırakırsanız sistem otomatik olarak içinde bulunduğumuz yılın tüm izin kayıtlarını listeler.
+    </p>
+
+    <div class="report-filter-panel__export">
+        <a asp-controller="Admin"
+           asp-action="ExportLeaveReports"
+           asp-route-employeeId="@Model.EmployeeId"
+           asp-route-leaveType="@Model.LeaveType"
+           asp-route-startDate="@(Model.StartDate?.ToString("yyyy-MM-dd"))"
+           asp-route-endDate="@(Model.EndDate?.ToString("yyyy-MM-dd"))"
+           class="portal-header__button portal-header__button--ghost">
+            Excel için CSV indir
+        </a>
+    </div>
+</section>
+
+<section class="dashboard-metrics">
+    <article class="dashboard-metric-card">
+        <span class="dashboard-metric-card__label">Toplam kayıt</span>
+        <strong>@Model.TotalRecords</strong>
+        <p>Filtreye uyan toplam izin kaydı</p>
+    </article>
+
+    <article class="dashboard-metric-card">
+        <span class="dashboard-metric-card__label">Toplam gün</span>
+        <strong>@Model.TotalDays</strong>
+        <p>İstenen toplam izin günü</p>
+    </article>
+
+    <article class="dashboard-metric-card">
+        <span class="dashboard-metric-card__label">Onaylanan</span>
+        <strong>@Model.ApprovedCount</strong>
+        <p>Onaylanan izin talepleri</p>
+    </article>
+
+    <article class="dashboard-metric-card dashboard-metric-card--alert">
+        <span class="dashboard-metric-card__label">Bekleyen / reddedilen</span>
+        <strong>@Model.PendingCount / @Model.RejectedCount</strong>
+        <p>Bekleyen ve reddedilen kayıt dağılımı</p>
+    </article>
+</section>
+
+<section class="dashboard-panel">
+    <div class="dashboard-panel__head">
+        <div>
+            <span class="dashboard-panel__eyebrow">Rapor sonucu</span>
+            <h2>İzin kayıt listesi</h2>
+        </div>
+    </div>
+
+    @if (Model.Reports.Any())
+    {
+        <div class="table-responsive">
+            <table class="table align-middle report-table mb-0">
+                <thead>
+                    <tr>
+                        <th>Çalışan</th>
+                        <th>İzin türü</th>
+                        <th>Başlangıç</th>
+                        <th>Bitiş</th>
+                        <th>Gün</th>
+                        <th>Durum</th>
+                        <th>Talep tarihi</th>
+                        <th>Açıklama</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Reports)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@item.EmployeeName</td>
+                            <td>@item.LeaveType</td>
+                            <td>@item.StartDate.ToString("dd.MM.yyyy")</td>
+                            <td>@item.EndDate.ToString("dd.MM.yyyy")</td>
+                            <td>@item.RequestedDays Gün</td>
+                            <td>
+                                @if (item.Status == 0)
+                                {
+                                    <span class="dashboard-badge dashboard-badge--pending">Bekliyor</span>
+                                }
+                                else if (item.Status == 1)
+                                {
+                                    <span class="dashboard-badge dashboard-badge--success">Onaylandı</span>
+                                }
+                                else
+                                {
+                                    <span class="dashboard-badge dashboard-badge--danger">Reddedildi</span>
+                                }
+                            </td>
+                            <td>@(item.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</td>
+                            <td class="text-muted">@item.Reason</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="dashboard-empty-state">
+            <h3>Kayıt bulunamadı</h3>
+            <p>Seçtiğiniz filtrelerle eşleşen izin kaydı bulunmuyor. Filtreleri genişleterek tekrar deneyebilirsiniz.</p>
+        </div>
+    }
+</section>

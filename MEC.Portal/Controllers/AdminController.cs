@@ -3,15 +3,27 @@ using MEC.Application.Abstractions.Service.SchoolService;
 using MEC.Application.Abstractions.Service.LeaveService;
 using MEC.DAL.Config.Abstractions.Common;
 using MEC.Domain.Entity.Employee;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using MEC.Portal.Models;
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace MEC.AssetManagementUI.Controllers
 {
     public class AdminController : Controller
     {
+        private static readonly string[] DefaultLeaveTypes =
+        {
+            "Yıllık İzin",
+            "Hastalık İzni",
+            "Mazeret İzni",
+            "Ücretsiz İzin",
+            "Diğer"
+        };
+
         private readonly ILeaveService _leaveService;
         private readonly IAnnouncementService _announcementService;
         private readonly IGenericRepository<Employee> _employeeRepository;
@@ -115,6 +127,42 @@ namespace MEC.AssetManagementUI.Controllers
             // Çektiğimiz verileri ekrana (View'a) gönderiyoruz
             return View(model);
         }
+
+        [HttpGet]
+        public async Task<IActionResult> LeaveReports(int? employeeId, string leaveType, DateTime? startDate, DateTime? endDate)
+        {
+            var model = await BuildLeaveReportModelAsync(employeeId, leaveType, startDate, endDate);
+            return View(model);
+        }
+
+        [HttpGet]
+        public async Task<FileResult> ExportLeaveReports(int? employeeId, string leaveType, DateTime? startDate, DateTime? endDate)
+        {
+            var model = await BuildLeaveReportModelAsync(employeeId, leaveType, startDate, endDate);
+            var builder = new StringBuilder();
+
+            builder.AppendLine("Calisan;Izin Turu;Baslangic Tarihi;Bitis Tarihi;Gun;Durum;Talep Tarihi;Aciklama");
+
+            foreach (var item in model.Reports)
+            {
+                builder.AppendLine(string.Join(";", new[]
+                {
+                    EscapeCsv(item.EmployeeName),
+                    EscapeCsv(item.LeaveType),
+                    item.StartDate.ToString("dd.MM.yyyy"),
+                    item.EndDate.ToString("dd.MM.yyyy"),
+                    item.RequestedDays.ToString(),
+                    EscapeCsv(GetStatusText(item.Status)),
+                    item.CreatedDate?.ToString("dd.MM.yyyy") ?? string.Empty,
+                    EscapeCsv(item.Reason)
+                }));
+            }
+
+            var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(builder.ToString())).ToArray();
+            var fileName = $"izin-raporu-{DateTime.Now:yyyyMMdd-HHmm}.csv";
+
+            return File(bytes, "text/csv; charset=utf-8", fileName);
+        }
     
     [HttpPost] // Veri güncellediğimiz için POST kullanıyoruz
         public async Task<IActionResult> UpdateLeaveStatus(int id, int status)
@@ -152,6 +200,172 @@ namespace MEC.AssetManagementUI.Controllers
         {
             var remainingLeaveDaysProperty = leave.GetType().GetProperty("RemainingLeaveDays")?.GetValue(leave);
             return remainingLeaveDaysProperty is int remainingLeaveDays ? remainingLeaveDays : 0;
+        }
+
+        private static List<SelectListItem> BuildEmployeeOptions(IEnumerable<Employee> employees, int? selectedEmployeeId)
+        {
+            var items = new List<SelectListItem>
+            {
+                new SelectListItem { Value = string.Empty, Text = "Tüm çalışanlar", Selected = !selectedEmployeeId.HasValue }
+            };
+
+            items.AddRange(employees
+                .OrderBy(x => x.FirstName)
+                .ThenBy(x => x.LastName)
+                .Select(x => new SelectListItem
+                {
+                    Value = x.Id.ToString(),
+                    Text = string.Join(" ", new[] { x.FirstName, x.LastName }.Where(y => !string.IsNullOrWhiteSpace(y))).Trim(),
+                    Selected = selectedEmployeeId.HasValue && x.Id == selectedEmployeeId.Value
+                }));
+
+            return items;
+        }
+
+        private static List<SelectListItem> BuildLeaveTypeOptions(IEnumerable<string> leaveTypes, string selectedLeaveType)
+        {
+            var items = new List<SelectListItem>
+            {
+                new SelectListItem { Value = string.Empty, Text = "Tüm izin türleri", Selected = string.IsNullOrWhiteSpace(selectedLeaveType) }
+            };
+
+            items.AddRange(leaveTypes
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => new SelectListItem
+                {
+                    Value = x,
+                    Text = x,
+                    Selected = string.Equals(x, selectedLeaveType, StringComparison.OrdinalIgnoreCase)
+                }));
+
+            return items;
+        }
+
+        private static string BuildPeriodLabel(DateTime? startDate, DateTime? endDate, bool defaultedToCurrentYear)
+        {
+            if (startDate.HasValue && endDate.HasValue)
+            {
+                return defaultedToCurrentYear
+                    ? $"Bu yılın tüm izinleri ({startDate.Value:dd.MM.yyyy} - {endDate.Value:dd.MM.yyyy})"
+                    : $"Seçilen aralık: {startDate.Value:dd.MM.yyyy} - {endDate.Value:dd.MM.yyyy}";
+            }
+
+            if (startDate.HasValue)
+            {
+                return $"Başlangıç tarihi sonrası kayıtlar: {startDate.Value:dd.MM.yyyy}";
+            }
+
+            if (endDate.HasValue)
+            {
+                return $"Bitiş tarihine kadar olan kayıtlar: {endDate.Value:dd.MM.yyyy}";
+            }
+
+            return "Tüm izin kayıtları";
+        }
+
+        private async Task<AdminLeaveReportViewModel> BuildLeaveReportModelAsync(int? employeeId, string leaveType, DateTime? startDate, DateTime? endDate)
+        {
+            var leaves = await _leaveService.GetAllLeavesAsync();
+            var employees = (await _employeeRepository.GetAllAsync(x => !x.IsDeleted)).ToList();
+            var employeeNames = employees.ToDictionary(
+                x => x.Id,
+                x => string.Join(" ", new[] { x.FirstName, x.LastName }.Where(y => !string.IsNullOrWhiteSpace(y))).Trim());
+
+            var selectedLeaveType = string.IsNullOrWhiteSpace(leaveType) ? string.Empty : leaveType.Trim();
+            var today = DateTime.Today;
+            var effectiveStartDate = startDate;
+            var effectiveEndDate = endDate;
+
+            if (!effectiveStartDate.HasValue && !effectiveEndDate.HasValue)
+            {
+                effectiveStartDate = new DateTime(today.Year, 1, 1);
+                effectiveEndDate = new DateTime(today.Year, 12, 31);
+            }
+
+            var filteredLeaves = leaves.AsEnumerable();
+
+            if (employeeId.HasValue)
+            {
+                filteredLeaves = filteredLeaves.Where(x => x.EmployeeId == employeeId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(selectedLeaveType))
+            {
+                filteredLeaves = filteredLeaves.Where(x => string.Equals(GetLeaveType(x), selectedLeaveType, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (effectiveStartDate.HasValue && effectiveEndDate.HasValue)
+            {
+                filteredLeaves = filteredLeaves.Where(x =>
+                    x.EndDate.Date >= effectiveStartDate.Value.Date &&
+                    x.StartDate.Date <= effectiveEndDate.Value.Date);
+            }
+            else if (effectiveStartDate.HasValue)
+            {
+                filteredLeaves = filteredLeaves.Where(x => x.EndDate.Date >= effectiveStartDate.Value.Date);
+            }
+            else if (effectiveEndDate.HasValue)
+            {
+                filteredLeaves = filteredLeaves.Where(x => x.StartDate.Date <= effectiveEndDate.Value.Date);
+            }
+
+            var reportItems = filteredLeaves
+                .OrderByDescending(x => x.StartDate)
+                .ThenByDescending(x => x.CreatedDate)
+                .Select(x => new AdminLeaveReportItemViewModel
+                {
+                    Id = x.Id,
+                    EmployeeName = employeeNames.TryGetValue(x.EmployeeId, out var employeeName) && !string.IsNullOrWhiteSpace(employeeName)
+                        ? employeeName
+                        : $"#{x.EmployeeId}",
+                    LeaveType = GetLeaveType(x),
+                    RequestedDays = GetRequestedDays(x),
+                    StartDate = x.StartDate,
+                    EndDate = x.EndDate,
+                    Status = x.Status,
+                    Reason = x.Reason,
+                    CreatedDate = x.CreatedDate
+                })
+                .ToList();
+
+            return new AdminLeaveReportViewModel
+            {
+                EmployeeId = employeeId,
+                LeaveType = selectedLeaveType,
+                StartDate = startDate,
+                EndDate = endDate,
+                TotalRecords = reportItems.Count,
+                TotalDays = reportItems.Sum(x => x.RequestedDays),
+                ApprovedCount = reportItems.Count(x => x.Status == 1),
+                PendingCount = reportItems.Count(x => x.Status == 0),
+                RejectedCount = reportItems.Count(x => x.Status != 0 && x.Status != 1),
+                AppliedPeriodLabel = BuildPeriodLabel(effectiveStartDate, effectiveEndDate, !startDate.HasValue && !endDate.HasValue),
+                EmployeeOptions = BuildEmployeeOptions(employees, employeeId),
+                LeaveTypeOptions = BuildLeaveTypeOptions(
+                    DefaultLeaveTypes
+                        .Concat(leaves.Select(GetLeaveType))
+                        .Where(x => !string.IsNullOrWhiteSpace(x))
+                        .Distinct()
+                        .OrderBy(x => x),
+                    selectedLeaveType),
+                Reports = reportItems
+            };
+        }
+
+        private static string GetStatusText(int status)
+        {
+            return status switch
+            {
+                0 => "Bekliyor",
+                1 => "Onaylandı",
+                _ => "Reddedildi"
+            };
+        }
+
+        private static string EscapeCsv(string? value)
+        {
+            var normalized = (value ?? string.Empty).Replace("\r", " ").Replace("\n", " ").Trim();
+            return $"\"{normalized.Replace("\"", "\"\"")}\"";
         }
     } 
 }
