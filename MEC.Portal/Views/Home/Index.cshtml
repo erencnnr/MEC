@@ -5,7 +5,6 @@
 
     var announcements = Model?.OrderByDescending(x => x.CreatedDate).ToList() ?? new System.Collections.Generic.List<MEC.Domain.Entity.School.Announcement>();
     var latestAnnouncement = announcements.FirstOrDefault();
-    var announcementCount = announcements.Count;
 }
 
 <section class="home-page">
@@ -39,47 +38,6 @@
                 }
             </div>
         </aside>
-    </section>
-
-    <section class="home-stats">
-        <div class="home-stat-card">
-            <span class="home-stat-card__label">Aktif duyuru</span>
-            <strong>@announcementCount</strong>
-        </div>
-        <div class="home-stat-card">
-            <span class="home-stat-card__label">Kullanım alanı</span>
-            <strong>Personel ve yönetim</strong>
-        </div>
-        <div class="home-stat-card">
-            <span class="home-stat-card__label">Odak</span>
-            <strong>Düzenli okul akış yönetimi</strong>
-        </div>
-    </section>
-
-    <section class="home-overview">
-        <div class="home-section-head">
-            <div>
-                <span class="home-section-head__eyebrow">Temel alanlar</span>
-                <h2>Günlük kullanımda en çok ihtiyaç duyulan bölümler</h2>
-            </div>
-        </div>
-
-        <div class="home-feature-grid">
-            <article class="home-feature-card">
-                <h3>İzin süreçleri</h3>
-                <p>Personel izin taleplerini iletir, yönetim ise tek panelden onay veya red işlemlerini yürütür.</p>
-            </article>
-
-            <article class="home-feature-card">
-                <h3>Duyuru yönetimi</h3>
-                <p>Okul genelindeki gelişmeler tek merkezde yayımlanır ve herkes tarafından kolayca takip edilir.</p>
-            </article>
-
-            <article class="home-feature-card">
-                <h3>Profil ve takip</h3>
-                <p>Çalışanlar kalan izinlerini, bekleyen taleplerini ve geçmiş kayıtlarını tek ekranda görür.</p>
-            </article>
-        </div>
     </section>
 
     <section class="home-announcements">

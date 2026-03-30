@@ -19,7 +19,7 @@
                     @if (profile == null)
                     {
                         <div class="alert alert-warning">
-                            <i class="bi bi-exclamation-triangle-fill"></i> @ViewBag.Error
+                            @ViewBag.Error
                         </div>
                     }
                     else
@@ -110,7 +110,7 @@
                                             <tr>
                                                 <td>@(item.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</td>
                                                 <td>@item.LeaveType</td>
-                                                <td>@item.StartDate.ToString("dd.MM.yyyy") - @item.EndDate.ToString("dd.MM.yyyy")</td>
+                                                <td>@item.StartDate.ToString("dd.MM.yyyy") / @item.EndDate.ToString("dd.MM.yyyy")</td>
                                                 <td>@item.RequestedDays Gün</td>
                                                 <td>
                                                     @if (item.Status == 0)
