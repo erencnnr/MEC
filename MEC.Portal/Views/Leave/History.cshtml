@@ -1,0 +1,220 @@
+@model MEC.Portal.Models.LeaveHistoryViewModel
+@{
+    ViewData["Title"] = "İzin Geçmişim";
+
+    string BuildHistoryUrl(string? leaveTypeOverride = null, string? sortOverride = null, int? pageOverride = null)
+    {
+        var queryParts = new List<string>();
+
+        if (Model.SelectedYear.HasValue)
+        {
+            queryParts.Add($"year={Model.SelectedYear.Value}");
+        }
+
+        if (Model.SelectedStatus.HasValue)
+        {
+            queryParts.Add($"status={Model.SelectedStatus.Value}");
+        }
+
+        var effectiveLeaveType = leaveTypeOverride ?? Model.SelectedLeaveType;
+        if (!string.IsNullOrWhiteSpace(effectiveLeaveType))
+        {
+            queryParts.Add($"leaveType={System.Uri.EscapeDataString(effectiveLeaveType)}");
+        }
+
+        queryParts.Add($"sort={System.Uri.EscapeDataString(sortOverride ?? Model.SelectedSort)}");
+        queryParts.Add($"page={pageOverride ?? Model.CurrentPage}");
+
+        return queryParts.Any()
+            ? $"/Leave/History?{string.Join("&", queryParts)}"
+            : "/Leave/History";
+    }
+}
+
+<section class="leave-history-page">
+    <div class="leave-history-shell">
+        <div class="leave-history-topbar">
+            <div>
+                <span class="leave-history-topbar__eyebrow">İzin kayıtları</span>
+                <h1>İzin Geçmişim</h1>
+                <p>Geçmiş taleplerinizi filtreleyin, durumlarını takip edin ve detaylarına hızlıca ulaşın.</p>
+            </div>
+
+            <a class="leave-history-topbar__action" asp-controller="Leave" asp-action="RequestLeave">İzin Talebi Oluştur</a>
+        </div>
+
+        <form method="get" class="leave-history-filters" id="leaveHistoryFilters">
+            <input type="hidden" name="leaveType" value="@Model.SelectedLeaveType" />
+            <input type="hidden" name="sort" value="@Model.SelectedSort" />
+            <input type="hidden" name="page" value="1" />
+
+            <div class="leave-history-filter-inline">
+                <label for="year">Yıl</label>
+                <select id="year" name="year" class="leave-history-select">
+                    <option value="">Tümü</option>
+                    @foreach (var yearOption in Model.YearOptions)
+                    {
+                        <option value="@yearOption" selected="@(Model.SelectedYear == yearOption ? "selected" : null)">@yearOption</option>
+                    }
+                </select>
+            </div>
+
+            <div class="leave-history-filter-inline leave-history-filter-inline--status">
+                <label for="status">Durum</label>
+                <select id="status" name="status" class="leave-history-select leave-history-select--status">
+                    <option value="">Tümü</option>
+                    @foreach (var statusOption in Model.StatusOptions)
+                    {
+                        <option value="@statusOption.Value" selected="@(Model.SelectedStatus == statusOption.Value ? "selected" : null)">@statusOption.Label</option>
+                    }
+                </select>
+            </div>
+        </form>
+
+        @if (!string.IsNullOrWhiteSpace(ViewBag.Error as string))
+        {
+            <div class="alert alert-warning leave-history-alert">
+                @ViewBag.Error
+            </div>
+        }
+        else if (!Model.LeaveHistory.Any())
+        {
+            <div class="leave-history-empty">
+                <h2>Kayıt bulunamadı</h2>
+                <p>Seçili filtrelere uygun izin kaydı yok. Filtreleri değiştirip tekrar deneyebilirsiniz.</p>
+            </div>
+        }
+        else
+        {
+            <div class="leave-history-table-card">
+                <div class="leave-history-table-card__meta">
+                    <span>@Model.TotalCount kayıt</span>
+                    <span>Sayfa @Model.CurrentPage / @Model.TotalPages</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table leave-history-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Başlangıç Tarihi</th>
+                                <th>Bitiş Tarihi</th>
+                                <th>
+                                    <div class="leave-history-table__head">
+                                        <span>İzin Türü</span>
+                                        <div class="dropdown leave-history-table__dropdown">
+                                            <button class="leave-history-table__icon dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <span class="visually-hidden">İzin türü filtresi</span>
+                                            </button>
+                                            <div class="dropdown-menu leave-history-table__menu">
+                                                <a class="leave-history-table__menu-item @(string.IsNullOrWhiteSpace(Model.SelectedLeaveType) ? "is-active" : string.Empty)" href="@BuildHistoryUrl(leaveTypeOverride: string.Empty, pageOverride: 1)">Tümü</a>
+                                                @foreach (var leaveTypeOption in Model.LeaveTypeOptions)
+                                                {
+                                                    <a class="leave-history-table__menu-item @(string.Equals(Model.SelectedLeaveType, leaveTypeOption, StringComparison.OrdinalIgnoreCase) ? "is-active" : string.Empty)" href="@BuildHistoryUrl(leaveTypeOverride: leaveTypeOption, pageOverride: 1)">@leaveTypeOption</a>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                </th>
+                                <th>Kullanılan Gün Sayısı</th>
+                                <th>İzin Durumu</th>
+                                <th>Onaylayan / Reddeden</th>
+                                <th>
+                                    <div class="leave-history-table__head">
+                                        <span>Oluşturma Tarihi</span>
+                                        <div class="dropdown leave-history-table__dropdown">
+                                            <button class="leave-history-table__icon dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <span class="visually-hidden">Oluşturma tarihi sıralama</span>
+                                            </button>
+                                            <div class="dropdown-menu leave-history-table__menu">
+                                                <a class="leave-history-table__menu-item @(Model.SelectedSort == "created_desc" ? "is-active" : string.Empty)" href="@BuildHistoryUrl(sortOverride: "created_desc", pageOverride: 1)">Yeniden eskiye</a>
+                                                <a class="leave-history-table__menu-item @(Model.SelectedSort == "created_asc" ? "is-active" : string.Empty)" href="@BuildHistoryUrl(sortOverride: "created_asc", pageOverride: 1)">Eskiden yeniye</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.LeaveHistory)
+                            {
+                                <tr class="leave-history-table__row" data-href="/Leave/History/@item.Id" tabindex="0">
+                                    <td>@item.StartDate.ToString("dd.MM.yyyy")</td>
+                                    <td>@item.EndDate.ToString("dd.MM.yyyy")</td>
+                                    <td>@item.LeaveType</td>
+                                    <td>@item.RequestedDays Gün</td>
+                                    <td>
+                                        <span class="leave-history-status leave-history-status--@item.StatusTone">@item.StatusLabel</span>
+                                    </td>
+                                    <td>@item.DecisionDisplay</td>
+                                    <td>@(item.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @if (Model.TotalPages > 1)
+            {
+                <nav class="leave-history-pagination" aria-label="İzin geçmişi sayfaları">
+                    @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                    {
+                        <a class="leave-history-pagination__item @(pageNumber == Model.CurrentPage ? "is-active" : string.Empty)"
+                           href="@BuildHistoryUrl(pageOverride: pageNumber)">
+                            @pageNumber
+                        </a>
+                    }
+                </nav>
+            }
+        }
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        const leaveHistoryFilters = document.getElementById("leaveHistoryFilters");
+        const leaveHistoryPageInput = leaveHistoryFilters ? leaveHistoryFilters.querySelector('input[name="page"]') : null;
+        const leaveHistoryYearSelect = document.getElementById("year");
+
+        function submitLeaveHistoryFilters() {
+            if (!leaveHistoryFilters) {
+                return;
+            }
+
+            if (leaveHistoryPageInput) {
+                leaveHistoryPageInput.value = "1";
+            }
+
+            leaveHistoryFilters.submit();
+        }
+
+        if (leaveHistoryYearSelect) {
+            leaveHistoryYearSelect.addEventListener("change", submitLeaveHistoryFilters);
+        }
+
+        const leaveHistoryStatusSelect = document.getElementById("status");
+
+        if (leaveHistoryStatusSelect) {
+            leaveHistoryStatusSelect.addEventListener("change", submitLeaveHistoryFilters);
+        }
+
+        document.querySelectorAll(".leave-history-table__row").forEach(function (row) {
+            row.addEventListener("click", function () {
+                var href = row.getAttribute("data-href");
+                if (href) {
+                    window.location.href = href;
+                }
+            });
+
+            row.addEventListener("keydown", function (event) {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    var href = row.getAttribute("data-href");
+                    if (href) {
+                        window.location.href = href;
+                    }
+                }
+            });
+        });
+    </script>
+}

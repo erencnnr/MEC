@@ -61,18 +61,6 @@ namespace MEC.Portal.Controllers
 
                 profileViewModel.PendingAnnualLeaveCount = pendingAnnualLeaves.Count();
                 profileViewModel.PendingAnnualLeaveDays = pendingAnnualLeaves.Sum(GetRequestedDays);
-                profileViewModel.LeaveHistory = employeeLeaves.Select(x => new LeaveHistoryItemViewModel
-                {
-                    Id = x.Id,
-                    LeaveType = GetLeaveType(x),
-                    StartDate = x.StartDate,
-                    EndDate = x.EndDate,
-                    RequestedDays = GetRequestedDays(x),
-                    Reason = x.Reason,
-                    Status = x.Status,
-                    RemainingLeaveDays = GetRemainingLeaveDays(x),
-                    CreatedDate = x.CreatedDate
-                }).ToList();
             }
 
             return View(profileViewModel);

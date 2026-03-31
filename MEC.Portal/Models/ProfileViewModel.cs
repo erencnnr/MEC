@@ -8,7 +8,6 @@ namespace MEC.Portal.Models
         public EmployeePortal? Profile { get; set; }
         public int PendingAnnualLeaveCount { get; set; }
         public int PendingAnnualLeaveDays { get; set; }
-        public List<LeaveHistoryItemViewModel> LeaveHistory { get; set; } = new();
     }
 
     public class LeaveHistoryItemViewModel
@@ -22,5 +21,8 @@ namespace MEC.Portal.Models
         public int Status { get; set; }
         public int RemainingLeaveDays { get; set; }
         public DateTime? CreatedDate { get; set; }
+        public string StatusLabel { get; set; } = string.Empty;
+        public string StatusTone { get; set; } = "pending";
+        public string DecisionDisplay { get; set; } = "-";
     }
 }

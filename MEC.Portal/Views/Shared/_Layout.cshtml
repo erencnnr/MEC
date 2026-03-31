@@ -12,24 +12,32 @@
         var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
         var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
         var isAdminPage = string.Equals(currentController, "Admin", System.StringComparison.OrdinalIgnoreCase);
+        var isLeavePage = string.Equals(currentController, "Leave", System.StringComparison.OrdinalIgnoreCase);
         var isAdminUser = User.Identity.IsAuthenticated && User.IsInRole("Admin");
 
-        string HeaderNavState(string controller, params string[] actions)
+        bool HeaderRouteMatch(string controller, params string[] actions)
         {
             if (!string.Equals(currentController, controller, System.StringComparison.OrdinalIgnoreCase))
             {
-                return "portal-header__nav-link";
+                return false;
             }
 
             foreach (var action in actions)
             {
                 if (string.Equals(currentAction, action, System.StringComparison.OrdinalIgnoreCase))
                 {
-                    return "portal-header__nav-link is-active";
+                    return true;
                 }
             }
 
-            return "portal-header__nav-link";
+            return false;
+        }
+
+        string HeaderNavState(string controller, params string[] actions)
+        {
+            return HeaderRouteMatch(controller, actions)
+                ? "portal-header__nav-link is-active"
+                : "portal-header__nav-link";
         }
     }
 
@@ -54,18 +62,26 @@
                         <div class="portal-header__nav">
                             <a class="@HeaderNavState("Home", "Index")" asp-controller="Home" asp-action="Index">Ana Sayfa</a>
                             <a class="@HeaderNavState("Home", "Announcements")" asp-controller="Home" asp-action="Announcements">Duyurular</a>
-                            <a class="@($"{HeaderNavState("Leave", "RequestLeave")} portal-header__nav-link--action")" asp-controller="Leave" asp-action="RequestLeave">İzin İşlemleri</a>
+                            <div class="dropdown portal-header__nav-dropdown @(isLeavePage ? "is-active" : string.Empty)">
+                                <button class="portal-header__nav-link portal-header__nav-dropdown-toggle dropdown-toggle portal-header__nav-link--action @(isLeavePage ? "is-active" : string.Empty)" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    İzin İşlemleri
+                                </button>
+                                <div class="dropdown-menu portal-header__nav-dropdown-menu">
+                                    <a class="portal-header__nav-dropdown-item @(HeaderRouteMatch("Leave", "RequestLeave") ? "is-active" : string.Empty)" asp-controller="Leave" asp-action="RequestLeave">İzin Talebi Oluştur</a>
+                                    <a class="portal-header__nav-dropdown-item @(HeaderRouteMatch("Leave", "History", "HistoryDetail") ? "is-active" : string.Empty)" asp-controller="Leave" asp-action="History">İzin Geçmişim</a>
+                                </div>
+                            </div>
                             <a class="@HeaderNavState("Profile", "Index")" asp-controller="Profile" asp-action="Index">Profilim</a>
                             @if (isAdminUser)
                             {
                                 <div class="dropdown portal-header__nav-dropdown @(isAdminPage ? "is-active" : string.Empty)">
-                                    <button class="portal-header__nav-link portal-header__nav-dropdown-toggle @(isAdminPage ? "is-active" : string.Empty)" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <button class="portal-header__nav-link portal-header__nav-dropdown-toggle dropdown-toggle @(isAdminPage ? "is-active" : string.Empty)" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         Yönetim Paneli
                                     </button>
                                     <div class="dropdown-menu portal-header__nav-dropdown-menu">
-                                        <a class="portal-header__nav-dropdown-item @(HeaderNavState("Admin", "Index").Contains("is-active") ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="Index">Genel Bakış</a>
-                                        <a class="portal-header__nav-dropdown-item @(HeaderNavState("Admin", "Announcements").Contains("is-active") ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="Announcements">Duyuru Yönetimi</a>
-                                        <a class="portal-header__nav-dropdown-item @(HeaderNavState("Admin", "LeaveRequests").Contains("is-active") ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="LeaveRequests">İzinler</a>
+                                        <a class="portal-header__nav-dropdown-item @(HeaderRouteMatch("Admin", "Index") ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="Index">Genel Bakış</a>
+                                        <a class="portal-header__nav-dropdown-item @(HeaderRouteMatch("Admin", "Announcements") ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="Announcements">Duyuru Yönetimi</a>
+                                        <a class="portal-header__nav-dropdown-item @(HeaderRouteMatch("Admin", "LeaveRequests") ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="LeaveRequests">İzinler</a>
                                     </div>
                                 </div>
                             }
