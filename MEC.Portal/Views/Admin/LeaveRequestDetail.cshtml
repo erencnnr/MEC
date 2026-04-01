@@ -1,0 +1,106 @@
+@using System.Globalization
+@model MEC.Portal.Models.AdminLeaveRequestDetailViewModel
+
+@{
+    ViewData["Title"] = "İzin Talep Detayları";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    var item = Model.Item;
+
+    string FormatLeaveDays(decimal value)
+    {
+        return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
+    }
+}
+
+<section class="leave-detail-page admin-leave-detail-page">
+    <div class="leave-detail-shell">
+        <div class="leave-detail-header">
+            <a class="leave-detail-back" asp-controller="Admin" asp-action="LeaveRequests">İzin taleplerine geri dön</a>
+
+            <div class="leave-detail-title">
+                <span class="leave-detail-title__eyebrow">Yönetici işlemleri</span>
+                <h1>İzin Talep Detayları</h1>
+            </div>
+        </div>
+
+        <div class="leave-detail-card">
+            <div class="leave-detail-grid">
+                <div class="leave-detail-field">
+                    <span>Çalışan</span>
+                    <strong>@item.EmployeeName</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Durum</span>
+                    <strong>@item.StatusLabel</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>İzin Türü</span>
+                    <strong>@item.LeaveType</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Oluşturma Tarihi</span>
+                    <strong>@(item.CreatedDate?.ToString("dd.MM.yyyy HH:mm") ?? "-")</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Başlangıç Tarihi</span>
+                    <strong>@item.StartDate.ToString("dd.MM.yyyy HH:mm")</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Bitiş Tarihi</span>
+                    <strong>@item.EndDate.ToString("dd.MM.yyyy HH:mm")</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Kullanılan Gün Sayısı</span>
+                    <strong>@FormatLeaveDays(item.RequestedDays) Gün</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Kalan İzin Hakkı</span>
+                    <strong>@FormatLeaveDays(item.RemainingLeaveDays) Gün</strong>
+                </div>
+            </div>
+
+            <div class="leave-detail-reason">
+                <span>Açıklama</span>
+                <div class="leave-detail-reason__box">
+                    @(string.IsNullOrWhiteSpace(item.Reason) ? "-" : item.Reason)
+                </div>
+            </div>
+
+            <div class="admin-leave-detail-actions">
+                @if (item.CanTakeAction)
+                {
+                    <form asp-controller="Admin" asp-action="UpdateLeaveStatus" method="post">
+                        <input type="hidden" name="id" value="@item.Id" />
+                        <input type="hidden" name="status" value="1" />
+                        <button type="submit"
+                                class="admin-leave-action admin-leave-action--approve"
+                                onclick="return confirm('Onaylamak istediğinize emin misiniz?');">
+                            Onayla
+                        </button>
+                    </form>
+
+                    <form asp-controller="Admin" asp-action="UpdateLeaveStatus" method="post">
+                        <input type="hidden" name="id" value="@item.Id" />
+                        <input type="hidden" name="status" value="2" />
+                        <button type="submit"
+                                class="admin-leave-action admin-leave-action--reject"
+                                onclick="return confirm('Reddetmek istediğinize emin misiniz?');">
+                            Reddet
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <div class="admin-leave-note">Bu talep için işlem tamamlandı.</div>
+                }
+            </div>
+        </div>
+    </div>
+</section>

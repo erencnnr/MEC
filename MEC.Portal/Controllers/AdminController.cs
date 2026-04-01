@@ -1,4 +1,4 @@
-﻿using MEC.Application.Abstractions.Service.LeaveService;
+using MEC.Application.Abstractions.Service.LeaveService;
 using MEC.Application.Abstractions.Service.LoggingService;
 using MEC.Application.Abstractions.Service.LoggingService.Model;
 using MEC.Application.Abstractions.Service.SchoolService;
@@ -15,6 +15,7 @@ namespace MEC.AssetManagementUI.Controllers
     public class AdminController : Controller
     {
         private const string UpdateLeaveStatusMethodName = "UpdateLeaveStatus";
+        private const int LeaveRequestsPageSize = 10;
 
         private readonly ILeaveService _leaveService;
         private readonly IAnnouncementService _announcementService;
@@ -98,31 +99,60 @@ namespace MEC.AssetManagementUI.Controllers
             return RedirectToAction("Index", "Announcement");
         }
 
-        public async Task<IActionResult> LeaveRequests()
+        [HttpGet("/Admin/LeaveRequests")]
+        public async Task<IActionResult> LeaveRequests(int page = 1)
         {
+            var currentPage = page < 1 ? 1 : page;
             var leaves = await _leaveService.GetAllLeavesAsync();
             var employees = await _employeeRepository.GetAllAsync(x => !x.IsDeleted);
             var employeeNames = employees.ToDictionary(
                 x => x.Id,
                 x => string.Join(" ", new[] { x.FirstName, x.LastName }.Where(y => !string.IsNullOrWhiteSpace(y))).Trim());
 
-            var model = leaves.Select(x => new AdminLeaveRequestViewModel
+            var mappedItems = leaves
+                .Select(x => MapLeaveRequestItem(x, employeeNames))
+                .ToList();
+
+            var totalCount = mappedItems.Count;
+            var totalPages = totalCount == 0 ? 1 : (int)Math.Ceiling(totalCount / (double)LeaveRequestsPageSize);
+            currentPage = Math.Min(currentPage, totalPages);
+
+            var model = new AdminLeaveRequestListViewModel
             {
-                Id = x.Id,
-                EmployeeId = x.EmployeeId,
-                EmployeeName = employeeNames.TryGetValue(x.EmployeeId, out var employeeName) && !string.IsNullOrWhiteSpace(employeeName)
-                    ? employeeName
-                    : $"#{x.EmployeeId}",
-                LeaveType = GetLeaveType(x),
-                RequestedDays = GetRequestedDays(x),
-                StartDate = x.StartDate,
-                EndDate = x.EndDate,
-                Reason = x.Reason,
-                Status = x.Status,
-                RemainingLeaveDays = GetRemainingLeaveDays(x)
-            }).ToList();
+                Items = mappedItems.Skip((currentPage - 1) * LeaveRequestsPageSize).Take(LeaveRequestsPageSize).ToList(),
+                CurrentPage = currentPage,
+                TotalPages = totalPages,
+                TotalCount = totalCount,
+                PageSize = LeaveRequestsPageSize
+            };
 
             return View(model);
+        }
+
+        [HttpGet("/Admin/LeaveRequests/{id:int}")]
+        public async Task<IActionResult> LeaveRequestDetail(int id)
+        {
+            var leave = await _leaveRepository.GetByIdAsync(id);
+            if (leave == null)
+            {
+                return RedirectToAction(nameof(LeaveRequests));
+            }
+
+            var employee = await _employeeRepository.GetByIdAsync(leave.EmployeeId);
+            var model = new AdminLeaveRequestDetailViewModel
+            {
+                Item = MapLeaveRequestItem(
+                    leave,
+                    new Dictionary<int, string> { [leave.EmployeeId] = BuildEmployeeName(employee, leave.EmployeeId) })
+            };
+
+            return View(model);
+        }
+
+        [HttpGet("/Admin/LeaveReport")]
+        public IActionResult LeaveReport()
+        {
+            return View();
         }
 
         [HttpPost]
@@ -144,7 +174,7 @@ namespace MEC.AssetManagementUI.Controllers
                         level: "Information",
                         message: $"İzin durumu güncellendi. İzin Id: {id}, Çalışan: {employeeName}, İşlem Yapan: {currentUser}, Yeni Durum: {targetStatus}.");
 
-                    return RedirectToAction("LeaveRequests");
+                    return RedirectToAction(nameof(LeaveRequests));
                 }
 
                 await TryLogLeaveStatusChangeAsync(
@@ -184,6 +214,32 @@ namespace MEC.AssetManagementUI.Controllers
             {
                 _logger.LogError(ex, "Kullanıcı aksiyon logu yazılamadı. Method: {MethodName}", UpdateLeaveStatusMethodName);
             }
+        }
+
+        private static AdminLeaveRequestViewModel MapLeaveRequestItem(LeaveEntity leave, IReadOnlyDictionary<int, string> employeeNames)
+        {
+            var employeeName = employeeNames.TryGetValue(leave.EmployeeId, out var value) && !string.IsNullOrWhiteSpace(value)
+                ? value
+                : $"#{leave.EmployeeId}";
+
+            return new AdminLeaveRequestViewModel
+            {
+                Id = leave.Id,
+                EmployeeId = leave.EmployeeId,
+                EmployeeName = employeeName,
+                LeaveType = GetLeaveType(leave),
+                RequestedDays = GetRequestedDays(leave),
+                StartDate = leave.StartDate,
+                EndDate = leave.EndDate,
+                Reason = leave.Reason,
+                Status = leave.Status,
+                RemainingLeaveDays = GetRemainingLeaveDays(leave),
+                CreatedDate = leave.CreatedDate,
+                StatusLabel = GetLeaveStatusDisplayName(leave.Status),
+                StatusTone = GetLeaveStatusTone(leave.Status),
+                DecisionDisplay = "-",
+                CanTakeAction = leave.Status == 0
+            };
         }
 
         private static string BuildEmployeeName(Employee? employee, int? employeeId)
@@ -231,6 +287,17 @@ namespace MEC.AssetManagementUI.Controllers
                 2 => "Reddedildi",
                 3 => "İptal",
                 _ => $"Durum {status}"
+            };
+        }
+
+        private static string GetLeaveStatusTone(int status)
+        {
+            return status switch
+            {
+                1 => "approved",
+                2 => "rejected",
+                3 => "cancelled",
+                _ => "pending"
             };
         }
     }

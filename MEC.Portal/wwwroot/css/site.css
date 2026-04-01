@@ -1494,6 +1494,68 @@ body {
     color: var(--brand-1);
 }
 
+.portal-header__nav-submenu {
+    position: relative;
+}
+
+.portal-header__nav-submenu-toggle {
+    width: 100%;
+    text-align: left;
+}
+
+.portal-header__nav-submenu-toggle::after {
+    content: "";
+    float: right;
+    width: 8px;
+    height: 8px;
+    margin-top: 6px;
+    border-top: 1.5px solid currentColor;
+    border-right: 1.5px solid currentColor;
+    transform: rotate(45deg);
+}
+
+.portal-header__nav-submenu-menu {
+    position: absolute;
+    top: 0;
+    left: calc(100% - 4px);
+    min-width: 200px;
+    padding: 8px;
+    border: 1px solid rgba(24, 40, 92, 0.16);
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow: 0 12px 28px rgba(16, 24, 40, 0.12);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateX(8px);
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+}
+
+.portal-header__nav-submenu:hover .portal-header__nav-submenu-menu,
+.portal-header__nav-submenu:focus-within .portal-header__nav-submenu-menu,
+.portal-header__nav-submenu.is-active .portal-header__nav-submenu-menu {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateX(0);
+}
+
+.portal-header__nav-submenu-item {
+    display: block;
+    padding: 10px 14px;
+    border-radius: 12px;
+    color: var(--brand-1);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.portal-header__nav-submenu-item:hover,
+.portal-header__nav-submenu-item.is-active,
+.portal-header__nav-submenu-toggle.is-active {
+    background: var(--brand-soft);
+    color: var(--brand-1);
+}
+
 .portal-header__nav-link,
 .portal-header__welcome,
 .portal-header__button {
@@ -2141,6 +2203,77 @@ body {
     border-color: var(--brand-1);
     background: var(--brand-1);
     color: #ffffff;
+}
+
+.admin-leave-table__employee {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.admin-leave-table__employee strong {
+    color: var(--text-1);
+}
+
+.admin-leave-table__employee span,
+.admin-leave-note {
+    color: var(--text-3);
+    font-size: 0.88rem;
+}
+
+.admin-leave-actions,
+.admin-leave-detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.admin-leave-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.admin-leave-action--approve {
+    border-color: #1d7a46;
+    background: #1d7a46;
+    color: #ffffff;
+}
+
+.admin-leave-action--approve:hover {
+    border-color: #166138;
+    background: #166138;
+    color: #ffffff;
+}
+
+.admin-leave-action--reject {
+    border-color: #b42318;
+    background: #b42318;
+    color: #ffffff;
+}
+
+.admin-leave-action--reject:hover {
+    border-color: #912018;
+    background: #912018;
+    color: #ffffff;
+}
+
+.admin-leave-detail-actions {
+    margin-top: 24px;
+}
+
+.admin-leave-report-card {
+    min-height: 240px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .leave-detail-card {
@@ -3155,6 +3288,29 @@ body {
     .announcement-board-filter,
     .announcement-board-header__action {
         width: 100%;
+    }
+
+    .portal-header__nav-submenu-menu {
+        position: static;
+        min-width: 0;
+        margin-top: 8px;
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: none;
+        box-shadow: none;
+        display: none;
+    }
+
+    .portal-header__nav-submenu:hover .portal-header__nav-submenu-menu,
+    .portal-header__nav-submenu:focus-within .portal-header__nav-submenu-menu,
+    .portal-header__nav-submenu.is-active .portal-header__nav-submenu-menu {
+        display: block;
+    }
+
+    .portal-header__nav-submenu-toggle::after {
+        margin-top: 5px;
+        transform: rotate(135deg);
     }
 
     .announcement-board-card__head,

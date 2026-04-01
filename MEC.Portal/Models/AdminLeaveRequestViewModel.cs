@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace MEC.Portal.Models
 {
@@ -14,5 +15,24 @@ namespace MEC.Portal.Models
         public string Reason { get; set; } = string.Empty;
         public int Status { get; set; }
         public decimal RemainingLeaveDays { get; set; }
+        public DateTime? CreatedDate { get; set; }
+        public string StatusLabel { get; set; } = string.Empty;
+        public string StatusTone { get; set; } = "pending";
+        public string DecisionDisplay { get; set; } = "-";
+        public bool CanTakeAction { get; set; }
+    }
+
+    public class AdminLeaveRequestListViewModel
+    {
+        public List<AdminLeaveRequestViewModel> Items { get; set; } = new();
+        public int CurrentPage { get; set; } = 1;
+        public int TotalPages { get; set; }
+        public int TotalCount { get; set; }
+        public int PageSize { get; set; } = 10;
+    }
+
+    public class AdminLeaveRequestDetailViewModel
+    {
+        public AdminLeaveRequestViewModel Item { get; set; } = new();
     }
 }

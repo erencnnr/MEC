@@ -1,5 +1,5 @@
 @using System.Globalization
-@model List<MEC.Portal.Models.AdminLeaveRequestViewModel>
+@model MEC.Portal.Models.AdminLeaveRequestListViewModel
 
 @{
     ViewData["Title"] = "İzin Talepleri";
@@ -11,101 +11,150 @@
     }
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="h4">Personel İzin Talepleri</h2>
-    <span class="badge bg-primary">Toplam: @Model.Count</span>
-</div>
+<section class="leave-history-page admin-leave-page">
+    <div class="leave-history-shell">
+        <div class="leave-history-topbar">
+            <div>
+                <span class="leave-history-topbar__eyebrow">Yönetici işlemleri</span>
+                <h1>İzin Talepleri</h1>
+                <p>Personel izin taleplerini inceleyin, detaylarını görüntüleyin ve karar sürecini yönetin.</p>
+            </div>
+        </div>
 
-<div class="card shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th style="width: 14%">Personel</th>
-                    <th style="width: 15%">İzin Türü</th>
-                    <th style="width: 10%">Gün</th>
-                    <th style="width: 15%">Başlangıç</th>
-                    <th style="width: 15%">Bitiş</th>
-                    <th style="width: 15%">Açıklama</th>
-                    <th style="width: 10%">Durum</th>
-                    <th style="width: 10%">Kalan</th>
-                    <th style="width: 10%" class="text-center">İşlemler</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (!Model.Any())
-                {
-                    <tr>
-                        <td colspan="9" class="text-center py-4 text-muted">Kayıtlı izin talebi bulunamadı.</td>
-                    </tr>
-                }
-                else
-                {
-                    @foreach (var item in Model)
+        @if (!Model.Items.Any())
+        {
+            <div class="leave-history-empty">
+                <h2>Kayıt bulunamadı</h2>
+                <p>Henüz görüntülenecek izin talebi bulunmuyor.</p>
+            </div>
+        }
+        else
+        {
+            <div class="leave-history-table-card">
+                <div class="leave-history-table-card__meta">
+                    <span>@Model.TotalCount kayıt</span>
+                    <span>Sayfa @Model.CurrentPage / @Model.TotalPages</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table leave-history-table admin-leave-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Personel</th>
+                                <th>İzin Türü</th>
+                                <th>Kullanılan Gün</th>
+                                <th>Başlangıç</th>
+                                <th>Bitiş</th>
+                                <th>Durum</th>
+                                <th>Kalan İzin</th>
+                                <th class="text-center">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr class="leave-history-table__row" data-href="/Admin/LeaveRequests/@item.Id" tabindex="0">
+                                    <td>
+                                        <div class="admin-leave-table__employee">
+                                            <strong>@item.EmployeeName</strong>
+                                            <span>#@item.EmployeeId</span>
+                                        </div>
+                                    </td>
+                                    <td>@item.LeaveType</td>
+                                    <td>@FormatLeaveDays(item.RequestedDays) Gün</td>
+                                    <td>@item.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>@item.EndDate.ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>
+                                        <span class="leave-history-status leave-history-status--@item.StatusTone">@item.StatusLabel</span>
+                                    </td>
+                                    <td>
+                                        @if (item.Status == 1)
+                                        {
+                                            @($"{FormatLeaveDays(item.RemainingLeaveDays)} Gün")
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (item.CanTakeAction)
+                                        {
+                                            <div class="admin-leave-actions">
+                                                <form asp-controller="Admin" asp-action="UpdateLeaveStatus" method="post">
+                                                    <input type="hidden" name="id" value="@item.Id" />
+                                                    <input type="hidden" name="status" value="1" />
+                                                    <button type="submit"
+                                                            class="admin-leave-action admin-leave-action--approve"
+                                                            onclick="return confirm('Onaylamak istediğinize emin misiniz?');">
+                                                        Onayla
+                                                    </button>
+                                                </form>
+
+                                                <form asp-controller="Admin" asp-action="UpdateLeaveStatus" method="post">
+                                                    <input type="hidden" name="id" value="@item.Id" />
+                                                    <input type="hidden" name="status" value="2" />
+                                                    <button type="submit"
+                                                            class="admin-leave-action admin-leave-action--reject"
+                                                            onclick="return confirm('Reddetmek istediğinize emin misiniz?');">
+                                                        Reddet
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="admin-leave-note">İşlem tamamlandı</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @if (Model.TotalPages > 1)
+            {
+                <nav class="leave-history-pagination" aria-label="İzin talepleri sayfaları">
+                    @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
                     {
-                        <tr>
-                            <td class="fw-bold">@item.EmployeeName</td>
-                            <td>@item.LeaveType</td>
-                            <td>@FormatLeaveDays(item.RequestedDays) Gün</td>
-                            <td>@item.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
-                            <td>@item.EndDate.ToString("dd.MM.yyyy HH:mm")</td>
-                            <td><small class="text-muted">@item.Reason</small></td>
-                            <td>
-                                @if (item.Status == 0)
-                                {
-                                    <span class="badge bg-warning text-dark">Bekliyor</span>
-                                }
-                                else if (item.Status == 1)
-                                {
-                                    <span class="badge bg-success">Onaylandı</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-danger">Reddedildi</span>
-                                }
-                            </td>
-                            <td>
-                                @if (item.Status == 1)
-                                {
-                                    <span class="badge @(item.RemainingLeaveDays < 0 ? "bg-danger" : "bg-info")">@FormatLeaveDays(item.RemainingLeaveDays) Gün</span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted small">-</span>
-                                }
-                            </td>
-                            <td class="text-center">
-                                @if (item.Status == 0)
-                                {
-                                    <div class="d-flex justify-content-center gap-2">
-                                        <form asp-controller="Admin" asp-action="UpdateLeaveStatus" method="post" class="d-inline">
-                                            <input type="hidden" name="id" value="@item.Id" />
-                                            <input type="hidden" name="status" value="1" />
-                                            <button type="submit" class="btn btn-outline-success btn-sm"
-                                                    onclick="return confirm('Onaylamak istediğinize emin misiniz?');">
-                                                Onayla
-                                            </button>
-                                        </form>
+                        <a class="leave-history-pagination__item @(pageNumber == Model.CurrentPage ? "is-active" : string.Empty)"
+                           href="/Admin/LeaveRequests?page=@pageNumber">
+                            @pageNumber
+                        </a>
+                    }
+                </nav>
+            }
+        }
+    </div>
+</section>
 
-                                        <form asp-controller="Admin" asp-action="UpdateLeaveStatus" method="post" class="d-inline">
-                                            <input type="hidden" name="id" value="@item.Id" />
-                                            <input type="hidden" name="status" value="2" />
-                                            <button type="submit" class="btn btn-outline-danger btn-sm"
-                                                    onclick="return confirm('Reddetmek istediğinize emin misiniz?');">
-                                                Reddet
-                                            </button>
-                                        </form>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <span class="text-muted small">İşlem Tamamlandı</span>
-                                }
-                            </td>
-                        </tr>
+@section Scripts {
+    <script>
+        document.querySelectorAll(".leave-history-table__row").forEach(function (row) {
+            row.addEventListener("click", function () {
+                var href = row.getAttribute("data-href");
+                if (href) {
+                    window.location.href = href;
+                }
+            });
+
+            row.addEventListener("keydown", function (event) {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    var href = row.getAttribute("data-href");
+                    if (href) {
+                        window.location.href = href;
                     }
                 }
-            </tbody>
-        </table>
-    </div>
-</div>
+            });
+        });
+
+        document.querySelectorAll(".admin-leave-actions form, .admin-leave-actions button").forEach(function (element) {
+            element.addEventListener("click", function (event) {
+                event.stopPropagation();
+            });
+        });
+    </script>
+}
