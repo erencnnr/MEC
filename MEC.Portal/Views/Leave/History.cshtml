@@ -1,6 +1,12 @@
+@using System.Globalization
 @model MEC.Portal.Models.LeaveHistoryViewModel
 @{
     ViewData["Title"] = "İzin Geçmişim";
+
+    string FormatLeaveDays(decimal value)
+    {
+        return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
+    }
 
     string BuildHistoryUrl(string? leaveTypeOverride = null, string? sortOverride = null, int? pageOverride = null)
     {
@@ -138,10 +144,10 @@
                             @foreach (var item in Model.LeaveHistory)
                             {
                                 <tr class="leave-history-table__row" data-href="/Leave/History/@item.Id" tabindex="0">
-                                    <td>@item.StartDate.ToString("dd.MM.yyyy")</td>
-                                    <td>@item.EndDate.ToString("dd.MM.yyyy")</td>
+                                    <td>@item.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>@item.EndDate.ToString("dd.MM.yyyy HH:mm")</td>
                                     <td>@item.LeaveType</td>
-                                    <td>@item.RequestedDays Gün</td>
+                                    <td>@FormatLeaveDays(item.RequestedDays) Gün</td>
                                     <td>
                                         <span class="leave-history-status leave-history-status--@item.StatusTone">@item.StatusLabel</span>
                                     </td>

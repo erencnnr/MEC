@@ -64,7 +64,7 @@
                     <div class="dashboard-activity-item">
                         <div>
                             <h3>@item.EmployeeName</h3>
-                            <p>@item.LeaveType, @item.RequestedDays Gün</p>
+                            <p>@item.LeaveType, @item.RequestedDays.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("tr-TR")) Gün</p>
                             <small>@item.StartDate.ToString("dd.MM.yyyy") / @item.EndDate.ToString("dd.MM.yyyy")</small>
                         </div>
                         <div class="dashboard-activity-item__side">

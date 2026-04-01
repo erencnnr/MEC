@@ -1,8 +1,14 @@
+@using System.Globalization
 @model MEC.Portal.Models.LeaveHistoryDetailViewModel
 
 @{
     ViewData["Title"] = "İzin Talep Detayları";
     var item = Model.Item;
+
+    string FormatLeaveDays(decimal value)
+    {
+        return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
+    }
 }
 
 <section class="leave-detail-page">
@@ -20,7 +26,7 @@
             <div class="leave-detail-grid">
                 <div class="leave-detail-field">
                     <span>Oluşturma Tarihi</span>
-                    <strong>@(item.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</strong>
+                    <strong>@(item.CreatedDate?.ToString("dd.MM.yyyy HH:mm") ?? "-")</strong>
                 </div>
 
                 <div class="leave-detail-field">
@@ -30,7 +36,7 @@
 
                 <div class="leave-detail-field">
                     <span>Başlangıç Tarihi</span>
-                    <strong>@item.StartDate.ToString("dd.MM.yyyy")</strong>
+                    <strong>@item.StartDate.ToString("dd.MM.yyyy HH:mm")</strong>
                 </div>
 
                 <div class="leave-detail-field">
@@ -40,12 +46,12 @@
 
                 <div class="leave-detail-field">
                     <span>Bitiş Tarihi</span>
-                    <strong>@item.EndDate.ToString("dd.MM.yyyy")</strong>
+                    <strong>@item.EndDate.ToString("dd.MM.yyyy HH:mm")</strong>
                 </div>
 
                 <div class="leave-detail-field">
                     <span>Kalan İzin Hakkı</span>
-                    <strong>@item.RemainingLeaveDays Gün</strong>
+                    <strong>@FormatLeaveDays(item.RemainingLeaveDays) Gün</strong>
                 </div>
 
                 <div class="leave-detail-field">
@@ -55,7 +61,7 @@
 
                 <div class="leave-detail-field">
                     <span>Kullanılan Gün Sayısı</span>
-                    <strong>@item.RequestedDays Gün</strong>
+                    <strong>@FormatLeaveDays(item.RequestedDays) Gün</strong>
                 </div>
             </div>
 

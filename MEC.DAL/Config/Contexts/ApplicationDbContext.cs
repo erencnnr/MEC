@@ -12,6 +12,7 @@ using MEC.Domain.Entity.Invoice;
 using MEC.Domain.Entity.Loan;
 using MEC.Domain.Entity.Employee;
 using MEC.Domain.Entity.Leave;
+using MEC.Domain.Entity.Logging;
 
 
 namespace MEC.DAL.Config.Contexts
@@ -38,6 +39,8 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<EmployeeType> EmployeeTypes { get; set; }
         public DbSet<EmployeePortal> EmployeePortals { get; set; }
         public DbSet<Announcement> Announcements { get; set; }
+        public DbSet<ApiLog> ApiLogs { get; set; }
+        public DbSet<UserActionLog> UserActionLogs { get; set; }
 
         // Çakışmayı önlemek için sınıfı tam adıyla (MEC.Domain.Entity.Leave.Leave) belirtiyoruz
         public DbSet<MEC.Domain.Entity.Leave.Leave> Leaves { get; set; }

@@ -2,9 +2,11 @@ namespace MEC.Portal.Models
 {
     public class LeaveRequestViewModel
     {
-        public string StartDate { get; set; } // İzin Başlangıç Tarihi
-        public string EndDate { get; set; }   // İzin Bitiş Tarihi
-        public string LeaveType { get; set; } // İzin Türü
-        public string Reason { get; set; }    // İzin Nedeni / Açıklama
+        public string StartDate { get; set; } = string.Empty;
+        public string EndDate { get; set; } = string.Empty;
+        public decimal RequestedDays { get; set; }
+        public string LeaveType { get; set; } = string.Empty;
+        public IFormFile? Attachment { get; set; }
+        public string Reason { get; set; } = string.Empty;
     }
 }

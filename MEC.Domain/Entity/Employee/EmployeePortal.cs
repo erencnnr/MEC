@@ -13,6 +13,7 @@ namespace MEC.Domain.Entity.Employee
         public string Email { get; set; }           // Mail (Giriş yapılan mail ile eşleşecek)
         public DateTime HireDate { get; set; }      // İşe Giriş Tarihi
         public DateTime BirthDate { get; set; }     // Doğum Günü
-        public int LeaveDays { get; set; }          // İzin Gün Sayısı
+        [Column(TypeName = "decimal(10,2)")]
+        public decimal LeaveDays { get; set; }      // İzin Gün Sayısı
     }
 }

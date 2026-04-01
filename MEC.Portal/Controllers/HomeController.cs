@@ -2,6 +2,7 @@ using MEC.Application.Abstractions.Service.SchoolService;
 using MEC.Portal.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace MEC.Portal.Controllers
@@ -40,14 +41,11 @@ namespace MEC.Portal.Controllers
         }
 
         // Tüm aktif duyuruların listeleneceği genel sayfa
+        [HttpGet("/Announcements")]
         public async Task<IActionResult> Announcements()
         {
-            // Servisten sadece aktif olan duyuruları çekiyoruz
             var activeAnnouncements = await _announcementService.GetActiveAnnouncementsAsync();
-
-            // Tarihe göre yeniden eskiye (Descending) sıralayıp View'a gönderiyoruz
             var sortedAnnouncements = activeAnnouncements.OrderByDescending(x => x.CreatedDate).ToList();
-
             return View(sortedAnnouncements);
         }
     }

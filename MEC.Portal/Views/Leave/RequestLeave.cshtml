@@ -1,48 +1,151 @@
-﻿@model MEC.Portal.Models.LeaveRequestViewModel
+@using System.Globalization
+@model MEC.Portal.Models.LeaveRequestViewModel
 
 @{
-    ViewData["Title"] = "İzin Talep Formu";
+    ViewData["Title"] = "İzin Talebi Oluştur";
     Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var supportedFormats = new[]
+    {
+        "d.M.yyyy H:mm",
+        "d.M.yyyy HH:mm",
+        "dd.MM.yyyy H:mm",
+        "dd.MM.yyyy HH:mm",
+        "d.M.yyyy",
+        "dd.MM.yyyy"
+    };
+
+    DateTime? ParseLeaveDate(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (DateTime.TryParseExact(value, supportedFormats, CultureInfo.GetCultureInfo("tr-TR"), DateTimeStyles.None, out var parsed))
+        {
+            return parsed;
+        }
+
+        if (DateTime.TryParse(value, CultureInfo.GetCultureInfo("tr-TR"), DateTimeStyles.None, out parsed))
+        {
+            return parsed;
+        }
+
+        return null;
+    }
+
+    var requestedDaysDisplay = Model.RequestedDays > 0
+        ? Model.RequestedDays.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"))
+        : "0";
+
+    var startDateValue = ParseLeaveDate(Model.StartDate);
+    var endDateValue = ParseLeaveDate(Model.EndDate);
+
+    var startDateDisplay = startDateValue?.ToString("dd.MM.yyyy") ?? string.Empty;
+    var endDateDisplay = endDateValue?.ToString("dd.MM.yyyy") ?? string.Empty;
+    var startTimeDisplay = startDateValue?.ToString("HH:mm") ?? "09:00";
+    var endTimeDisplay = endDateValue?.ToString("HH:mm") ?? "18:00";
+
+    var timeSlots = new List<string>();
+
+    for (var hour = 9; hour <= 18; hour++)
+    {
+        for (var minute = 0; minute < 60; minute += 30)
+        {
+            if (hour == 18 && minute > 0)
+            {
+                break;
+            }
+
+            timeSlots.Add($"{hour:D2}:{minute:D2}");
+        }
+    }
 }
 
 <style>
     .weekend-day {
-        color: #dc3545 !important; /* Kırmızı renk */
-        font-weight: bold;
+        color: #c62828 !important;
+        font-weight: 700;
     }
 </style>
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow-lg border-0 rounded-lg">
-                <div class="card-header bg-primary text-white text-center py-3">
-                    <h4 class="mb-0">İzin Talep Formu</h4>
-                </div>
-                <div class="card-body p-4">
-                    <p class="text-muted text-center mb-4">
-                        Lütfen izin kullanmak istediğiniz tarih aralığını seçin ve talebinizi iletin.
-                    </p>
+<section class="leave-request-page">
+    <div class="leave-request-shell">
+        <div class="leave-request-header">
+            <div class="leave-request-header__copy">
+                <span class="leave-request-header__eyebrow">İzin işlemleri</span>
+                <h1>İzin Talebi Oluştur</h1>
+            </div>
+        </div>
 
-                    <form asp-action="RequestLeave" method="post">
-                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+        <div class="leave-request-layout">
+            <div class="leave-request-card">
+                <form asp-action="RequestLeave" method="post" enctype="multipart/form-data" class="leave-request-form">
+                    <div asp-validation-summary="ModelOnly" class="leave-request-alert leave-request-alert--error"></div>
 
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Başlangıç Tarihi</label>
-                                <input asp-for="StartDate" class="form-control" placeholder="Tarih Seçiniz" required autocomplete="off" />
-                                <span asp-validation-for="StartDate" class="text-danger small"></span>
+                    <div class="leave-request-form__grid">
+                        <div class="leave-request-field">
+                            <label asp-for="StartDate">Başlangıç Tarihi ve Saati</label>
+                            <input asp-for="StartDate" type="hidden" />
+                            <div class="leave-request-datetime">
+                                <div class="leave-request-datetime__date">
+                                    <input id="StartDatePicker" class="leave-request-input" type="text" value="@startDateDisplay" placeholder="Tarih seçiniz" required autocomplete="off" />
+                                </div>
+                                <div class="leave-request-datetime__time">
+                                    <select id="StartTimePicker" class="leave-request-input" required>
+                                        @foreach (var timeSlot in timeSlots)
+                                        {
+                                            if (timeSlot == startTimeDisplay)
+                                            {
+                                                <option value="@timeSlot" selected>@timeSlot</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="@timeSlot">@timeSlot</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Bitiş Tarihi</label>
-                                <input asp-for="EndDate" class="form-control" placeholder="Tarih Seçiniz" required autocomplete="off" />
-                                <span asp-validation-for="EndDate" class="text-danger small"></span>
-                            </div>
+                            <span asp-validation-for="StartDate" class="leave-request-validation"></span>
                         </div>
 
-                        <div class="mb-3">
-                            <label asp-for="LeaveType" class="form-label fw-bold">İzin Türü</label>
-                            <select asp-for="LeaveType" class="form-select" required>
+                        <div class="leave-request-field">
+                            <label asp-for="EndDate">Bitiş Tarihi ve Saati</label>
+                            <input asp-for="EndDate" type="hidden" />
+                            <div class="leave-request-datetime">
+                                <div class="leave-request-datetime__date">
+                                    <input id="EndDatePicker" class="leave-request-input" type="text" value="@endDateDisplay" placeholder="Tarih seçiniz" required autocomplete="off" />
+                                </div>
+                                <div class="leave-request-datetime__time">
+                                    <select id="EndTimePicker" class="leave-request-input" required>
+                                        @foreach (var timeSlot in timeSlots)
+                                        {
+                                            if (timeSlot == endTimeDisplay)
+                                            {
+                                                <option value="@timeSlot" selected>@timeSlot</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="@timeSlot">@timeSlot</option>
+                                            }
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                            <span asp-validation-for="EndDate" class="leave-request-validation"></span>
+                        </div>
+
+                        <div class="leave-request-field leave-request-field--full">
+                            <label for="RequestedDaysDisplay">Kullanılacak İzin Gün Sayısı</label>
+                            <input id="RequestedDaysDisplay" class="leave-request-input leave-request-input--readonly" type="text" value="@requestedDaysDisplay Gün" readonly />
+                            <span class="leave-request-help">Hafta sonları otomatik olarak hesaptan çıkarılır. Sonuç en yakın yarım güne yukarı yuvarlanır.</span>
+                        </div>
+
+                        <div class="leave-request-field leave-request-field--full">
+                            <label asp-for="LeaveType">İzin Türü</label>
+                            <select asp-for="LeaveType" class="leave-request-input" required>
                                 <option value="">İzin türü seçiniz</option>
                                 <option value="Yıllık İzin">Yıllık İzin</option>
                                 <option value="Hastalık İzni">Hastalık İzni</option>
@@ -50,77 +153,257 @@
                                 <option value="Ücretsiz İzin">Ücretsiz İzin</option>
                                 <option value="Diğer">Diğer</option>
                             </select>
-                            <span asp-validation-for="LeaveType" class="text-danger small"></span>
+                            <span asp-validation-for="LeaveType" class="leave-request-validation"></span>
                         </div>
 
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">İzin Nedeni / Açıklama</label>
-                            <textarea asp-for="Reason" class="form-control" rows="4" placeholder="Örn: Yıllık izin, Sağlık sorunu, Özel işlerim vb..." required></textarea>
-                            <span asp-validation-for="Reason" class="text-danger small"></span>
+                        <div class="leave-request-field leave-request-field--full">
+                            <label asp-for="Attachment">Ek</label>
+                            <input asp-for="Attachment" class="leave-request-input leave-request-input--file" type="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.txt,.doc,.docx,.xls,.xlsx" />
+                            <span class="leave-request-help">Opsiyonel. En fazla 10 MB boyutunda PDF, görsel veya ofis dosyası ekleyebilirsiniz.</span>
+                            <span asp-validation-for="Attachment" class="leave-request-validation"></span>
                         </div>
 
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-success btn-lg fw-bold">
-                                Talebi Gönder
-                            </button>
+                        <div class="leave-request-field leave-request-field--full">
+                            <label asp-for="Reason">İzin Nedeni / Açıklama</label>
+                            <textarea asp-for="Reason" class="leave-request-input leave-request-input--textarea" rows="6" placeholder="İzin talebinizin kısa açıklamasını giriniz." required></textarea>
+                            <span asp-validation-for="Reason" class="leave-request-validation"></span>
                         </div>
-                    </form>
+                    </div>
 
-                </div>
+                    <div class="leave-request-actions">
+                        <a class="leave-request-actions__secondary" asp-controller="Leave" asp-action="History">İzin Geçmişim</a>
+                        <button type="submit" class="leave-request-actions__primary">Talebi Gönder</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
-</div>
+</section>
 
 @section Scripts {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://npmcdn.com/flatpickr/dist/l10n/tr.js"></script>
-
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
         $(document).ready(function () {
+            const workDayStartHour = 9;
+            const workDayEndHour = 18;
+            const workMinutesPerDay = (workDayEndHour - workDayStartHour) * 60;
 
-            // 1. ORTAK AYAR: Hafta sonlarını (Cumartesi=6, Pazar=0) bulup kırmızı sınıfını ekleyen fonksiyon
+            const requestedDaysDisplay = document.getElementById("RequestedDaysDisplay");
+            const hiddenStartInput = document.getElementById("StartDate");
+            const hiddenEndInput = document.getElementById("EndDate");
+            const startDateInput = document.getElementById("StartDatePicker");
+            const endDateInput = document.getElementById("EndDatePicker");
+            const startTimeInput = document.getElementById("StartTimePicker");
+            const endTimeInput = document.getElementById("EndTimePicker");
+            let startDatePicker = null;
+            let endDatePicker = null;
+
+            function isWeekend(date) {
+                return date.getDay() === 0 || date.getDay() === 6;
+            }
+
+            function normalizeDate(date) {
+                return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+            }
+
+            function roundRequestedDays(rawDays) {
+                if (rawDays <= 0) {
+                    return 0;
+                }
+
+                return Math.ceil(rawDays * 2) / 2;
+            }
+
+            function formatRequestedDays(value) {
+                const roundedValue = Math.round(value * 100) / 100;
+                const formattedValue = Number.isInteger(roundedValue)
+                    ? roundedValue.toString()
+                    : roundedValue.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+
+                return formattedValue.replace(".", ",");
+            }
+
+            function combineDateAndTime(dateValue, timeValue) {
+                if (!dateValue || !timeValue) {
+                    return null;
+                }
+
+                const [day, month, year] = dateValue.split(".");
+                const [hours, minutes] = timeValue.split(":");
+
+                if (!day || !month || !year || !hours || !minutes) {
+                    return null;
+                }
+
+                return new Date(Number(year), Number(month) - 1, Number(day), Number(hours), Number(minutes), 0, 0);
+            }
+
+            function syncHiddenInputs() {
+                hiddenStartInput.value = startDateInput.value && startTimeInput.value
+                    ? `${startDateInput.value} ${startTimeInput.value}`
+                    : "";
+
+                hiddenEndInput.value = endDateInput.value && endTimeInput.value
+                    ? `${endDateInput.value} ${endTimeInput.value}`
+                    : "";
+            }
+
+            function calculateRequestedDays(startDate, endDate) {
+                if (!startDate || !endDate || endDate < startDate) {
+                    return 0;
+                }
+
+                let totalMinutes = 0;
+                const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                const lastDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+
+                while (cursor <= lastDay) {
+                    if (!isWeekend(cursor)) {
+                        const dayStart = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), workDayStartHour, 0, 0, 0);
+                        const dayEnd = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), workDayEndHour, 0, 0, 0);
+
+                        const effectiveStart = startDate > dayStart ? startDate : dayStart;
+                        const effectiveEnd = endDate < dayEnd ? endDate : dayEnd;
+
+                        if (effectiveEnd > effectiveStart) {
+                            totalMinutes += (effectiveEnd - effectiveStart) / 60000;
+                        }
+                    }
+
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+
+                const rawDays = totalMinutes / workMinutesPerDay;
+                return roundRequestedDays(rawDays);
+            }
+
+            function updateRequestedDaysDisplay() {
+                syncHiddenInputs();
+
+                const startDate = combineDateAndTime(startDateInput.value, startTimeInput.value);
+                const endDate = combineDateAndTime(endDateInput.value, endTimeInput.value);
+                const requestedDays = calculateRequestedDays(startDate, endDate);
+
+                requestedDaysDisplay.value = `${formatRequestedDays(requestedDays)} Gün`;
+            }
+
+            function updateRangeHighlights() {
+                const startDate = startDatePicker && startDatePicker.selectedDates.length > 0
+                    ? startDatePicker.selectedDates[0]
+                    : null;
+                const endDate = endDatePicker && endDatePicker.selectedDates.length > 0
+                    ? endDatePicker.selectedDates[0]
+                    : null;
+                const normalizedStart = startDate ? normalizeDate(startDate) : null;
+                const normalizedEnd = endDate ? normalizeDate(endDate) : null;
+
+                [startDatePicker, endDatePicker].filter(Boolean).forEach(function (picker) {
+                    if (!picker || !picker.daysContainer) {
+                        return;
+                    }
+
+                    picker.daysContainer.querySelectorAll(".flatpickr-day").forEach(function (dayElem) {
+                        dayElem.classList.remove("leave-request-day--in-range", "leave-request-day--range-start", "leave-request-day--range-end");
+
+                        if (!normalizedStart || !normalizedEnd) {
+                            return;
+                        }
+
+                        const currentDate = normalizeDate(dayElem.dateObj);
+
+                        if (currentDate < normalizedStart || currentDate > normalizedEnd || isWeekend(currentDate)) {
+                            return;
+                        }
+
+                        dayElem.classList.add("leave-request-day--in-range");
+
+                        if (currentDate.getTime() === normalizedStart.getTime()) {
+                            dayElem.classList.add("leave-request-day--range-start");
+                        }
+
+                        if (currentDate.getTime() === normalizedEnd.getTime()) {
+                            dayElem.classList.add("leave-request-day--range-end");
+                        }
+                    });
+                });
+            }
+
             const flatpickrConfig = {
                 locale: "tr",
                 dateFormat: "d.m.Y",
-                onDayCreate: function(dObj, dStr, fp, dayElem) {
+                disableMobile: true,
+                onDayCreate: function (dObj, dStr, fp, dayElem) {
                     if (dayElem.dateObj.getDay() === 0 || dayElem.dateObj.getDay() === 6) {
                         dayElem.classList.add("weekend-day");
                     }
+                },
+                onReady: function () {
+                    updateRangeHighlights();
+                },
+                onOpen: function () {
+                    updateRangeHighlights();
+                },
+                onMonthChange: function () {
+                    updateRangeHighlights();
+                },
+                onYearChange: function () {
+                    updateRangeHighlights();
                 }
             };
 
-            // 2. BİTİŞ TAKVİMİNİ OLUŞTUR (Önce bunu oluşturuyoruz ki başlangıç değişince buna müdahale edebilelim)
-            const endDatePicker = flatpickr("#EndDate", flatpickrConfig);
-
-            // 3. BAŞLANGIÇ TAKVİMİNİ OLUŞTUR VE BİTİŞE BAĞLA
-            flatpickr("#StartDate", {
-                ...flatpickrConfig, // Ortak ayarları (hafta sonu kırmızısı vs.) dahil et
-                onChange: function(selectedDates, dateStr, instance) {
-                    // Kullanıcı başlangıç tarihi seçtiğinde çalışır
-                    if (selectedDates.length > 0) {
-                        // Bitiş takviminin seçilebilir en küçük gününü (minDate), Başlangıç tarihi olarak ayarla!
-                        endDatePicker.set("minDate", selectedDates[0]);
-                    } else {
-                        // Eğer başlangıç tarihi silinirse kısıtlamayı kaldır
-                        endDatePicker.set("minDate", null);
-                    }
+            endDatePicker = flatpickr("#EndDatePicker", {
+                ...flatpickrConfig,
+                defaultDate: endDateInput.value || null,
+                onChange: function () {
+                    updateRangeHighlights();
+                    updateRequestedDaysDisplay();
                 }
             });
 
-            // BAŞARI MESAJI (Aynı kaldı)
+            startDatePicker = flatpickr("#StartDatePicker", {
+                ...flatpickrConfig,
+                defaultDate: startDateInput.value || null,
+                onChange: function (selectedDates) {
+                    if (selectedDates.length > 0) {
+                        endDatePicker.set("minDate", selectedDates[0]);
+
+                        const currentEndDate = endDatePicker.selectedDates[0];
+                        if (currentEndDate && currentEndDate < selectedDates[0]) {
+                            endDatePicker.clear();
+                            endDateInput.value = "";
+                        }
+                    } else {
+                        endDatePicker.set("minDate", null);
+                    }
+
+                    updateRangeHighlights();
+                    updateRequestedDaysDisplay();
+                }
+            });
+
+            if (startDatePicker.selectedDates.length > 0) {
+                endDatePicker.set("minDate", startDatePicker.selectedDates[0]);
+            }
+
+            startTimeInput.addEventListener("change", updateRequestedDaysDisplay);
+            endTimeInput.addEventListener("change", updateRequestedDaysDisplay);
+
+            updateRequestedDaysDisplay();
+            updateRangeHighlights();
+
             var successMessage = '@Html.Raw(TempData["LeaveSuccess"] ?? "")';
 
             if (successMessage && successMessage !== '') {
                 Swal.fire({
-                    title: 'Başarılı!',
+                    title: 'Başarılı',
                     text: successMessage,
                     icon: 'success',
                     confirmButtonText: 'Tamam',
-                    confirmButtonColor: '#198754'
+                    confirmButtonColor: '#18285c'
                 });
             }
         });

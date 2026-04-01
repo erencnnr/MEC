@@ -1,5 +1,6 @@
 using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.DAL.Config.Abstractions.Common;
+using MEC.Domain.Common;
 using MEC.Domain.Entity.Employee;
 using MEC.Domain.Entity.Leave;
 using MEC.Portal.Models;
@@ -11,11 +12,12 @@ namespace MEC.Portal.Controllers
 {
     public class ProfileController : Controller
     {
+        private const int PendingStatus = 0;
+        private const string AnnualLeaveType = "Yıllık İzin";
+
         private readonly IEmployeePortalService _profileService;
         private readonly IGenericRepository<Employee> _employeeRepository;
         private readonly IGenericRepository<Leave> _leaveRepository;
-        private const int PendingStatus = 0;
-        private const string AnnualLeaveType = "Yıllık İzin";
 
         public ProfileController(
             IEmployeePortalService profileService,
@@ -29,13 +31,9 @@ namespace MEC.Portal.Controllers
 
         public async Task<IActionResult> Index()
         {
-            // 1. Sisteme giriş yapmış kullanıcının email adresini alıyoruz (AccountController'da claim olarak kaydetmiştik)
-            var userEmail = User.Identity.Name;
-
-            // 2. Bu email'e ait verileri veritabanından çekiyoruz
+            var userEmail = User.Identity?.Name;
             var profileData = await _profileService.GetProfileByEmailAsync(userEmail);
 
-            // 3. Eğer kullanıcı DB'de yoksa hata veya boş model dönebiliriz
             if (profileData == null)
             {
                 ViewBag.Error = "Profil bilgileriniz bulunamadı.";
@@ -56,7 +54,6 @@ namespace MEC.Portal.Controllers
                     .ToList();
 
                 var pendingLeaves = employeeLeaves.Where(x => x.Status == PendingStatus);
-
                 var pendingAnnualLeaves = pendingLeaves.Where(IsAnnualLeave);
 
                 profileViewModel.PendingAnnualLeaveCount = pendingAnnualLeaves.Count();
@@ -71,26 +68,19 @@ namespace MEC.Portal.Controllers
             return string.Equals(GetLeaveType(leave), AnnualLeaveType, StringComparison.Ordinal);
         }
 
-        private static int GetRequestedDays(Leave leave)
+        private static decimal GetRequestedDays(Leave leave)
         {
-            var requestedDaysProperty = leave.GetType().GetProperty("RequestedDays")?.GetValue(leave);
-            if (requestedDaysProperty is int requestedDays && requestedDays > 0)
+            if (leave.RequestedDays > 0)
             {
-                return requestedDays;
+                return leave.RequestedDays;
             }
 
-            return (leave.EndDate.Date - leave.StartDate.Date).Days + 1;
+            return LeaveDurationCalculator.CalculateRequestedDays(leave.StartDate, leave.EndDate);
         }
 
         private static string GetLeaveType(Leave leave)
         {
-            return leave.GetType().GetProperty("LeaveType")?.GetValue(leave)?.ToString() ?? string.Empty;
-        }
-
-        private static int GetRemainingLeaveDays(Leave leave)
-        {
-            var remainingLeaveDaysProperty = leave.GetType().GetProperty("RemainingLeaveDays")?.GetValue(leave);
-            return remainingLeaveDaysProperty is int remainingLeaveDays ? remainingLeaveDays : 0;
+            return leave.LeaveType ?? string.Empty;
         }
     }
 }

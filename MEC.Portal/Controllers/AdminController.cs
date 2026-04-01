@@ -1,33 +1,45 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using MEC.Application.Abstractions.Service.LeaveService;
+using MEC.Application.Abstractions.Service.LoggingService;
+using MEC.Application.Abstractions.Service.LoggingService.Model;
 using MEC.Application.Abstractions.Service.SchoolService;
-using MEC.Application.Abstractions.Service.LeaveService;
 using MEC.DAL.Config.Abstractions.Common;
+using MEC.Domain.Common;
 using MEC.Domain.Entity.Employee;
 using MEC.Portal.Models;
-using System;
-using System.Linq;
-using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using LeaveEntity = MEC.Domain.Entity.Leave.Leave;
 
 namespace MEC.AssetManagementUI.Controllers
 {
     public class AdminController : Controller
     {
+        private const string UpdateLeaveStatusMethodName = "UpdateLeaveStatus";
+
         private readonly ILeaveService _leaveService;
         private readonly IAnnouncementService _announcementService;
         private readonly IGenericRepository<Employee> _employeeRepository;
         private readonly IGenericRepository<EmployeePortal> _employeePortalRepository;
+        private readonly IGenericRepository<LeaveEntity> _leaveRepository;
+        private readonly IUserActionLogService _userActionLogService;
+        private readonly ILogger<AdminController> _logger;
 
-        // Dependency Injection ile servisimizi içeri alıyoruz
         public AdminController(
             ILeaveService leaveService,
             IAnnouncementService announcementService,
             IGenericRepository<Employee> employeeRepository,
-            IGenericRepository<EmployeePortal> employeePortalRepository)
+            IGenericRepository<EmployeePortal> employeePortalRepository,
+            IGenericRepository<LeaveEntity> leaveRepository,
+            IUserActionLogService userActionLogService,
+            ILogger<AdminController> logger)
         {
             _leaveService = leaveService;
             _announcementService = announcementService;
             _employeeRepository = employeeRepository;
             _employeePortalRepository = employeePortalRepository;
+            _leaveRepository = leaveRepository;
+            _userActionLogService = userActionLogService;
+            _logger = logger;
         }
 
         public async Task<IActionResult> Index()
@@ -83,13 +95,11 @@ namespace MEC.AssetManagementUI.Controllers
 
         public IActionResult Announcements()
         {
-            return View("~/Views/Announcement/Create.cshtml");
+            return RedirectToAction("Index", "Announcement");
         }
 
-        // Metodu asenkron (async) yaptık çünkü veritabanına bağlanıyoruz
         public async Task<IActionResult> LeaveRequests()
         {
-            // Veritabanından tüm izinleri çekiyoruz
             var leaves = await _leaveService.GetAllLeavesAsync();
             var employees = await _employeeRepository.GetAllAsync(x => !x.IsDeleted);
             var employeeNames = employees.ToDictionary(
@@ -112,46 +122,116 @@ namespace MEC.AssetManagementUI.Controllers
                 RemainingLeaveDays = GetRemainingLeaveDays(x)
             }).ToList();
 
-            // Çektiğimiz verileri ekrana (View'a) gönderiyoruz
             return View(model);
         }
-    
-    [HttpPost] // Veri güncellediğimiz için POST kullanıyoruz
+
+        [HttpPost]
         public async Task<IActionResult> UpdateLeaveStatus(int id, int status)
         {
-            // Servisimizdeki güncelleme metodunu çağırıyoruz
-            var result = await _leaveService.UpdateLeaveStatusAsync(id, status);
+            var leave = await _leaveRepository.GetByIdAsync(id);
+            var employee = leave != null ? await _employeeRepository.GetByIdAsync(leave.EmployeeId) : null;
+            var employeeName = BuildEmployeeName(employee, leave?.EmployeeId);
+            var currentUser = User.Identity?.Name ?? "anonymous";
+            var targetStatus = GetLeaveStatusDisplayName(status);
 
-            if (result)
+            try
             {
-                // İşlem başarılıysa sayfayı yeniliyoruz
-                return RedirectToAction("LeaveRequests");
-            }
+                var result = await _leaveService.UpdateLeaveStatusAsync(id, status);
 
-            // Bir hata oluştuysa hata mesajı döndürebiliriz
-            return BadRequest("Durum güncellenemedi.");
+                if (result)
+                {
+                    await TryLogLeaveStatusChangeAsync(
+                        level: "Information",
+                        message: $"İzin durumu güncellendi. İzin Id: {id}, Çalışan: {employeeName}, İşlem Yapan: {currentUser}, Yeni Durum: {targetStatus}.");
+
+                    return RedirectToAction("LeaveRequests");
+                }
+
+                await TryLogLeaveStatusChangeAsync(
+                    level: "Warning",
+                    message: $"İzin durumu güncellenemedi. İzin Id: {id}, Çalışan: {employeeName}, İşlem Yapan: {currentUser}, Hedef Durum: {targetStatus}.");
+
+                return BadRequest("Durum güncellenemedi.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "İzin durumu güncellenirken beklenmeyen bir hata oluştu. LeaveId: {LeaveId}, Status: {Status}", id, status);
+
+                await TryLogLeaveStatusChangeAsync(
+                    level: "Error",
+                    message: $"İzin durumu güncellenirken hata oluştu. İzin Id: {id}, Çalışan: {employeeName}, İşlem Yapan: {currentUser}, Hedef Durum: {targetStatus}, Hata: {ex.Message}.");
+
+                return StatusCode(500, "Durum güncellenirken beklenmeyen bir hata oluştu.");
+            }
         }
 
-        private static string GetLeaveType(MEC.Domain.Entity.Leave.Leave leave)
+        private async Task TryLogLeaveStatusChangeAsync(string level, string message)
+        {
+            try
+            {
+                await _userActionLogService.LogAsync(new UserActionLogEntryModel
+                {
+                    IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    MacAddress = null,
+                    User = User.Identity?.Name ?? "anonymous",
+                    Timestamp = DateTime.UtcNow,
+                    Message = message,
+                    Level = level,
+                    MethodName = UpdateLeaveStatusMethodName
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Kullanıcı aksiyon logu yazılamadı. Method: {MethodName}", UpdateLeaveStatusMethodName);
+            }
+        }
+
+        private static string BuildEmployeeName(Employee? employee, int? employeeId)
+        {
+            if (employee != null)
+            {
+                var fullName = string.Join(" ", new[] { employee.FirstName, employee.LastName }
+                    .Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
+
+                if (!string.IsNullOrWhiteSpace(fullName))
+                {
+                    return fullName;
+                }
+            }
+
+            return employeeId.HasValue ? $"#{employeeId.Value}" : "Bilinmiyor";
+        }
+
+        private static string GetLeaveType(LeaveEntity leave)
         {
             return leave.GetType().GetProperty("LeaveType")?.GetValue(leave)?.ToString() ?? string.Empty;
         }
 
-        private static int GetRequestedDays(MEC.Domain.Entity.Leave.Leave leave)
+        private static decimal GetRequestedDays(LeaveEntity leave)
         {
-            var requestedDaysProperty = leave.GetType().GetProperty("RequestedDays")?.GetValue(leave);
-            if (requestedDaysProperty is int requestedDays && requestedDays > 0)
+            if (leave.RequestedDays > 0)
             {
-                return requestedDays;
+                return leave.RequestedDays;
             }
 
-            return (leave.EndDate.Date - leave.StartDate.Date).Days + 1;
+            return LeaveDurationCalculator.CalculateRequestedDays(leave.StartDate, leave.EndDate);
         }
 
-        private static int GetRemainingLeaveDays(MEC.Domain.Entity.Leave.Leave leave)
+        private static decimal GetRemainingLeaveDays(LeaveEntity leave)
         {
-            var remainingLeaveDaysProperty = leave.GetType().GetProperty("RemainingLeaveDays")?.GetValue(leave);
-            return remainingLeaveDaysProperty is int remainingLeaveDays ? remainingLeaveDays : 0;
+            return leave.RemainingLeaveDays;
         }
-    } 
+
+        private static string GetLeaveStatusDisplayName(int status)
+        {
+            return status switch
+            {
+                0 => "Onay Bekliyor",
+                1 => "Onaylandı",
+                2 => "Reddedildi",
+                3 => "İptal",
+                _ => $"Durum {status}"
+            };
+        }
+    }
 }

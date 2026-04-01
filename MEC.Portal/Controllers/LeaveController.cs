@@ -1,10 +1,10 @@
-using System;
 using System.Globalization;
-using System.Linq;
 using MEC.DAL.Config.Abstractions.Common;
+using MEC.Domain.Common;
 using MEC.Domain.Entity.Employee;
 using MEC.Domain.Entity.Leave;
 using MEC.Portal.Models;
+using MEC.Portal.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MEC.Portal.Controllers
@@ -12,7 +12,18 @@ namespace MEC.Portal.Controllers
     public class LeaveController : Controller
     {
         private const int DefaultPageSize = 10;
-        private static readonly string[] SupportedDateFormats = { "d.M.yyyy", "dd.MM.yyyy" };
+        private const long MaxAttachmentSizeBytes = 10 * 1024 * 1024;
+
+        private static readonly string[] SupportedDateFormats =
+        {
+            "d.M.yyyy H:mm",
+            "d.M.yyyy HH:mm",
+            "dd.MM.yyyy H:mm",
+            "dd.MM.yyyy HH:mm",
+            "d.M.yyyy",
+            "dd.MM.yyyy"
+        };
+
         private static readonly string[] AllowedLeaveTypes =
         {
             "Yıllık İzin",
@@ -22,15 +33,32 @@ namespace MEC.Portal.Controllers
             "Diğer"
         };
 
+        private static readonly HashSet<string> AllowedAttachmentExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".pdf",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".txt",
+            ".doc",
+            ".docx",
+            ".xls",
+            ".xlsx"
+        };
+
         private readonly IGenericRepository<Leave> _leaveRepository;
         private readonly IGenericRepository<Employee> _employeeRepository;
+        private readonly IAttachmentApiClient _attachmentApiClient;
 
         public LeaveController(
             IGenericRepository<Leave> leaveRepository,
-            IGenericRepository<Employee> employeeRepository)
+            IGenericRepository<Employee> employeeRepository,
+            IAttachmentApiClient attachmentApiClient)
         {
             _leaveRepository = leaveRepository;
             _employeeRepository = employeeRepository;
+            _attachmentApiClient = attachmentApiClient;
         }
 
         [HttpGet]
@@ -147,12 +175,10 @@ namespace MEC.Portal.Controllers
                 return NotFound();
             }
 
-            var model = new LeaveHistoryDetailViewModel
+            return View(new LeaveHistoryDetailViewModel
             {
                 Item = MapLeaveHistoryItem(leave)
-            };
-
-            return View(model);
+            });
         }
 
         [HttpPost]
@@ -161,27 +187,61 @@ namespace MEC.Portal.Controllers
         {
             if (!TryParseDate(model.StartDate, out var startDate))
             {
-                ModelState.AddModelError(nameof(model.StartDate), "Baslangic tarihi gecersiz.");
+                ModelState.AddModelError(nameof(model.StartDate), "Başlangıç tarihi geçersiz.");
             }
 
             if (!TryParseDate(model.EndDate, out var endDate))
             {
-                ModelState.AddModelError(nameof(model.EndDate), "Bitis tarihi gecersiz.");
+                ModelState.AddModelError(nameof(model.EndDate), "Bitiş tarihi geçersiz.");
             }
 
             if (ModelState.IsValid && endDate < startDate)
             {
-                ModelState.AddModelError(nameof(model.EndDate), "Bitis tarihi baslangic tarihinden once olamaz.");
+                ModelState.AddModelError(nameof(model.EndDate), "Bitiş tarihi başlangıç tarihinden önce olamaz.");
+            }
+
+            if (ModelState.IsValid && !LeaveDurationCalculator.IsWithinWorkingHours(startDate))
+            {
+                ModelState.AddModelError(nameof(model.StartDate), "Başlangıç saati 09:00 ile 18:00 arasında olmalıdır.");
+            }
+
+            if (ModelState.IsValid && !LeaveDurationCalculator.IsWithinWorkingHours(endDate))
+            {
+                ModelState.AddModelError(nameof(model.EndDate), "Bitiş saati 09:00 ile 18:00 arasında olmalıdır.");
+            }
+
+            if (ModelState.IsValid)
+            {
+                model.RequestedDays = LeaveDurationCalculator.CalculateRequestedDays(startDate, endDate);
+
+                if (model.RequestedDays <= 0)
+                {
+                    ModelState.AddModelError(nameof(model.EndDate), "Seçilen tarih ve saat aralığı için kullanılabilir izin günü hesaplanamadı.");
+                }
             }
 
             if (string.IsNullOrWhiteSpace(model.Reason))
             {
-                ModelState.AddModelError(nameof(model.Reason), "Izin nedeni zorunludur.");
+                ModelState.AddModelError(nameof(model.Reason), "İzin nedeni zorunludur.");
             }
 
             if (string.IsNullOrWhiteSpace(model.LeaveType) || !AllowedLeaveTypes.Contains(model.LeaveType))
             {
-                ModelState.AddModelError(nameof(model.LeaveType), "Gecerli bir izin turu seciniz.");
+                ModelState.AddModelError(nameof(model.LeaveType), "Geçerli bir izin türü seçiniz.");
+            }
+
+            if (model.Attachment != null && model.Attachment.Length > 0)
+            {
+                if (model.Attachment.Length > MaxAttachmentSizeBytes)
+                {
+                    ModelState.AddModelError(nameof(model.Attachment), "Ek dosya boyutu 10 MB sınırını aşamaz.");
+                }
+
+                var fileExtension = Path.GetExtension(model.Attachment.FileName);
+                if (string.IsNullOrWhiteSpace(fileExtension) || !AllowedAttachmentExtensions.Contains(fileExtension))
+                {
+                    ModelState.AddModelError(nameof(model.Attachment), "Sadece PDF, görsel veya ofis dosyaları yüklenebilir.");
+                }
             }
 
             if (!ModelState.IsValid)
@@ -198,7 +258,7 @@ namespace MEC.Portal.Controllers
             var employee = (await _employeeRepository.GetAllAsync(x => x.Email == userEmail && !x.IsDeleted)).FirstOrDefault();
             if (employee == null)
             {
-                ModelState.AddModelError(string.Empty, "Kullanici kaydi bulunamadi.");
+                ModelState.AddModelError(string.Empty, "Kullanıcı kaydı bulunamadı.");
                 return View(model);
             }
 
@@ -208,7 +268,7 @@ namespace MEC.Portal.Controllers
                 StartDate = startDate,
                 EndDate = endDate,
                 LeaveType = model.LeaveType.Trim(),
-                RequestedDays = (endDate.Date - startDate.Date).Days + 1,
+                RequestedDays = model.RequestedDays,
                 Reason = model.Reason.Trim(),
                 Status = 0,
                 CreatedDate = DateTime.Now
@@ -216,7 +276,18 @@ namespace MEC.Portal.Controllers
 
             await _leaveRepository.AddAsync(leaveRequest);
 
-            TempData["LeaveSuccess"] = "Izin talebiniz basariyla gonderildi.";
+            if (model.Attachment != null && model.Attachment.Length > 0)
+            {
+                var uploadResult = await _attachmentApiClient.UploadLeaveAttachmentAsync(leaveRequest.Id, model.Attachment);
+                if (!uploadResult.IsSuccess)
+                {
+                    _leaveRepository.Delete(leaveRequest);
+                    ModelState.AddModelError(nameof(model.Attachment), "Ek dosya yüklenemedi. " + uploadResult.Message);
+                    return View(model);
+                }
+            }
+
+            TempData["LeaveSuccess"] = "İzin talebiniz başarıyla gönderildi.";
             return RedirectToAction(nameof(RequestLeave));
         }
 
@@ -288,30 +359,28 @@ namespace MEC.Portal.Controllers
                 value,
                 SupportedDateFormats,
                 CultureInfo.GetCultureInfo("tr-TR"),
-                DateTimeStyles.None,
+                DateTimeStyles.AllowWhiteSpaces,
                 out date);
         }
 
-        private static int GetRequestedDays(Leave leave)
+        private static decimal GetRequestedDays(Leave leave)
         {
-            var requestedDaysProperty = leave.GetType().GetProperty("RequestedDays")?.GetValue(leave);
-            if (requestedDaysProperty is int requestedDays && requestedDays > 0)
+            if (leave.RequestedDays > 0)
             {
-                return requestedDays;
+                return leave.RequestedDays;
             }
 
-            return (leave.EndDate.Date - leave.StartDate.Date).Days + 1;
+            return LeaveDurationCalculator.CalculateRequestedDays(leave.StartDate, leave.EndDate);
         }
 
         private static string GetLeaveType(Leave leave)
         {
-            return leave.GetType().GetProperty("LeaveType")?.GetValue(leave)?.ToString() ?? string.Empty;
+            return leave.LeaveType ?? string.Empty;
         }
 
-        private static int GetRemainingLeaveDays(Leave leave)
+        private static decimal GetRemainingLeaveDays(Leave leave)
         {
-            var remainingLeaveDaysProperty = leave.GetType().GetProperty("RemainingLeaveDays")?.GetValue(leave);
-            return remainingLeaveDaysProperty is int remainingLeaveDays ? remainingLeaveDays : 0;
+            return leave.RemainingLeaveDays;
         }
 
         private static string GetStatusLabel(int status)

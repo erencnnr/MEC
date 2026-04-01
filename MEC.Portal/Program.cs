@@ -1,8 +1,10 @@
-using MEC.Application.Abstractions.Service.EmployeeService;
+﻿using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.LeaveService;
+using MEC.Application.Abstractions.Service.LoggingService;
 using MEC.Application.Abstractions.Service.LoginService;
 using MEC.Application.Abstractions.Service.SchoolService;
 using MEC.Application.Service.EmployeeService;
+using MEC.Application.Service.LoggingService;
 using MEC.Application.Service.LoginService;
 using MEC.Application.Service.SchoolService;
 using MEC.DAL.Config.Abstractions.Common;
@@ -13,61 +15,93 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .CreateLogger();
 
-var builder = WebApplication.CreateBuilder(args);
-var environment = builder.Configuration["AppSettings:Environment"];
-var connectionString = builder.Configuration.GetConnectionString(environment == "Test" ? "DefaultConnection" : "ProdConnection");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
-
-// 2. Generic Repository Kaydı (Hatanın temel çözüm noktası)
-builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
-
-// Sisteme giren herkesin giriş yapmış olmasını zorunlu kılan filtre ayarı
-builder.Services.AddControllersWithViews(options =>
+try
 {
-    var policy = new AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser() // Herkes login olmak zorunda
-        .Build();
-    options.Filters.Add(new AuthorizeFilter(policy)); // Filtreyi tüm sisteme ekle
-});
+    var builder = WebApplication.CreateBuilder(args);
 
-// Servis Kayıtları
-builder.Services.AddScoped<ILoginService, LoginService>();
-builder.Services.AddScoped<IEmployeePortalService, EmployeePortalService>();
-builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
-builder.Services.AddScoped<IEmailService, EmailService>();
-builder.Services.AddScoped<ILeaveService, LeaveService>();
-// Cookie Authentication Ayarları
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
+    builder.Host.UseSerilog((context, services, loggerConfiguration) => loggerConfiguration
+        .MinimumLevel.Information()
+        .Enrich.FromLogContext()
+        .WriteTo.Console());
+
+    var environment = builder.Configuration["AppSettings:Environment"];
+    var connectionString = builder.Configuration.GetConnectionString(environment == "Test" ? "DefaultConnection" : "ProdConnection");
+
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+
+    builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+
+    builder.Services.AddControllersWithViews(options =>
     {
-        options.LoginPath = "/Account/Login";
-        options.LogoutPath = "/Account/Logout";
-        options.AccessDeniedPath = "/Account/AccessDenied";
+        var policy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build();
+        options.Filters.Add(new AuthorizeFilter(policy));
     });
 
-var app = builder.Build();
+    builder.Services.AddScoped<ILoginService, LoginService>();
+    builder.Services.AddScoped<IEmployeePortalService, EmployeePortalService>();
+    builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
+    builder.Services.AddScoped<IEmailService, EmailService>();
+    builder.Services.AddScoped<ILeaveService, LeaveService>();
+    builder.Services.AddScoped<IApiLogService, ApiLogService>();
+    builder.Services.AddScoped<IUserActionLogService, UserActionLogService>();
 
-// Configure the HTTP request pipeline.
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
+    builder.Services.AddHttpClient<IAttachmentApiClient, AttachmentApiClient>((serviceProvider, client) =>
+    {
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var baseUrl = configuration["WebApi:BaseUrl"];
+
+        if (!string.IsNullOrWhiteSpace(baseUrl))
+        {
+            client.BaseAddress = new Uri(baseUrl);
+        }
+    });
+
+    builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+        .AddCookie(options =>
+        {
+            options.LoginPath = "/Account/Login";
+            options.LogoutPath = "/Account/Logout";
+            options.AccessDeniedPath = "/Account/AccessDenied";
+        });
+
+    var app = builder.Build();
+
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseExceptionHandler("/Home/Error");
+        app.UseHsts();
+    }
+
+    app.UseHttpsRedirection();
+    app.UseStaticFiles();
+
+    app.UseRouting();
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    app.MapControllerRoute(
+        name: "default",
+        pattern: "{controller=Home}/{action=Index}/{id?}");
+
+    app.Run();
 }
-
-app.UseHttpsRedirection();
-app.UseStaticFiles();
-
-app.UseRouting();
-
-// UseAuthentication ve UseAuthorization sıralaması
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
-
-app.Run();
+catch (Exception ex)
+{
+    Log.Fatal(ex, "MEC.Portal host terminated unexpectedly.");
+    throw;
+}
+finally
+{
+    Log.CloseAndFlush();
+}

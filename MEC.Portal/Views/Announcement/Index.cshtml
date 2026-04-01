@@ -1,62 +1,78 @@
-﻿@model IEnumerable<MEC.Domain.Entity.School.Announcement>
+@model MEC.Portal.Models.AnnouncementListViewModel
 
 @{
-    ViewData["Title"] = "Duyuru Yönetimi";
-    Layout = "~/Views/Shared/_Layout.cshtml"; // Portal'daki standart layout'u kullanıyoruz
+    ViewData["Title"] = "Duyurular";
+    var isActiveFilter = string.Equals(Model.Status, "active", StringComparison.OrdinalIgnoreCase);
 }
 
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2>Duyuru Yönetimi (Admin Paneli)</h2>
-        <a asp-action="Create" asp-controller="Announcement" class="btn btn-primary">Yeni Duyuru Ekle</a>
-    </div>
+<section class="announcement-board-page">
+    <div class="announcement-board-shell">
+        <div class="announcement-board-header">
+            <div class="announcement-board-header__copy">
+                <span class="announcement-board-header__eyebrow">Duyuru yönetimi</span>
+                <h1>Duyurular</h1>
+                <p>Aktif ve pasif duyurulari tarih sirasiyla goruntuleyin, kartlardan secerek guncelleme ekranina gecin.</p>
+            </div>
 
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <table class="table table-bordered table-hover">
-                <thead class="table-light">
-                    <tr>
-                        <th>Başlık</th>
-                        <th>Durum</th>
-                        <th>Oluşturulma Tarihi</th>
-                        <th class="text-center">İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (Model != null && Model.Any())
-                    {
-                        foreach (var item in Model)
-                        {
-                            <tr>
-                                <td>@item.Title</td>
-                                <td>
-                                    @if (item.IsActive)
-                                    {
-                                        <span class="badge bg-success">Aktif</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-danger">Pasif</span>
-                                    }
-                                </td>
-                                <td>@(item.CreatedDate?.ToString("dd.MM.yyyy HH:mm") ?? "-")</td>
-                                <td class="text-center">
-                                    <a asp-action="Detail" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary me-2">Goruntule</a>
-                                    <form asp-action="Delete" asp-route-id="@item.Id" method="post" style="display:inline;">
-                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Bu duyuruyu silmek istediğinize emin misiniz?');">Sil</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        }
-                    }
-                    else
-                    {
-                        <tr>
-                            <td colspan="4" class="text-center text-muted">Henüz eklenmiş bir duyuru bulunmuyor.</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+            <a asp-action="Create" class="announcement-board-header__action">Yeni Duyuru</a>
         </div>
+
+        @if (TempData["AnnouncementSuccess"] is string successMessage && !string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="announcement-board-alert">@successMessage</div>
+        }
+
+        <div class="announcement-board-filters">
+            <a asp-action="Index" asp-route-status="active" class="@(isActiveFilter ? "announcement-board-filter is-active" : "announcement-board-filter")">Aktif</a>
+            <a asp-action="Index" asp-route-status="passive" class="@(!isActiveFilter ? "announcement-board-filter is-active" : "announcement-board-filter")">Pasif</a>
+        </div>
+
+        @if (Model.Items.Any())
+        {
+            <div class="announcement-board-grid">
+                @foreach (var item in Model.Items)
+                {
+                    <a asp-action="Edit" asp-route-id="@item.Id" class="announcement-board-card">
+                        <article class="announcement-board-card__surface">
+                            <div class="announcement-board-card__head">
+                                <div class="announcement-board-card__brand">
+                                    <span class="announcement-board-card__logo">
+                                        <img src="~/content/images/logo.png" alt="MEC Logo" />
+                                    </span>
+                                    <div>
+                                        <h2>@item.Title</h2>
+                                        <span class="announcement-board-card__status @(item.IsActive ? "is-active" : "is-passive")">@(item.IsActive ? "Aktif" : "Pasif")</span>
+                                    </div>
+                                </div>
+
+                                <span class="announcement-board-card__date">@(item.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</span>
+                            </div>
+
+                            <p class="announcement-board-card__summary">@item.Summary</p>
+                        </article>
+                    </a>
+                }
+            </div>
+
+            @if (Model.TotalPages > 1)
+            {
+                <div class="announcement-board-pagination">
+                    @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                    {
+                        <a asp-action="Index"
+                           asp-route-status="@Model.Status"
+                           asp-route-page="@pageNumber"
+                           class="@(pageNumber == Model.CurrentPage ? "announcement-board-pagination__item is-active" : "announcement-board-pagination__item")">@pageNumber</a>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <div class="announcement-board-empty">
+                <h2>Listelenecek duyuru bulunmuyor.</h2>
+                <p>Seçili filtre için henüz bir duyuru kaydı yok. Yeni bir duyuru oluşturabilirsiniz.</p>
+            </div>
+        }
     </div>
-</div>
+</section>

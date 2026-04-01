@@ -1,74 +1,83 @@
-using MEC.Application.Abstractions.Service.LdapService;
+ï»¿using MEC.Application.Abstractions.Service.LdapService;
+using MEC.Application.Abstractions.Service.LoggingService;
 using MEC.Application.Service.LdapService;
+using MEC.Application.Service.LoggingService;
 using MEC.DAL.Config.Abstractions.Common;
 using MEC.DAL.Config.Applicaiton.EntityFramework;
 using MEC.DAL.Config.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .CreateLogger();
 
-// --- SERVÝSLER ---
-
-// 1. CORS Ayarý (TEK SEFERDE TANIMLA)
-// IIS'te UI projeniz artýk "localhost:7255" olmayabilir (Domain adý veya sunucu IP'si olabilir).
-// Baþlangýçta hata almamak için AllowAnyOrigin kullanýyoruz. 
-// Canlýya alýrken "WithOrigins("https://alanadiniz.com")" olarak deðiþtirmek daha güvenlidir.
-builder.Services.AddCors(options =>
+try
 {
-    options.AddPolicy("AllowAll", policy =>
+    var builder = WebApplication.CreateBuilder(args);
+
+    builder.Host.UseSerilog((context, services, loggerConfiguration) => loggerConfiguration
+        .MinimumLevel.Information()
+        .Enrich.FromLogContext()
+        .WriteTo.Console());
+
+    builder.Services.AddCors(options =>
     {
-        policy.AllowAnyOrigin()  // Prod ortamýnda buraya UI domain'i yazýlmalý
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        options.AddPolicy("AllowAll", policy =>
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        });
     });
-});
 
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+    builder.Services.AddControllers();
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
-builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
-builder.Services.AddScoped<ILdapService, LdapService>();
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
-var app = builder.Build();
+    builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+    builder.Services.AddScoped<ILdapService, LdapService>();
+    builder.Services.AddScoped<IApiLogService, ApiLogService>();
+    builder.Services.AddScoped<IUserActionLogService, UserActionLogService>();
 
-// --- MIDDLEWARE (SIRALAMA ÖNEMLÝDÝR) ---
+    var app = builder.Build();
 
-// 2. Swagger Ayarý
-// IIS'e attýðýnýzda ortam "Production" olur. Swagger varsayýlan olarak sadece "Development"ta çalýþýr.
-// Swagger'ý IIS'te de görmek istiyorsanýz if bloðunu kaldýrýn veya || true ekleyin.
-// (Güvenlik gereði canlý ortamda kapatýlmasý önerilir ama test için açabilirsiniz)
-app.UseSwagger();
-app.UseSwaggerUI();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 
-// 3. CORS'u Aktif Et (En baþlarda olmalý)
-app.UseCors("AllowAll");
+    app.UseCors("AllowAll");
+    app.UseHttpsRedirection();
 
-app.UseHttpsRedirection();
+    string imagePath = @"C:\Images";
 
-// 4. Statik Dosya (Resim) Ayarlarý
-// DÝKKAT: IIS'in C:\Images klasörüne eriþim izni olmasý þarttýr!
-string imagePath = @"C:\Images";
+    if (!Directory.Exists(imagePath))
+    {
+        Directory.CreateDirectory(imagePath);
+    }
 
-// Klasör yoksa oluþtur
-if (!Directory.Exists(imagePath))
-{
-    Directory.CreateDirectory(imagePath);
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(imagePath),
+        RequestPath = "/static"
+    });
+
+    app.UseAuthorization();
+    app.MapControllers();
+    app.Run();
 }
-
-// Klasörü dýþarý aç
-app.UseStaticFiles(new StaticFileOptions
+catch (Exception ex)
 {
-    FileProvider = new PhysicalFileProvider(imagePath),
-    RequestPath = "/static"
-});
-
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
+    Log.Fatal(ex, "MEC.WebAPI host terminated unexpectedly.");
+    throw;
+}
+finally
+{
+    Log.CloseAndFlush();
+}

@@ -1,0 +1,6 @@
+ALTER TABLE `leaves`
+    MODIFY COLUMN `requested_days` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    MODIFY COLUMN `remaining_leave_days` DECIMAL(10,2) NOT NULL DEFAULT 0.00;
+
+ALTER TABLE `employee_portal`
+    MODIFY COLUMN `LeaveDays` DECIMAL(10,2) NOT NULL DEFAULT 0.00;

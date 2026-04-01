@@ -1,8 +1,14 @@
+@using System.Globalization
 @model List<MEC.Portal.Models.AdminLeaveRequestViewModel>
 
 @{
     ViewData["Title"] = "İzin Talepleri";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    string FormatLeaveDays(decimal value)
+    {
+        return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
+    }
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -40,9 +46,9 @@
                         <tr>
                             <td class="fw-bold">@item.EmployeeName</td>
                             <td>@item.LeaveType</td>
-                            <td>@item.RequestedDays Gün</td>
-                            <td>@item.StartDate.ToShortDateString()</td>
-                            <td>@item.EndDate.ToShortDateString()</td>
+                            <td>@FormatLeaveDays(item.RequestedDays) Gün</td>
+                            <td>@item.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
+                            <td>@item.EndDate.ToString("dd.MM.yyyy HH:mm")</td>
                             <td><small class="text-muted">@item.Reason</small></td>
                             <td>
                                 @if (item.Status == 0)
@@ -51,19 +57,17 @@
                                 }
                                 else if (item.Status == 1)
                                 {
-
                                     <span class="badge bg-success">Onaylandı</span>
                                 }
                                 else
                                 {
-
                                     <span class="badge bg-danger">Reddedildi</span>
                                 }
                             </td>
                             <td>
                                 @if (item.Status == 1)
                                 {
-                                    <span class="badge @(item.RemainingLeaveDays < 0 ? "bg-danger" : "bg-info")">@item.RemainingLeaveDays Gün</span>
+                                    <span class="badge @(item.RemainingLeaveDays < 0 ? "bg-danger" : "bg-info")">@FormatLeaveDays(item.RemainingLeaveDays) Gün</span>
                                 }
                                 else
                                 {

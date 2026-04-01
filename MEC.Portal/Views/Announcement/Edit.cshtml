@@ -1,22 +1,31 @@
 @model MEC.Domain.Entity.School.Announcement
 
 @{
-    ViewData["Title"] = "Yeni Duyuru Ekle";
+    ViewData["Title"] = "Duyuru Düzenle";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
 <section class="announcement-form-page">
     <div class="announcement-form-shell">
+        <a asp-action="Index" class="announcement-form-back">Geri Don</a>
+
         <div class="announcement-form-header">
             <div class="announcement-form-header__copy">
                 <span class="announcement-form-header__eyebrow">Duyuru yönetimi</span>
-                <h1>Yeni Duyuru Ekle</h1>
-                <p>Çalışan portalında yayınlanacak duyuruyu başlık, içerik ve yayın durumu ile birlikte hazırlayın.</p>
+                <h1>Duyuru Düzenle</h1>
+                <p>Başlık, içerik ve yayın durumunu güncelleyerek duyuruyu portal akışına uygun hale getirin.</p>
             </div>
         </div>
 
+        @if (TempData["AnnouncementSuccess"] is string successMessage && !string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="announcement-form-alert announcement-form-alert--success">@successMessage</div>
+        }
+
         <div class="announcement-form-card">
-            <form asp-action="Create" method="post" class="announcement-form">
+            <form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="announcement-form">
+                <input asp-for="Id" type="hidden" />
+
                 <div asp-validation-summary="ModelOnly" class="announcement-form-alert announcement-form-alert--error"></div>
 
                 <div class="announcement-form-grid">
@@ -38,7 +47,7 @@
 
                             <div class="announcement-form-switch-wrap">
                                 <span class="announcement-form-switch__state">Pasif</span>
-                                <input asp-for="IsActive" id="announcementIsActive" class="announcement-form-switch__input" type="checkbox" checked="checked" />
+                                <input asp-for="IsActive" id="announcementIsActive" class="announcement-form-switch__input" type="checkbox" />
                                 <label for="announcementIsActive" class="announcement-form-switch__control" aria-label="Aktiflik durumunu degistir">
                                     <span class="announcement-form-switch__thumb"></span>
                                 </label>

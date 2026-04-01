@@ -12,10 +12,10 @@ namespace MEC.Domain.Entity.Leave
         public DateTime EndDate { get; set; }
         [Column("leave_type")]
         public string LeaveType { get; set; }
-        [Column("requested_days")]
-        public int RequestedDays { get; set; }
-        [Column("remaining_leave_days")]
-        public int RemainingLeaveDays { get; set; }
+        [Column("requested_days", TypeName = "decimal(10,2)")]
+        public decimal RequestedDays { get; set; }
+        [Column("remaining_leave_days", TypeName = "decimal(10,2)")]
+        public decimal RemainingLeaveDays { get; set; }
         public string Reason { get; set; }
         public int Status { get; set; }
 

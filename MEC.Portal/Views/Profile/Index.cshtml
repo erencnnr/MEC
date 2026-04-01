@@ -1,89 +1,111 @@
+@using System.Globalization
 @model MEC.Portal.Models.ProfileViewModel
 
 @{
     ViewData["Title"] = "Profilim";
-    const int annualLeaveAllowance = 14;
+    const decimal annualLeaveAllowance = 14m;
     var profile = Model?.Profile;
-    var usedLeaveDays = profile == null ? 0 : annualLeaveAllowance - profile.LeaveDays;
+    var usedLeaveDays = profile == null ? 0m : annualLeaveAllowance - profile.LeaveDays;
+    var fullName = profile == null ? "Kullanıcı" : $"{profile.FirstName} {profile.LastName}";
+
+    string FormatLeaveDays(decimal value)
+    {
+        return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
+    }
 }
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow border-0 rounded-lg">
-                <div class="card-header bg-primary text-white text-center py-4">
-                    <h3 class="mb-0 fw-bold">Profil Bilgilerim</h3>
+<section class="profile-page">
+    <div class="profile-shell">
+        @if (profile == null)
+        {
+            <div class="profile-empty">
+                <span class="profile-empty__eyebrow">Profil</span>
+                <h1>Profil bilgileri gösterilemiyor</h1>
+                <p>@ViewBag.Error</p>
+                <a asp-controller="Home" asp-action="Index" class="profile-empty__action">Ana Sayfaya Dön</a>
+            </div>
+        }
+        else
+        {
+            <div class="profile-hero">
+                <div class="profile-hero__copy">
+                    <span class="profile-hero__eyebrow">Çalışan profili</span>
+                    <h1>@fullName</h1>
+                    <p>Kişisel bilgileriniz ve izin özetiniz bu alanda güncel olarak görüntülenir.</p>
                 </div>
 
-                <div class="card-body p-5">
-                    @if (profile == null)
-                    {
-                        <div class="alert alert-warning">
-                            @ViewBag.Error
-                        </div>
-                    }
-                    else
-                    {
-                        @if (Model.PendingAnnualLeaveCount > 0)
-                        {
-                            <div class="alert alert-warning d-flex justify-content-between align-items-center mb-4">
-                                <div>
-                                    <strong>Bekleyen yıllık izin talebiniz var.</strong>
-                                    Admin onayı bekleniyor.
-                                </div>
-                                <span class="badge bg-dark">@Model.PendingAnnualLeaveCount Talep / @Model.PendingAnnualLeaveDays Gün</span>
-                            </div>
-                        }
-
-                        <div class="row mb-4">
-                            <div class="col-sm-4 text-muted fw-bold">Ad Soyad:</div>
-                            <div class="col-sm-8 border-bottom pb-1">@profile.FirstName @profile.LastName</div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-sm-4 text-muted fw-bold">E-Posta:</div>
-                            <div class="col-sm-8 border-bottom pb-1">@profile.Email</div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-sm-4 text-muted fw-bold">Telefon:</div>
-                            <div class="col-sm-8 border-bottom pb-1">@profile.PhoneNumber</div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-sm-4 text-muted fw-bold">İşe Giriş Tarihi:</div>
-                            <div class="col-sm-8 border-bottom pb-1">@profile.HireDate.ToString("dd MMMM yyyy")</div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-sm-4 text-muted fw-bold">Doğum Tarihi:</div>
-                            <div class="col-sm-8 border-bottom pb-1">@profile.BirthDate.ToString("dd MMMM yyyy")</div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-sm-4 text-muted fw-bold">Yıllık İzin Hakkı:</div>
-                            <div class="col-sm-8 border-bottom pb-1">14 Gün</div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-sm-4 text-muted fw-bold">Kullanılan Yıllık İzin:</div>
-                            <div class="col-sm-8">
-                                <span class="badge bg-secondary fs-6 px-3 py-2">@usedLeaveDays Gün</span>
-                            </div>
-                        </div>
-
-                        <div class="row mb-4">
-                            <div class="col-sm-4 text-muted fw-bold">Kalan İzin Hakkı:</div>
-                            <div class="col-sm-8">
-                                <span class="badge @(profile.LeaveDays < 0 ? "bg-danger" : "bg-success") fs-6 px-3 py-2">@profile.LeaveDays Gün</span>
-                            </div>
-                        </div>
-                    }
-                </div>
-                <div class="card-footer bg-light text-center py-3">
-                    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary">Ana Sayfaya Dön</a>
+                <div class="profile-hero__actions">
+                    <a asp-controller="Leave" asp-action="RequestLeave" class="profile-hero__action profile-hero__action--primary">İzin Talebi Oluştur</a>
+                    <a asp-controller="Leave" asp-action="History" class="profile-hero__action profile-hero__action--secondary">İzin Geçmişim</a>
                 </div>
             </div>
-        </div>
+
+            @if (Model.PendingAnnualLeaveCount > 0)
+            {
+                <div class="profile-alert">
+                    <div>
+                        <strong>Bekleyen yıllık izin talebiniz bulunuyor.</strong>
+                        <p>Yönetici onayı bekleyen taleplerinizi izin geçmişi ekranından takip edebilirsiniz.</p>
+                    </div>
+                    <span>@Model.PendingAnnualLeaveCount Talep / @FormatLeaveDays(Model.PendingAnnualLeaveDays) Gün</span>
+                </div>
+            }
+
+            <div class="profile-metrics">
+                <article class="profile-metric">
+                    <span class="profile-metric__label">Yıllık İzin Hakkı</span>
+                    <strong>@FormatLeaveDays(annualLeaveAllowance) Gün</strong>
+                </article>
+
+                <article class="profile-metric">
+                    <span class="profile-metric__label">Kullanılan İzin</span>
+                    <strong>@FormatLeaveDays(usedLeaveDays) Gün</strong>
+                </article>
+
+                <article class="profile-metric">
+                    <span class="profile-metric__label">Kalan İzin</span>
+                    <strong>@FormatLeaveDays(profile.LeaveDays) Gün</strong>
+                </article>
+            </div>
+
+            <div class="profile-card">
+                <div class="profile-card__header">
+                    <span class="profile-card__eyebrow">Bilgiler</span>
+                    <h2>Kullanıcı Bilgileri</h2>
+                </div>
+
+                <div class="profile-grid">
+                    <div class="profile-field">
+                        <span>Ad Soyad</span>
+                        <strong>@fullName</strong>
+                    </div>
+
+                    <div class="profile-field">
+                        <span>E-Posta</span>
+                        <strong>@profile.Email</strong>
+                    </div>
+
+                    <div class="profile-field">
+                        <span>Telefon</span>
+                        <strong>@profile.PhoneNumber</strong>
+                    </div>
+
+                    <div class="profile-field">
+                        <span>İşe Giriş Tarihi</span>
+                        <strong>@profile.HireDate.ToString("dd.MM.yyyy")</strong>
+                    </div>
+
+                    <div class="profile-field">
+                        <span>Doğum Tarihi</span>
+                        <strong>@profile.BirthDate.ToString("dd.MM.yyyy")</strong>
+                    </div>
+
+                    <div class="profile-field">
+                        <span>Durum</span>
+                        <strong>Aktif Çalışan</strong>
+                    </div>
+                </div>
+            </div>
+        }
     </div>
-</div>
+</section>

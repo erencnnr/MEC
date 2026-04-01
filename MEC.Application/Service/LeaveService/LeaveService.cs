@@ -1,5 +1,6 @@
 using MEC.Application.Abstractions.Service.LeaveService;
 using MEC.DAL.Config.Abstractions.Common;
+using MEC.Domain.Common;
 using MEC.Domain.Entity.Employee;
 using MEC.Domain.Entity.Leave;
 using System.Linq;
@@ -7,10 +8,11 @@ using System.Linq;
 public class LeaveService : ILeaveService
 {
     private const string AnnualLeaveType = "Yıllık İzin";
+    private const int ApprovedStatus = 1;
+
     private readonly IGenericRepository<Leave> _leaveRepository;
     private readonly IGenericRepository<Employee> _employeeRepository;
     private readonly IGenericRepository<EmployeePortal> _employeePortalRepository;
-    private const int ApprovedStatus = 1;
 
     public LeaveService(
         IGenericRepository<Leave> leaveRepository,
@@ -36,11 +38,13 @@ public class LeaveService : ILeaveService
         var leave = await _leaveRepository.GetByIdAsync(leaveId);
 
         if (leave == null)
+        {
             return false;
+        }
 
         var requestedDays = leave.RequestedDays > 0
             ? leave.RequestedDays
-            : (int)(leave.EndDate.Date - leave.StartDate.Date).TotalDays + 1;
+            : LeaveDurationCalculator.CalculateRequestedDays(leave.StartDate, leave.EndDate);
         var affectsAnnualBalance = string.Equals(leave.LeaveType, AnnualLeaveType, StringComparison.Ordinal);
 
         if (leave.Status != status)
