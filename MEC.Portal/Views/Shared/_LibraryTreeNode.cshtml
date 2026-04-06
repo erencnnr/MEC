@@ -1,0 +1,26 @@
+@using System.Linq
+@model MEC.Portal.Models.LibraryFolderTreeNodeViewModel
+
+@{
+    var basePath = ViewData["LibraryTreeBasePath"]?.ToString() ?? "/Library";
+    var href = $"{basePath}?folderId={Model.Id}";
+}
+
+<li class="library-tree__item">
+    <a class="@(Model.IsSelected ? "library-tree__link is-selected" : "library-tree__link")" href="@href">
+        <span class="library-tree__label">@Model.Name</span>
+    </a>
+
+    @if (Model.Children.Any())
+    {
+        <ul class="library-tree__group">
+            @foreach (var child in Model.Children)
+            {
+                @await Html.PartialAsync("_LibraryTreeNode", child, new ViewDataDictionary(ViewData)
+                {
+                    ["LibraryTreeBasePath"] = basePath
+                })
+            }
+        </ul>
+    }
+</li>

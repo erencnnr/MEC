@@ -100,6 +100,17 @@ try
         }
     });
 
+    builder.Services.AddHttpClient<ILibraryAttachmentApiClient, LibraryAttachmentApiClient>((serviceProvider, client) =>
+    {
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var baseUrl = configuration["WebApi:BaseUrl"];
+
+        if (!string.IsNullOrWhiteSpace(baseUrl))
+        {
+            client.BaseAddress = new Uri(baseUrl);
+        }
+    });
+
     builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
         .AddCookie(options =>
         {

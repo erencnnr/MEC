@@ -1,0 +1,259 @@
+@using System.Globalization
+@using System.Linq
+@model MEC.Portal.Models.AdminContentManagementViewModel
+
+@{
+    ViewData["Title"] = "İçerik Yönetimi";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    string FormatFileSize(long sizeBytes)
+    {
+        if (sizeBytes <= 0)
+        {
+            return "0 KB";
+        }
+
+        var sizeInKb = sizeBytes / 1024d;
+        if (sizeInKb < 1024)
+        {
+            return $"{sizeInKb:0.#} KB";
+        }
+
+        return $"{sizeInKb / 1024d:0.#} MB";
+    }
+}
+
+<section class="library-page library-page--admin">
+    <div class="library-shell">
+        <div class="library-topbar">
+            <div>
+                <span class="library-topbar__eyebrow">Yönetici işlemleri</span>
+                <h1>İçerik Yönetimi</h1>
+                <p>Klasör yapısını düzenleyin, alt klasörler oluşturun ve portal kullanıcılarının görüntüleyeceği dokümanları yönetin.</p>
+            </div>
+        </div>
+
+        @if (TempData["ContentSuccess"] is string successMessage && !string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="library-alert library-alert--success">@successMessage</div>
+        }
+
+        @if (TempData["ContentError"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="library-alert library-alert--error">@errorMessage</div>
+        }
+
+        <div class="library-layout">
+            <aside class="library-sidebar">
+                <section class="library-card library-card--sidebar">
+                    <div class="library-card__head">
+                        <div>
+                            <span class="library-card__eyebrow">Klasörler</span>
+                            <h2>Kütüphane ağacı</h2>
+                        </div>
+                    </div>
+
+                    <form asp-controller="Content" asp-action="CreateFolder" method="post" class="library-form library-form--stacked">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="parentFolderId" value="" />
+                        <label class="library-form__label" for="rootFolderName">Yeni ana klasör</label>
+                        <div class="library-inline-form">
+                            <input id="rootFolderName" class="library-input" type="text" name="name" maxlength="120" placeholder="Ana klasör adı" />
+                            <button type="submit" class="library-button library-button--primary">Oluştur</button>
+                        </div>
+                    </form>
+
+                    @if (Model.FolderTree.Any())
+                    {
+                        <nav class="library-tree" aria-label="Kütüphane klasörleri">
+                            <ul class="library-tree__group">
+                                @foreach (var folder in Model.FolderTree)
+                                {
+                                    @await Html.PartialAsync("_LibraryTreeNode", folder, new ViewDataDictionary(ViewData)
+                                    {
+                                        ["LibraryTreeBasePath"] = "/Admin/Content"
+                                    })
+                                }
+                            </ul>
+                        </nav>
+                    }
+                    else
+                    {
+                        <div class="library-empty library-empty--compact">
+                            <h3>Henüz klasör yok</h3>
+                            <p>İlk klasörü oluşturarak içerik yönetimine başlayabilirsiniz.</p>
+                        </div>
+                    }
+                </section>
+            </aside>
+
+            <div class="library-main">
+                @if (Model.SelectedFolderId.HasValue)
+                {
+                    <section class="library-card">
+                        <div class="library-card__head library-card__head--split">
+                            <div>
+                                <span class="library-card__eyebrow">Seçili klasör</span>
+                                <h2>@Model.SelectedFolderName</h2>
+                            </div>
+
+                            @if (Model.Breadcrumbs.Any())
+                            {
+                                <nav class="library-breadcrumbs" aria-label="Klasör yolu">
+                                    @foreach (var crumb in Model.Breadcrumbs)
+                                    {
+                                        <a href="/Admin/Content?folderId=@crumb.Id">@crumb.Name</a>
+                                    }
+                                </nav>
+                            }
+                        </div>
+
+                        <div class="library-management-grid">
+                            <form asp-controller="Content" asp-action="RenameFolder" asp-route-id="@Model.SelectedFolderId" method="post" class="library-form-card">
+                                @Html.AntiForgeryToken()
+                                <h3>Klasör adını güncelle</h3>
+                                <label class="library-form__label" for="renameFolderName">Klasör adı</label>
+                                <input id="renameFolderName" class="library-input" type="text" name="name" maxlength="120" value="@Model.SelectedFolderName" />
+                                <button type="submit" class="library-button library-button--secondary">Kaydet</button>
+                            </form>
+
+                            <form asp-controller="Content" asp-action="CreateFolder" method="post" class="library-form-card">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="parentFolderId" value="@Model.SelectedFolderId" />
+                                <h3>Alt klasör oluştur</h3>
+                                <label class="library-form__label" for="childFolderName">Alt klasör adı</label>
+                                <input id="childFolderName" class="library-input" type="text" name="name" maxlength="120" placeholder="Alt klasör adı" />
+                                <button type="submit" class="library-button library-button--primary">Ekle</button>
+                            </form>
+
+                            <form asp-controller="Content" asp-action="DeleteFolder" asp-route-id="@Model.SelectedFolderId" method="post" class="library-form-card library-form-card--danger">
+                                @Html.AntiForgeryToken()
+                                <h3>Klasörü kaldır</h3>
+                                <p>Bu işlem alt klasörleri ve içindeki tüm dokümanları da siler.</p>
+                                <button type="submit"
+                                        class="library-button library-button--danger"
+                                        onclick="return confirm('Seçili klasörü ve tüm içeriğini silmek istediğinize emin misiniz?');">
+                                    Klasörü Sil
+                                </button>
+                            </form>
+                        </div>
+                    </section>
+
+                    <section class="library-card">
+                        <div class="library-card__head library-card__head--split">
+                            <div>
+                                <span class="library-card__eyebrow">Doküman yükleme</span>
+                                <h2>@Model.SelectedFolderName klasörüne dosya ekleyin</h2>
+                            </div>
+                        </div>
+
+                        <form asp-controller="Content" asp-action="UploadDocuments" method="post" enctype="multipart/form-data" class="library-upload-form">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="folderId" value="@Model.SelectedFolderId" />
+                            <div class="library-upload-form__field">
+                                <label class="library-form__label" for="libraryFiles">Dokümanlar</label>
+                                <input id="libraryFiles" class="library-input library-input--file" type="file" name="files" multiple accept=".pdf,.jpg,.jpeg,.png,.gif,.txt,.doc,.docx,.xls,.xlsx" />
+                            </div>
+                            <button type="submit" class="library-button library-button--primary">Dokümanları Yükle</button>
+                        </form>
+                    </section>
+
+                    <section class="library-card">
+                        <div class="library-card__head library-card__head--split">
+                            <div>
+                                <span class="library-card__eyebrow">Klasör içeriği</span>
+                                <h2>Dokümanlar</h2>
+                            </div>
+                            <span class="library-card__meta">@Model.Documents.Count kayıt</span>
+                        </div>
+
+                        @if (Model.Documents.Any())
+                        {
+                            <div class="library-document-list">
+                                @foreach (var document in Model.Documents)
+                                {
+                                    var selectUrl = $"/Admin/Content?folderId={Model.SelectedFolderId}&documentId={document.Id}";
+
+                                    <article class="@(Model.SelectedDocumentId == document.Id ? "library-document-card is-selected" : "library-document-card")">
+                                        <a class="library-document-card__main" href="@selectUrl">
+                                            <div class="library-document-card__icon">@(document.IsPdf ? "PDF" : "DOSYA")</div>
+                                            <div class="library-document-card__content">
+                                                <h3>@document.OriginalFileName</h3>
+                                                <p>@(document.CreatedDate?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-") · @FormatFileSize(document.SizeBytes)</p>
+                                            </div>
+                                        </a>
+
+                                        <div class="library-document-card__actions">
+                                            <a class="library-button library-button--ghost" href="@(document.IsPdf ? document.PreviewUrl : document.OpenUrl)" target="_blank" rel="noopener noreferrer">
+                                                @(document.IsPdf ? "Önizle" : "Aç")
+                                            </a>
+
+                                            <form asp-controller="Content" asp-action="DeleteDocument" asp-route-id="@document.Id" method="post">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit"
+                                                        class="library-button library-button--danger-outline"
+                                                        onclick="return confirm('Dokümanı silmek istediğinize emin misiniz?');">
+                                                    Sil
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </article>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="library-empty library-empty--compact">
+                                <h3>Henüz doküman yok</h3>
+                                <p>Bu klasöre ilk dokümanı yüklediğinizde listede görüntülenecek.</p>
+                            </div>
+                        }
+                    </section>
+
+                    <section class="library-card">
+                        <div class="library-card__head">
+                            <div>
+                                <span class="library-card__eyebrow">Doküman inceleme</span>
+                                <h2>@(Model.SelectedDocument?.OriginalFileName ?? "Bir doküman seçin")</h2>
+                            </div>
+                        </div>
+
+                        @if (Model.SelectedDocument != null)
+                        {
+                            if (Model.SelectedDocument.IsPdf)
+                            {
+                                <div class="library-preview">
+                                    <iframe src="@Model.SelectedDocument.PreviewUrl" title="@Model.SelectedDocument.OriginalFileName"></iframe>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="library-empty library-empty--compact">
+                                    <h3>Tarayıcı önizlemesi bulunmuyor</h3>
+                                    <p>Bu dosya türü doğrudan tarayıcı önizlemesi sunmuyor. Yeni sekmede açarak inceleyebilirsiniz.</p>
+                                    <a class="library-button library-button--primary" href="@Model.SelectedDocument.OpenUrl" target="_blank" rel="noopener noreferrer">Dosyayı Aç</a>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="library-empty library-empty--compact">
+                                <h3>Seçili doküman yok</h3>
+                                <p>İçerikleri incelemek için listeden bir doküman seçin.</p>
+                            </div>
+                        }
+                    </section>
+                }
+                else
+                {
+                    <section class="library-card">
+                        <div class="library-empty">
+                            <h2>Başlamak için bir klasör seçin</h2>
+                            <p>Soldan mevcut bir klasörü seçebilir veya yeni bir ana klasör oluşturarak doküman yüklemeye başlayabilirsiniz.</p>
+                        </div>
+                    </section>
+                }
+            </div>
+        </div>
+    </div>
+</section>

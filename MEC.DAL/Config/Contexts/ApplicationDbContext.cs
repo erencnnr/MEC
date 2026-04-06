@@ -41,6 +41,8 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<Announcement> Announcement { get; set; }
         public DbSet<AnnouncementAttachment> AnnouncementAttachments { get; set; }
         public DbSet<AnnouncementImage> AnnouncementImages { get; set; }
+        public DbSet<LibraryFolder> LibraryFolders { get; set; }
+        public DbSet<LibraryDocument> LibraryDocuments { get; set; }
         public DbSet<SliderImage> SliderImages { get; set; }
         public DbSet<ApiLog> ApiLogs { get; set; }
         public DbSet<UserActionLog> UserActionLogs { get; set; }
@@ -107,6 +109,34 @@ namespace MEC.DAL.Config.Contexts
                 .WithMany(x => x.Images)
                 .HasForeignKey(x => x.AnnouncementId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<LibraryFolder>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<LibraryFolder>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<LibraryFolder>()
+                .HasOne(x => x.ParentFolder)
+                .WithMany(x => x.ChildFolders)
+                .HasForeignKey(x => x.ParentFolderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<LibraryDocument>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<LibraryDocument>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<LibraryDocument>()
+                .HasOne(x => x.Folder)
+                .WithMany(x => x.Documents)
+                .HasForeignKey(x => x.FolderId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<SliderImage>()
                 .Property(x => x.CreatedDate)

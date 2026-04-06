@@ -12,6 +12,7 @@
         var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
         var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
         var currentPath = ViewContext.HttpContext.Request.Path.Value ?? string.Empty;
+
         var isAdminAnnouncementPage = currentPath.StartsWith("/Admin/Announcements", StringComparison.OrdinalIgnoreCase);
         var isAdminLeaveRequestsPage = currentPath.Equals("/Admin/LeaveRequests", StringComparison.OrdinalIgnoreCase) ||
                                        currentPath.StartsWith("/Admin/LeaveRequests/", StringComparison.OrdinalIgnoreCase);
@@ -19,6 +20,11 @@
         var isAdminPortalUsersPage = currentPath.Equals("/Admin/PortalUsers", StringComparison.OrdinalIgnoreCase) ||
                                      currentPath.StartsWith("/Admin/PortalUsers/", StringComparison.OrdinalIgnoreCase);
         var isAdminSliderPage = currentPath.Equals("/Admin/Slider", StringComparison.OrdinalIgnoreCase);
+        var isAdminContentPage = currentPath.Equals("/Admin/Content", StringComparison.OrdinalIgnoreCase) ||
+                                 currentPath.StartsWith("/Admin/Content/", StringComparison.OrdinalIgnoreCase);
+        var isLibraryPage = currentPath.Equals("/Library", StringComparison.OrdinalIgnoreCase) ||
+                            currentPath.StartsWith("/Library/", StringComparison.OrdinalIgnoreCase);
+
         var isAdminLeavePage = isAdminLeaveRequestsPage || isAdminLeaveReportPage;
         var isAdminSettingsPage = isAdminPortalUsersPage || isAdminSliderPage;
         var isAnnouncementPage =
@@ -26,10 +32,12 @@
             currentPath.StartsWith("/Announcement/", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(currentController, "Home", StringComparison.OrdinalIgnoreCase) &&
             string.Equals(currentAction, "Announcements", StringComparison.OrdinalIgnoreCase);
+
         var isAdminPage = string.Equals(currentController, "Admin", StringComparison.OrdinalIgnoreCase) ||
                           isAdminAnnouncementPage ||
                           isAdminLeavePage ||
-                          isAdminSettingsPage;
+                          isAdminSettingsPage ||
+                          isAdminContentPage;
         var isLeavePage = string.Equals(currentController, "Leave", StringComparison.OrdinalIgnoreCase);
         var isAdminUser = User.Identity?.IsAuthenticated == true && User.IsInRole("Admin");
 
@@ -80,6 +88,7 @@
                         <div class="portal-header__nav">
                             <a class="@HeaderNavState("Home", "Index")" asp-controller="Home" asp-action="Index">Ana Sayfa</a>
                             <a class="@(isAnnouncementPage ? "portal-header__nav-link is-active" : "portal-header__nav-link")" asp-controller="Home" asp-action="Announcements">Duyurular</a>
+
                             <div class="dropdown portal-header__nav-dropdown @(isLeavePage ? "is-active" : string.Empty)">
                                 <button class="portal-header__nav-link portal-header__nav-dropdown-toggle dropdown-toggle portal-header__nav-link--action @(isLeavePage ? "is-active" : string.Empty)" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     İzin İşlemleri
@@ -89,7 +98,10 @@
                                     <a class="portal-header__nav-dropdown-item @(HeaderRouteMatch("Leave", "History", "HistoryDetail") ? "is-active" : string.Empty)" asp-controller="Leave" asp-action="History">İzin Geçmişim</a>
                                 </div>
                             </div>
+
+                            <a class="@(isLibraryPage ? "portal-header__nav-link is-active" : "portal-header__nav-link")" asp-controller="Library" asp-action="Index">Kütüphane</a>
                             <a class="@HeaderNavState("Profile", "Index")" asp-controller="Profile" asp-action="Index">Profilim</a>
+
                             @if (isAdminUser)
                             {
                                 <div class="dropdown portal-header__nav-dropdown @(isAdminPage ? "is-active" : string.Empty)">
@@ -99,6 +111,8 @@
                                     <div class="dropdown-menu portal-header__nav-dropdown-menu">
                                         <a class="portal-header__nav-dropdown-item @(HeaderRouteMatch("Admin", "Index") ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="Index">Genel Bakış</a>
                                         <a class="portal-header__nav-dropdown-item @(isAdminAnnouncementPage ? "is-active" : string.Empty)" asp-controller="Announcement" asp-action="Index">Duyuru Yönetimi</a>
+                                        <a class="portal-header__nav-dropdown-item @(isAdminContentPage ? "is-active" : string.Empty)" asp-controller="Content" asp-action="Index">İçerik Yönetimi</a>
+
                                         <div class="portal-header__nav-submenu @(isAdminLeavePage ? "is-active" : string.Empty)">
                                             <button class="portal-header__nav-dropdown-item portal-header__nav-submenu-toggle @(isAdminLeavePage ? "is-active" : string.Empty)" type="button">
                                                 İzinler
@@ -108,6 +122,7 @@
                                                 <a class="portal-header__nav-submenu-item @(isAdminLeaveReportPage ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="LeaveReport">İzin Raporu</a>
                                             </div>
                                         </div>
+
                                         <div class="portal-header__nav-submenu @(isAdminSettingsPage ? "is-active" : string.Empty)">
                                             <button class="portal-header__nav-dropdown-item portal-header__nav-submenu-toggle @(isAdminSettingsPage ? "is-active" : string.Empty)" type="button">
                                                 Ayarlar
