@@ -1,15 +1,15 @@
-﻿using MEC.Domain.Common;
-using System;
+using MEC.Domain.Common;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace MEC.Domain.Entity.School // Klasör yoluna göre namespace'i ayarlayabilirsin
+namespace MEC.Domain.Entity.School
 {
+    [Table("announcement")]
     public class Announcement : BaseEntity
     {
-        public string Title { get; set; } // Duyuru Başlığı
-        public string Content { get; set; } // Duyuru İçeriği
-        public bool IsActive { get; set; } = true; // Duyuru ana sayfada görünsün mü?
-
-        // BaseEntity'de yoksa diye ekliyorum, eğer BaseEntity'de CreatedDate varsa buraya yazmana gerek yok.
-        // public DateTime CreatedDate { get; set; } = DateTime.Now; 
+        public string Title { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public bool IsActive { get; set; } = true;
+        public ICollection<AnnouncementAttachment> Attachments { get; set; } = new List<AnnouncementAttachment>();
+        public ICollection<AnnouncementImage> Images { get; set; } = new List<AnnouncementImage>();
     }
 }

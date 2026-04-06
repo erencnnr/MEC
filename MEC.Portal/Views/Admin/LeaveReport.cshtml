@@ -1,6 +1,14 @@
+@using System.Globalization
+@model MEC.Portal.Models.AdminLeaveReportViewModel
+
 @{
     ViewData["Title"] = "İzin Raporu";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    string FormatLeaveDays(decimal value)
+    {
+        return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
+    }
 }
 
 <section class="leave-history-page admin-leave-page">
@@ -9,13 +17,116 @@
             <div>
                 <span class="leave-history-topbar__eyebrow">Yönetici işlemleri</span>
                 <h1>İzin Raporu</h1>
-                <p>Bu alan izin raporlama ekranı için ayrıldı. İçerik bir sonraki geliştirmede hazırlanacak.</p>
+                <p>Personel izin kayıtlarını filtreleyin ve rapor görünümünde toplu olarak inceleyin.</p>
             </div>
         </div>
 
-        <div class="leave-history-empty admin-leave-report-card">
-            <h2>Rapor ekranı hazırlanıyor</h2>
-            <p>İzin kırılımları, dönemsel özetler ve dışa aktarma seçenekleri bu sayfaya eklenecek.</p>
-        </div>
+        <form method="get" class="admin-leave-report-filters" id="leaveReportFilters">
+            <div class="admin-leave-report-filters__grid">
+                <div class="admin-leave-report-field">
+                    <label for="employeeId">Çalışan</label>
+                    <select id="employeeId" name="employeeId" class="leave-history-select">
+                        <option value="">Tümü</option>
+                        @foreach (var employee in Model.EmployeeOptions)
+                        {
+                            <option value="@employee.Id" selected="@(Model.SelectedEmployeeId == employee.Id ? "selected" : null)">@employee.Label</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="admin-leave-report-field">
+                    <label for="leaveTypeId">İzin Türü</label>
+                    <select id="leaveTypeId" name="leaveTypeId" class="leave-history-select">
+                        <option value="">Tümü</option>
+                        @foreach (var leaveType in Model.LeaveTypeOptions)
+                        {
+                            <option value="@leaveType.Id" selected="@(Model.SelectedLeaveTypeId == leaveType.Id ? "selected" : null)">@leaveType.Label</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="admin-leave-report-field">
+                    <label for="startDate">Başlangıç Tarihi</label>
+                    <input id="startDate" name="startDate" type="date" class="leave-request-input" value="@Model.StartDate" />
+                </div>
+
+                <div class="admin-leave-report-field">
+                    <label for="endDate">Bitiş Tarihi</label>
+                    <input id="endDate" name="endDate" type="date" class="leave-request-input" value="@Model.EndDate" />
+                </div>
+            </div>
+
+            <div class="admin-leave-report-filters__actions">
+                <button type="submit" class="leave-history-topbar__action">Raporu Güncelle</button>
+                <a class="admin-leave-report-export"
+                   asp-controller="Admin"
+                   asp-action="ExportLeaveReport"
+                   asp-route-employeeId="@Model.SelectedEmployeeId"
+                   asp-route-leaveTypeId="@Model.SelectedLeaveTypeId"
+                   asp-route-startDate="@Model.StartDate"
+                   asp-route-endDate="@Model.EndDate">
+                    <span class="admin-leave-report-export__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zm0 0v5h5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path d="M9 10.5l4 7M13 10.5l-4 7M8 14h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                    </span>
+                    <span>Excel'e Aktar</span>
+                </a>
+            </div>
+        </form>
+
+        @if (!Model.Items.Any())
+        {
+            <div class="leave-history-empty admin-leave-report-card">
+                <h2>Kayıt bulunamadı</h2>
+                <p>Seçilen filtrelere uygun izin kaydı bulunmuyor. Tarih veya izin türü filtresini değiştirerek tekrar deneyebilirsiniz.</p>
+            </div>
+        }
+        else
+        {
+            <div class="leave-history-table-card admin-leave-report-table-card">
+                <div class="leave-history-table-card__meta">
+                    <span>@Model.TotalCount kayıt</span>
+                    <span>Rapor görünümü</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table leave-history-table admin-leave-report-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Personel</th>
+                                <th>İzin Türü</th>
+                                <th>Başlangıç</th>
+                                <th>Bitiş</th>
+                                <th>Kullanılan Gün</th>
+                                <th>Durum</th>
+                                <th>Oluşturma Tarihi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="admin-leave-table__employee admin-leave-report-table__employee">
+                                            <span>@item.EmployeeName</span>
+                                        </div>
+                                    </td>
+                                    <td>@item.LeaveType</td>
+                                    <td>@item.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>@item.EndDate.ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>@FormatLeaveDays(item.RequestedDays) Gün</td>
+                                    <td>
+                                        <span class="leave-history-status leave-history-status--@item.StatusTone">@item.StatusLabel</span>
+                                    </td>
+                                    <td>@(item.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
     </div>
 </section>

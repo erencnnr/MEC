@@ -46,7 +46,6 @@
                                 <th>Başlangıç</th>
                                 <th>Bitiş</th>
                                 <th>Durum</th>
-                                <th>Kalan İzin</th>
                                 <th class="text-center">İşlemler</th>
                             </tr>
                         </thead>
@@ -56,8 +55,7 @@
                                 <tr class="leave-history-table__row" data-href="/Admin/LeaveRequests/@item.Id" tabindex="0">
                                     <td>
                                         <div class="admin-leave-table__employee">
-                                            <strong>@item.EmployeeName</strong>
-                                            <span>#@item.EmployeeId</span>
+                                            <span>@item.EmployeeName</span>
                                         </div>
                                     </td>
                                     <td>@item.LeaveType</td>
@@ -66,16 +64,6 @@
                                     <td>@item.EndDate.ToString("dd.MM.yyyy HH:mm")</td>
                                     <td>
                                         <span class="leave-history-status leave-history-status--@item.StatusTone">@item.StatusLabel</span>
-                                    </td>
-                                    <td>
-                                        @if (item.Status == 1)
-                                        {
-                                            @($"{FormatLeaveDays(item.RemainingLeaveDays)} Gün")
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted">-</span>
-                                        }
                                     </td>
                                     <td class="text-center">
                                         @if (item.CanTakeAction)

@@ -1,6 +1,7 @@
 using System.Globalization;
 using MEC.DAL.Config.Abstractions.Common;
 using MEC.Domain.Common;
+using MEC.Domain.Common.Enum;
 using MEC.Domain.Entity.Employee;
 using MEC.Domain.Entity.Leave;
 using MEC.Portal.Models;
@@ -24,15 +25,6 @@ namespace MEC.Portal.Controllers
             "dd.MM.yyyy"
         };
 
-        private static readonly string[] AllowedLeaveTypes =
-        {
-            "Yıllık İzin",
-            "Hastalık İzni",
-            "Mazeret İzni",
-            "Ücretsiz İzin",
-            "Diğer"
-        };
-
         private static readonly HashSet<string> AllowedAttachmentExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
             ".pdf",
@@ -49,29 +41,37 @@ namespace MEC.Portal.Controllers
 
         private readonly IGenericRepository<Leave> _leaveRepository;
         private readonly IGenericRepository<Employee> _employeeRepository;
+        private readonly IGenericRepository<LeaveType> _leaveTypeRepository;
         private readonly IAttachmentApiClient _attachmentApiClient;
 
         public LeaveController(
             IGenericRepository<Leave> leaveRepository,
             IGenericRepository<Employee> employeeRepository,
+            IGenericRepository<LeaveType> leaveTypeRepository,
             IAttachmentApiClient attachmentApiClient)
         {
             _leaveRepository = leaveRepository;
             _employeeRepository = employeeRepository;
+            _leaveTypeRepository = leaveTypeRepository;
             _attachmentApiClient = attachmentApiClient;
         }
 
         [HttpGet]
-        public IActionResult RequestLeave()
+        public async Task<IActionResult> RequestLeave()
         {
-            return View(new LeaveRequestViewModel());
+            var model = new LeaveRequestViewModel
+            {
+                LeaveTypes = await GetActiveLeaveTypeOptionsAsync()
+            };
+
+            return View(model);
         }
 
         [HttpGet]
         public async Task<IActionResult> History(
             int? year = null,
             int? status = null,
-            string? leaveType = null,
+            int? leaveTypeId = null,
             string sort = "created_desc",
             int page = 1)
         {
@@ -85,16 +85,16 @@ namespace MEC.Portal.Controllers
             var selectedSort = string.Equals(sort, "created_asc", StringComparison.OrdinalIgnoreCase)
                 ? "created_asc"
                 : "created_desc";
-            var selectedLeaveType = string.IsNullOrWhiteSpace(leaveType) ? string.Empty : leaveType.Trim();
+            var leaveTypeOptions = await GetActiveLeaveTypeOptionsAsync();
 
             var employee = (await _employeeRepository.GetAllAsync(x => x.Email == userEmail && !x.IsDeleted)).FirstOrDefault();
             if (employee == null)
             {
                 ViewBag.Error = "Kullanıcı kaydı bulunamadı.";
-                return View(CreateEmptyHistoryViewModel(currentYear, status, selectedLeaveType, selectedSort));
+                return View(CreateEmptyHistoryViewModel(currentYear, status, leaveTypeId, selectedSort, leaveTypeOptions));
             }
 
-            var employeeLeaves = (await _leaveRepository.GetAllAsync(x => x.EmployeeId == employee.Id))
+            var employeeLeaves = (await _leaveRepository.GetAllAsync(x => x.EmployeeId == employee.Id, x => x.LeaveType))
                 .OrderByDescending(x => x.CreatedDate)
                 .ThenByDescending(x => x.Id)
                 .ToList();
@@ -112,9 +112,9 @@ namespace MEC.Portal.Controllers
                 filteredItems = filteredItems.Where(x => x.Status == status.Value);
             }
 
-            if (!string.IsNullOrWhiteSpace(selectedLeaveType))
+            if (leaveTypeId.HasValue)
             {
-                filteredItems = filteredItems.Where(x => string.Equals(x.LeaveType, selectedLeaveType, StringComparison.OrdinalIgnoreCase));
+                filteredItems = filteredItems.Where(x => x.LeaveTypeId == leaveTypeId.Value);
             }
 
             filteredItems = selectedSort == "created_asc"
@@ -134,16 +134,11 @@ namespace MEC.Portal.Controllers
             {
                 LeaveHistory = pagedItems,
                 YearOptions = CreateYearOptions(employeeLeaves, currentYear),
-                LeaveTypeOptions = allItems
-                    .Select(x => x.LeaveType)
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
-                    .Distinct()
-                    .OrderBy(x => x)
-                    .ToList(),
+                LeaveTypeOptions = leaveTypeOptions,
                 StatusOptions = CreateStatusOptions(),
                 SelectedYear = year,
                 SelectedStatus = status,
-                SelectedLeaveType = selectedLeaveType,
+                SelectedLeaveTypeId = leaveTypeId,
                 SelectedSort = selectedSort,
                 CurrentPage = currentPage,
                 TotalPages = totalPages,
@@ -169,7 +164,7 @@ namespace MEC.Portal.Controllers
                 return RedirectToAction(nameof(History));
             }
 
-            var leave = (await _leaveRepository.GetAllAsync(x => x.EmployeeId == employee.Id && x.Id == id)).FirstOrDefault();
+            var leave = (await _leaveRepository.GetAllAsync(x => x.EmployeeId == employee.Id && x.Id == id, x => x.LeaveType)).FirstOrDefault();
             if (leave == null)
             {
                 return NotFound();
@@ -185,6 +180,8 @@ namespace MEC.Portal.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RequestLeave(LeaveRequestViewModel model)
         {
+            model.LeaveTypes = await GetActiveLeaveTypeOptionsAsync();
+
             if (!TryParseDate(model.StartDate, out var startDate))
             {
                 ModelState.AddModelError(nameof(model.StartDate), "Başlangıç tarihi geçersiz.");
@@ -225,9 +222,18 @@ namespace MEC.Portal.Controllers
                 ModelState.AddModelError(nameof(model.Reason), "İzin nedeni zorunludur.");
             }
 
-            if (string.IsNullOrWhiteSpace(model.LeaveType) || !AllowedLeaveTypes.Contains(model.LeaveType))
+            LeaveTypeOptionViewModel? selectedLeaveType = null;
+            if (!model.LeaveTypeId.HasValue || model.LeaveTypeId.Value <= 0)
             {
-                ModelState.AddModelError(nameof(model.LeaveType), "Geçerli bir izin türü seçiniz.");
+                ModelState.AddModelError(nameof(model.LeaveTypeId), "Geçerli bir izin türü seçiniz.");
+            }
+            else
+            {
+                selectedLeaveType = model.LeaveTypes.FirstOrDefault(x => x.Id == model.LeaveTypeId.Value);
+                if (selectedLeaveType == null)
+                {
+                    ModelState.AddModelError(nameof(model.LeaveTypeId), "Geçerli bir izin türü seçiniz.");
+                }
             }
 
             if (model.Attachment != null && model.Attachment.Length > 0)
@@ -267,10 +273,10 @@ namespace MEC.Portal.Controllers
                 EmployeeId = employee.Id,
                 StartDate = startDate,
                 EndDate = endDate,
-                LeaveType = model.LeaveType.Trim(),
+                LeaveTypeId = selectedLeaveType!.Id,
                 RequestedDays = model.RequestedDays,
                 Reason = model.Reason.Trim(),
-                Status = 0,
+                Status = (int)LeaveStatus.Pending,
                 CreatedDate = DateTime.Now
             };
 
@@ -291,19 +297,35 @@ namespace MEC.Portal.Controllers
             return RedirectToAction(nameof(RequestLeave));
         }
 
+        private async Task<List<LeaveTypeOptionViewModel>> GetActiveLeaveTypeOptionsAsync()
+        {
+            var leaveTypes = await _leaveTypeRepository.GetAllAsync(x => x.IsActive);
+
+            return leaveTypes
+                .OrderBy(x => x.Id)
+                .Select(x => new LeaveTypeOptionViewModel
+                {
+                    Id = x.Id,
+                    Name = x.Name,
+                    Code = x.Code
+                })
+                .ToList();
+        }
+
         private static LeaveHistoryViewModel CreateEmptyHistoryViewModel(
             int currentYear,
             int? selectedStatus,
-            string selectedLeaveType,
-            string selectedSort)
+            int? selectedLeaveTypeId,
+            string selectedSort,
+            List<LeaveTypeOptionViewModel> leaveTypeOptions)
         {
             return new LeaveHistoryViewModel
             {
                 YearOptions = Enumerable.Range(1970, currentYear - 1969).Reverse().ToList(),
-                LeaveTypeOptions = new List<string>(),
+                LeaveTypeOptions = leaveTypeOptions,
                 StatusOptions = CreateStatusOptions(),
                 SelectedStatus = selectedStatus,
-                SelectedLeaveType = selectedLeaveType,
+                SelectedLeaveTypeId = selectedLeaveTypeId,
                 SelectedSort = selectedSort,
                 CurrentPage = 1,
                 TotalPages = 1,
@@ -327,10 +349,10 @@ namespace MEC.Portal.Controllers
         {
             return new List<LeaveStatusFilterOptionViewModel>
             {
-                new() { Value = 0, Label = "Onay Bekliyor" },
-                new() { Value = 1, Label = "Onaylandı" },
-                new() { Value = 2, Label = "Reddedildi" },
-                new() { Value = 3, Label = "İptal" }
+                new() { Value = (int)LeaveStatus.Pending, Label = "Onay Bekliyor" },
+                new() { Value = (int)LeaveStatus.Approved, Label = "Onaylandı" },
+                new() { Value = (int)LeaveStatus.Rejected, Label = "Reddedildi" },
+                new() { Value = (int)LeaveStatus.Cancelled, Label = "İptal" }
             };
         }
 
@@ -339,7 +361,8 @@ namespace MEC.Portal.Controllers
             return new LeaveHistoryItemViewModel
             {
                 Id = leave.Id,
-                LeaveType = GetLeaveType(leave),
+                LeaveTypeId = leave.LeaveTypeId,
+                LeaveType = GetLeaveTypeName(leave),
                 StartDate = leave.StartDate,
                 EndDate = leave.EndDate,
                 RequestedDays = GetRequestedDays(leave),
@@ -373,9 +396,9 @@ namespace MEC.Portal.Controllers
             return LeaveDurationCalculator.CalculateRequestedDays(leave.StartDate, leave.EndDate);
         }
 
-        private static string GetLeaveType(Leave leave)
+        private static string GetLeaveTypeName(Leave leave)
         {
-            return leave.LeaveType ?? string.Empty;
+            return leave.LeaveType?.Name ?? string.Empty;
         }
 
         private static decimal GetRemainingLeaveDays(Leave leave)
@@ -383,24 +406,31 @@ namespace MEC.Portal.Controllers
             return leave.RemainingLeaveDays;
         }
 
+        private static LeaveStatus ToLeaveStatus(int status)
+        {
+            return Enum.IsDefined(typeof(LeaveStatus), status)
+                ? (LeaveStatus)status
+                : LeaveStatus.Pending;
+        }
+
         private static string GetStatusLabel(int status)
         {
-            return status switch
+            return ToLeaveStatus(status) switch
             {
-                1 => "Onaylandı",
-                2 => "Reddedildi",
-                3 => "İptal",
+                LeaveStatus.Approved => "Onaylandı",
+                LeaveStatus.Rejected => "Reddedildi",
+                LeaveStatus.Cancelled => "İptal",
                 _ => "Onay Bekliyor"
             };
         }
 
         private static string GetStatusTone(int status)
         {
-            return status switch
+            return ToLeaveStatus(status) switch
             {
-                1 => "approved",
-                2 => "rejected",
-                3 => "cancelled",
+                LeaveStatus.Approved => "approved",
+                LeaveStatus.Rejected => "rejected",
+                LeaveStatus.Cancelled => "cancelled",
                 _ => "pending"
             };
         }
@@ -426,7 +456,7 @@ namespace MEC.Portal.Controllers
                 }
             }
 
-            return leave.Status == 0 ? "-" : "Belirtilmedi";
+            return leave.Status == (int)LeaveStatus.Pending ? "-" : "Belirtilmedi";
         }
     }
 }

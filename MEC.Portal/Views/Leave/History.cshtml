@@ -8,7 +8,7 @@
         return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
     }
 
-    string BuildHistoryUrl(string? leaveTypeOverride = null, string? sortOverride = null, int? pageOverride = null)
+    string BuildHistoryUrl(int? leaveTypeIdOverride = null, string? sortOverride = null, int? pageOverride = null)
     {
         var queryParts = new List<string>();
 
@@ -22,10 +22,10 @@
             queryParts.Add($"status={Model.SelectedStatus.Value}");
         }
 
-        var effectiveLeaveType = leaveTypeOverride ?? Model.SelectedLeaveType;
-        if (!string.IsNullOrWhiteSpace(effectiveLeaveType))
+        var effectiveLeaveTypeId = leaveTypeIdOverride ?? Model.SelectedLeaveTypeId;
+        if (effectiveLeaveTypeId.HasValue)
         {
-            queryParts.Add($"leaveType={System.Uri.EscapeDataString(effectiveLeaveType)}");
+            queryParts.Add($"leaveTypeId={effectiveLeaveTypeId.Value}");
         }
 
         queryParts.Add($"sort={System.Uri.EscapeDataString(sortOverride ?? Model.SelectedSort)}");
@@ -50,7 +50,7 @@
         </div>
 
         <form method="get" class="leave-history-filters" id="leaveHistoryFilters">
-            <input type="hidden" name="leaveType" value="@Model.SelectedLeaveType" />
+            <input type="hidden" name="leaveTypeId" value="@(Model.SelectedLeaveTypeId?.ToString() ?? string.Empty)" />
             <input type="hidden" name="sort" value="@Model.SelectedSort" />
             <input type="hidden" name="page" value="1" />
 
@@ -112,10 +112,10 @@
                                                 <span class="visually-hidden">İzin türü filtresi</span>
                                             </button>
                                             <div class="dropdown-menu leave-history-table__menu">
-                                                <a class="leave-history-table__menu-item @(string.IsNullOrWhiteSpace(Model.SelectedLeaveType) ? "is-active" : string.Empty)" href="@BuildHistoryUrl(leaveTypeOverride: string.Empty, pageOverride: 1)">Tümü</a>
+                                                <a class="leave-history-table__menu-item @(!Model.SelectedLeaveTypeId.HasValue ? "is-active" : string.Empty)" href="@BuildHistoryUrl(leaveTypeIdOverride: null, pageOverride: 1)">Tümü</a>
                                                 @foreach (var leaveTypeOption in Model.LeaveTypeOptions)
                                                 {
-                                                    <a class="leave-history-table__menu-item @(string.Equals(Model.SelectedLeaveType, leaveTypeOption, StringComparison.OrdinalIgnoreCase) ? "is-active" : string.Empty)" href="@BuildHistoryUrl(leaveTypeOverride: leaveTypeOption, pageOverride: 1)">@leaveTypeOption</a>
+                                                    <a class="leave-history-table__menu-item @(Model.SelectedLeaveTypeId == leaveTypeOption.Id ? "is-active" : string.Empty)" href="@BuildHistoryUrl(leaveTypeIdOverride: leaveTypeOption.Id, pageOverride: 1)">@leaveTypeOption.Name</a>
                                                 }
                                             </div>
                                         </div>

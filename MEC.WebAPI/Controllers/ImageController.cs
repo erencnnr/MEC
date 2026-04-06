@@ -1,8 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
 using MEC.WebAPI.Models;
-using System;
-using System.IO;
-using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 
 namespace MEC.WebAPI.Controllers
 {
@@ -10,157 +8,281 @@ namespace MEC.WebAPI.Controllers
     [Route("api/[controller]")]
     public class ImageController : ControllerBase
     {
-        [HttpPost("Upload")]
-        public async Task<IActionResult> UploadImage([FromForm] ImageRequestModel request)
+        private const long DefaultMaxFileSizeBytes = 10 * 1024 * 1024;
+        private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
-            try
-            {
-                // 1. Dosya Kontrolü
-                if (request.File == null || request.File.Length == 0)
-                {
-                    return BadRequest(new { success = false, message = "Dosya seçilmedi." });
-                }
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".bmp",
+            ".webp"
+        };
 
-                if (request.AssetId <= 0)
-                {
-                    return BadRequest(new { success = false, message = "Geçersiz Asset ID." });
-                }
+        private readonly string _rootPath;
+        private readonly FileExtensionContentTypeProvider _contentTypeProvider = new();
 
-                // 2. Klasör Yolu Oluşturma: C:\Images\{AssetId}
-                // Not: Web projesi ise wwwroot/uploads/... kullanmanız daha sağlıklı olabilir.
-                string rootPath = @"C:\Images";
-                string assetFolderPath = Path.Combine(rootPath, request.AssetId.ToString());
-
-                // Klasör yoksa oluştur
-                if (!Directory.Exists(assetFolderPath))
-                {
-                    Directory.CreateDirectory(assetFolderPath);
-                }
-
-                // 3. Dosya Adı ve Yolu
-                // Orijinal dosya adını kullanıyoruz (örn: manzara.jpg)
-                string fileName = request.File.FileName;
-
-                // Tam dosya yolu: C:\Images\5\manzara.jpg
-                string filePath = Path.Combine(assetFolderPath, fileName);
-
-                // 4. Kaydetme veya Üzerine Yazma
-                // FileMode.Create: Dosya yoksa oluşturur, varsa içeriğini silip üzerine yazar (Güncelleme mantığı).
-                using (var fileStream = new FileStream(filePath, FileMode.Create))
-                {
-                    await request.File.CopyToAsync(fileStream);
-                }
-
-                // 5. Cevap Dönme
-                // DB'ye sadece dosya adını kaydedecekseniz fileName, 
-                // klasör yapısıyla kaydedecekseniz relative path dönebilirsiniz.
-                // Şimdilik sadece dosya adını dönüyoruz, DB kaydını yapan metod AssetId'yi zaten biliyor.
-                return Ok(new ImageResponseModel
-                {
-                    Success = true,
-                    Message = "Dosya başarıyla yüklendi/güncellendi.",
-                    FileName = fileName
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, message = "Hata: " + ex.Message });
-            }
+        public ImageController(IConfiguration configuration)
+        {
+            _rootPath = configuration["ImageSettings:RootPath"] ?? @"C:\Images";
         }
+
+        [HttpPost("Upload")]
+        public Task<IActionResult> UploadImage([FromForm] ImageRequestModel request)
+        {
+            if (!string.IsNullOrWhiteSpace(request.Scope) && request.EntityId.HasValue)
+            {
+                return UploadInternalAsync(request.File, request.Scope, request.EntityId.Value);
+            }
+
+            return UploadInternalAsync(request.File, "assets", request.AssetId);
+        }
+
+        [HttpPost("upload")]
+        public Task<IActionResult> Upload(IFormFile file, [FromForm] string scope, [FromForm] int entityId)
+        {
+            return UploadInternalAsync(file, scope, entityId);
+        }
+
         [HttpGet("GetImageList")]
         public IActionResult GetImageList(int assetId)
         {
-            try
-            {
-                string rootPath = @"C:\Images";
-                string assetFolderPath = Path.Combine(rootPath, assetId.ToString());
-
-                // Klasör kontrolü
-                if (!Directory.Exists(assetFolderPath))
-                {
-                    // Klasör yoksa boş liste dönebiliriz veya 404 verebiliriz.
-                    // Mantıken hiç resim yüklenmediyse klasör yoktur, bu bir hata değil durumdur.
-                    return NotFound(new { success = false, message = "Bu demirbaş için resim bulunamadı." });
-                }
-
-                // Klasördeki dosyaları al
-                var filePaths = Directory.GetFiles(assetFolderPath);
-
-                if (filePaths.Length == 0)
-                {
-                    return NotFound(new { success = false, message = "Klasör boş." });
-                }
-
-                // Sadece dosya isimlerini seçip listeye çeviriyoruz
-                var fileNames = filePaths.Select(Path.GetFileName).ToList();
-
-                return Ok(new { success = true, files = fileNames });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, message = "Hata: " + ex.Message });
-            }
+            return GetImageListInternal("assets", assetId);
         }
 
-        // 3. TEK BİR RESMİ GETİRME (Ekranda göstermek için)
+        [HttpGet("list")]
+        public IActionResult List(string scope, int entityId)
+        {
+            return GetImageListInternal(scope, entityId);
+        }
+
         [HttpGet("GetImage/{assetId}/{fileName}")]
         public IActionResult GetImage(int assetId, string fileName)
         {
-            try
-            {
-                // Güvenlik: Directory Traversal saldırılarını önlemek için basit bir kontrol
-                if (fileName.Contains("..") || fileName.Contains("/") || fileName.Contains("\\"))
-                {
-                    return BadRequest();
-                }
+            return GetImageInternal("assets", assetId, fileName);
+        }
 
-                string path = Path.Combine(@"C:\Images", assetId.ToString(), fileName);
-
-                if (!System.IO.File.Exists(path))
-                    return NotFound();
-
-                // Dosyayı okuyup stream olarak dönüyoruz
-                var imageFileStream = System.IO.File.OpenRead(path);
-
-                // MIME türünü belirleme (Basit yöntem)
-                string contentType = "image/jpeg"; // Varsayılan
-                string ext = Path.GetExtension(fileName).ToLower();
-                if (ext == ".png") contentType = "image/png";
-                else if (ext == ".gif") contentType = "image/gif";
-                else if (ext == ".bmp") contentType = "image/bmp";
-                else if (ext == ".webp") contentType = "image/webp";
-
-                return File(imageFileStream, contentType);
-            }
-            catch
-            {
-                return NotFound();
-            }
+        [HttpGet("file")]
+        public IActionResult Download(string scope, int entityId, string fileName)
+        {
+            return GetImageInternal(scope, entityId, fileName);
         }
 
         [HttpDelete("DeleteImage")]
         public IActionResult DeleteImage([FromQuery] int assetId, [FromQuery] string fileName)
         {
+            return DeleteInternal("assets", assetId, fileName);
+        }
+
+        [HttpDelete("delete")]
+        public IActionResult Delete(string scope, int entityId, string fileName)
+        {
+            return DeleteInternal(scope, entityId, fileName);
+        }
+
+        private async Task<IActionResult> UploadInternalAsync(IFormFile file, string scope, int entityId)
+        {
             try
             {
-                // SADECE DİSK İŞLEMİ
-                string path = Path.Combine(@"C:\Images", assetId.ToString(), fileName);
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { success = false, message = "Lütfen geçerli bir görsel seçiniz." });
+                }
 
-                if (System.IO.File.Exists(path))
+                if (entityId <= 0)
                 {
-                    System.IO.File.Delete(path);
-                    return Ok(new { success = true, message = "Dosya diskten silindi." });
+                    return BadRequest(new { success = false, message = "Geçersiz kayıt numarası." });
                 }
-                else
+
+                if (!TryNormalizeScope(scope, out var normalizedScope))
                 {
-                    // Dosya zaten yoksa da başarılı dönelim ki süreç bozulmasın
-                    return Ok(new { success = true, message = "Dosya zaten mevcut değil." });
+                    return BadRequest(new { success = false, message = "Geçersiz klasör türü." });
                 }
+
+                if (file.Length > DefaultMaxFileSizeBytes)
+                {
+                    return BadRequest(new { success = false, message = "Dosya boyutu 10 MB sınırını aşıyor." });
+                }
+
+                var sanitizedFileName = SanitizeFileName(file.FileName);
+                if (string.IsNullOrWhiteSpace(sanitizedFileName))
+                {
+                    return BadRequest(new { success = false, message = "Geçersiz dosya adı." });
+                }
+
+                var extension = Path.GetExtension(sanitizedFileName);
+                if (string.IsNullOrWhiteSpace(extension) || !AllowedExtensions.Contains(extension))
+                {
+                    return BadRequest(new { success = false, message = "Bu görsel türüne izin verilmiyor." });
+                }
+
+                var entityFolderPath = GetEntityFolderPath(normalizedScope, entityId);
+                Directory.CreateDirectory(entityFolderPath);
+
+                var filePath = Path.Combine(entityFolderPath, sanitizedFileName);
+                await using var stream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
+                await file.CopyToAsync(stream);
+
+                return Ok(new ImageResponseModel
+                {
+                    Success = true,
+                    Message = "Görsel başarıyla yüklendi.",
+                    FileName = sanitizedFileName,
+                    Scope = normalizedScope,
+                    EntityId = entityId,
+                    RelativePath = Path.Combine(normalizedScope, entityId.ToString(), sanitizedFileName).Replace("\\", "/"),
+                    ContentType = GetContentType(filePath)
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "Disk hatası: " + ex.Message });
+                return StatusCode(500, new { success = false, message = "Görsel yüklenirken hata oluştu: " + ex.Message });
             }
+        }
+
+        private IActionResult GetImageListInternal(string scope, int entityId)
+        {
+            try
+            {
+                if (entityId <= 0)
+                {
+                    return BadRequest(new { success = false, message = "Geçersiz kayıt numarası." });
+                }
+
+                if (!TryNormalizeScope(scope, out var normalizedScope))
+                {
+                    return BadRequest(new { success = false, message = "Geçersiz klasör türü." });
+                }
+
+                var entityFolderPath = GetEntityFolderPath(normalizedScope, entityId);
+                if (!Directory.Exists(entityFolderPath))
+                {
+                    return Ok(new { success = true, files = new List<string>() });
+                }
+
+                var fileNames = Directory.GetFiles(entityFolderPath)
+                    .Select(Path.GetFileName)
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .ToList();
+
+                return Ok(new { success = true, files = fileNames });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "Liste alınırken hata oluştu: " + ex.Message });
+            }
+        }
+
+        private IActionResult GetImageInternal(string scope, int entityId, string fileName)
+        {
+            try
+            {
+                if (entityId <= 0)
+                {
+                    return BadRequest(new { success = false, message = "Geçersiz kayıt numarası." });
+                }
+
+                if (!TryNormalizeScope(scope, out var normalizedScope))
+                {
+                    return BadRequest(new { success = false, message = "Geçersiz klasör türü." });
+                }
+
+                var sanitizedFileName = SanitizeFileName(fileName);
+                if (!string.Equals(fileName, sanitizedFileName, StringComparison.Ordinal))
+                {
+                    return BadRequest(new { success = false, message = "Geçersiz dosya adı." });
+                }
+
+                var filePath = Path.Combine(GetEntityFolderPath(normalizedScope, entityId), sanitizedFileName);
+                if (!System.IO.File.Exists(filePath))
+                {
+                    return NotFound(new { success = false, message = "Görsel bulunamadı." });
+                }
+
+                return PhysicalFile(filePath, GetContentType(filePath), enableRangeProcessing: true);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "Görsel okunurken hata oluştu: " + ex.Message });
+            }
+        }
+
+        private IActionResult DeleteInternal(string scope, int entityId, string fileName)
+        {
+            try
+            {
+                if (entityId <= 0)
+                {
+                    return BadRequest(new { success = false, message = "Geçersiz kayıt numarası." });
+                }
+
+                if (!TryNormalizeScope(scope, out var normalizedScope))
+                {
+                    return BadRequest(new { success = false, message = "Geçersiz klasör türü." });
+                }
+
+                var sanitizedFileName = SanitizeFileName(fileName);
+                if (!string.Equals(fileName, sanitizedFileName, StringComparison.Ordinal))
+                {
+                    return BadRequest(new { success = false, message = "Geçersiz dosya adı." });
+                }
+
+                var filePath = Path.Combine(GetEntityFolderPath(normalizedScope, entityId), sanitizedFileName);
+                if (!System.IO.File.Exists(filePath))
+                {
+                    return Ok(new { success = true, message = "Görsel zaten mevcut değil." });
+                }
+
+                System.IO.File.Delete(filePath);
+                return Ok(new { success = true, message = "Görsel silindi." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "Görsel silinirken hata oluştu: " + ex.Message });
+            }
+        }
+
+        private string GetEntityFolderPath(string scope, int entityId)
+        {
+            return Path.Combine(_rootPath, scope, entityId.ToString());
+        }
+
+        private bool TryNormalizeScope(string scope, out string normalizedScope)
+        {
+            normalizedScope = (scope ?? string.Empty).Trim().ToLowerInvariant();
+
+            if (string.IsNullOrWhiteSpace(normalizedScope))
+            {
+                return false;
+            }
+
+            if (normalizedScope.Any(ch => !char.IsLetterOrDigit(ch) && ch != '-' && ch != '_'))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static string SanitizeFileName(string fileName)
+        {
+            var sanitizedFileName = Path.GetFileName(fileName ?? string.Empty).Trim();
+            foreach (var invalidChar in Path.GetInvalidFileNameChars())
+            {
+                sanitizedFileName = sanitizedFileName.Replace(invalidChar, '_');
+            }
+
+            return sanitizedFileName;
+        }
+
+        private string GetContentType(string filePath)
+        {
+            if (_contentTypeProvider.TryGetContentType(filePath, out var contentType))
+            {
+                return contentType;
+            }
+
+            return "application/octet-stream";
         }
     }
 }

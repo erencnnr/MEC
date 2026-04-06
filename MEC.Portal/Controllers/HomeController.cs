@@ -1,9 +1,11 @@
 using MEC.Application.Abstractions.Service.SchoolService;
+using MEC.DAL.Config.Abstractions.Common;
+using MEC.Domain.Entity.School;
 using MEC.Portal.Models;
+using MEC.Portal.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace MEC.Portal.Controllers
 {
@@ -11,22 +13,43 @@ namespace MEC.Portal.Controllers
     {
         private readonly ILogger<HomeController> _logger;
         private readonly IAnnouncementService _announcementService;
+        private readonly IGenericRepository<SliderImage> _sliderImageRepository;
+        private readonly ISliderImageApiClient _sliderImageApiClient;
 
-        // Hem Logger'ı hem de Duyuru servisimizi (IAnnouncementService) Constructor üzerinden alıyoruz
-        public HomeController(ILogger<HomeController> logger, IAnnouncementService announcementService)
+        public HomeController(
+            ILogger<HomeController> logger,
+            IAnnouncementService announcementService,
+            IGenericRepository<SliderImage> sliderImageRepository,
+            ISliderImageApiClient sliderImageApiClient)
         {
             _logger = logger;
             _announcementService = announcementService;
+            _sliderImageRepository = sliderImageRepository;
+            _sliderImageApiClient = sliderImageApiClient;
         }
 
-        // Veritabanı işlemi yapacağımız için metodu async (asenkron) hale getirdik
         public async Task<IActionResult> Index()
         {
-            // Sadece durumu Aktif (IsActive = true) olan duyuruları getiriyoruz
-            var activeAnnouncements = await _announcementService.GetActiveAnnouncementsAsync();
+            var activeAnnouncements = (await _announcementService.GetActiveAnnouncementsAsync())
+                .OrderByDescending(x => x.CreatedDate)
+                .ToList();
 
-            // Veriyi (Duyuruları) View'a (Ekrana) gönderiyoruz
-            return View(activeAnnouncements);
+            var sliderItems = (await _sliderImageRepository.GetAllAsync())
+                .OrderBy(x => x.DisplayOrder)
+                .ThenBy(x => x.CreatedDate)
+                .Select(x => new HomeSliderItemViewModel
+                {
+                    Id = x.Id,
+                    FileName = x.OriginalFileName,
+                    ImageUrl = _sliderImageApiClient.GetFileUrl(x.FileName)
+                })
+                .ToList();
+
+            return View(new HomeIndexViewModel
+            {
+                Announcements = activeAnnouncements,
+                SliderItems = sliderItems
+            });
         }
 
         public IActionResult Privacy()
@@ -40,7 +63,6 @@ namespace MEC.Portal.Controllers
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
 
-        // Tüm aktif duyuruların listeleneceği genel sayfa
         [HttpGet("/Announcements")]
         public async Task<IActionResult> Announcements()
         {

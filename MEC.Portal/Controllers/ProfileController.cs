@@ -1,20 +1,16 @@
 using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.DAL.Config.Abstractions.Common;
 using MEC.Domain.Common;
+using MEC.Domain.Common.Enum;
 using MEC.Domain.Entity.Employee;
 using MEC.Domain.Entity.Leave;
 using MEC.Portal.Models;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Linq;
 
 namespace MEC.Portal.Controllers
 {
     public class ProfileController : Controller
     {
-        private const int PendingStatus = 0;
-        private const string AnnualLeaveType = "Yıllık İzin";
-
         private readonly IEmployeePortalService _profileService;
         private readonly IGenericRepository<Employee> _employeeRepository;
         private readonly IGenericRepository<Leave> _leaveRepository;
@@ -48,12 +44,12 @@ namespace MEC.Portal.Controllers
             var employee = (await _employeeRepository.GetAllAsync(x => x.Email == userEmail && !x.IsDeleted)).FirstOrDefault();
             if (employee != null)
             {
-                var employeeLeaves = (await _leaveRepository.GetAllAsync(x => x.EmployeeId == employee.Id))
+                var employeeLeaves = (await _leaveRepository.GetAllAsync(x => x.EmployeeId == employee.Id, x => x.LeaveType))
                     .OrderByDescending(x => x.CreatedDate)
                     .ThenByDescending(x => x.Id)
                     .ToList();
 
-                var pendingLeaves = employeeLeaves.Where(x => x.Status == PendingStatus);
+                var pendingLeaves = employeeLeaves.Where(x => x.Status == (int)LeaveStatus.Pending);
                 var pendingAnnualLeaves = pendingLeaves.Where(IsAnnualLeave);
 
                 profileViewModel.PendingAnnualLeaveCount = pendingAnnualLeaves.Count();
@@ -65,7 +61,7 @@ namespace MEC.Portal.Controllers
 
         private static bool IsAnnualLeave(Leave leave)
         {
-            return string.Equals(GetLeaveType(leave), AnnualLeaveType, StringComparison.Ordinal);
+            return string.Equals(leave.LeaveType?.Code, LeaveTypeCodes.Annual, StringComparison.OrdinalIgnoreCase);
         }
 
         private static decimal GetRequestedDays(Leave leave)
@@ -76,11 +72,6 @@ namespace MEC.Portal.Controllers
             }
 
             return LeaveDurationCalculator.CalculateRequestedDays(leave.StartDate, leave.EndDate);
-        }
-
-        private static string GetLeaveType(Leave leave)
-        {
-            return leave.LeaveType ?? string.Empty;
         }
     }
 }

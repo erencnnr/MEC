@@ -32,20 +32,23 @@
             <div class="announcement-board-grid">
                 @foreach (var item in Model.Items)
                 {
+                    var dayText = item.CreatedDate?.ToString("dd") ?? "--";
+                    var monthText = item.CreatedDate?.ToString("MMM", new System.Globalization.CultureInfo("tr-TR")).ToUpperInvariant() ?? "---";
+
                     <a asp-action="Edit" asp-route-id="@item.Id" class="announcement-board-card">
                         <article class="announcement-board-card__surface">
                             <div class="announcement-board-card__head">
                                 <div class="announcement-board-card__brand">
-                                    <span class="announcement-board-card__logo">
-                                        <img src="~/content/images/logo.png" alt="MEC Logo" />
+                                    <span class="announcement-board-card__date-badge" aria-hidden="true">
+                                        <strong>@dayText</strong>
+                                        <small>@monthText</small>
                                     </span>
-                                    <div>
+                                    <div class="announcement-board-card__title-wrap">
                                         <h2>@item.Title</h2>
                                         <span class="announcement-board-card__status @(item.IsActive ? "is-active" : "is-passive")">@(item.IsActive ? "Aktif" : "Pasif")</span>
+                                        <span class="announcement-board-card__date">@(item.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</span>
                                     </div>
                                 </div>
-
-                                <span class="announcement-board-card__date">@(item.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</span>
                             </div>
 
                             <p class="announcement-board-card__summary">@item.Summary</p>

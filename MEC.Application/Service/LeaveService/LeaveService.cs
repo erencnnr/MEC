@@ -1,15 +1,13 @@
 using MEC.Application.Abstractions.Service.LeaveService;
 using MEC.DAL.Config.Abstractions.Common;
 using MEC.Domain.Common;
+using MEC.Domain.Common.Enum;
 using MEC.Domain.Entity.Employee;
 using MEC.Domain.Entity.Leave;
 using System.Linq;
 
 public class LeaveService : ILeaveService
 {
-    private const string AnnualLeaveType = "Yıllık İzin";
-    private const int ApprovedStatus = 1;
-
     private readonly IGenericRepository<Leave> _leaveRepository;
     private readonly IGenericRepository<Employee> _employeeRepository;
     private readonly IGenericRepository<EmployeePortal> _employeePortalRepository;
@@ -26,7 +24,7 @@ public class LeaveService : ILeaveService
 
     public async Task<List<Leave>> GetAllLeavesAsync()
     {
-        var leaves = await _leaveRepository.GetAllAsync();
+        var leaves = await _leaveRepository.GetAllAsync(null, x => x.LeaveType);
 
         return leaves
             .OrderByDescending(x => x.CreatedDate)
@@ -35,7 +33,7 @@ public class LeaveService : ILeaveService
 
     public async Task<bool> UpdateLeaveStatusAsync(int leaveId, int status)
     {
-        var leave = await _leaveRepository.GetByIdAsync(leaveId);
+        var leave = (await _leaveRepository.GetAllAsync(x => x.Id == leaveId, x => x.LeaveType)).FirstOrDefault();
 
         if (leave == null)
         {
@@ -45,7 +43,7 @@ public class LeaveService : ILeaveService
         var requestedDays = leave.RequestedDays > 0
             ? leave.RequestedDays
             : LeaveDurationCalculator.CalculateRequestedDays(leave.StartDate, leave.EndDate);
-        var affectsAnnualBalance = string.Equals(leave.LeaveType, AnnualLeaveType, StringComparison.Ordinal);
+        var affectsAnnualBalance = string.Equals(leave.LeaveType?.Code, LeaveTypeCodes.Annual, StringComparison.OrdinalIgnoreCase);
 
         if (leave.Status != status)
         {
@@ -55,11 +53,11 @@ public class LeaveService : ILeaveService
                 var employeePortal = (await _employeePortalRepository.GetAllAsync(x => x.Email == employee.Email)).FirstOrDefault();
                 if (employeePortal != null)
                 {
-                    if (affectsAnnualBalance && leave.Status != ApprovedStatus && status == ApprovedStatus)
+                    if (affectsAnnualBalance && leave.Status != (int)LeaveStatus.Approved && status == (int)LeaveStatus.Approved)
                     {
                         employeePortal.LeaveDays -= requestedDays;
                     }
-                    else if (affectsAnnualBalance && leave.Status == ApprovedStatus && status != ApprovedStatus)
+                    else if (affectsAnnualBalance && leave.Status == (int)LeaveStatus.Approved && status != (int)LeaveStatus.Approved)
                     {
                         employeePortal.LeaveDays += requestedDays;
                     }

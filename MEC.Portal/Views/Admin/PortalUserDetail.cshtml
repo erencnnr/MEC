@@ -1,0 +1,108 @@
+@using System.Globalization
+@model MEC.Portal.Models.AdminPortalUserEditViewModel
+
+@{
+    ViewData["Title"] = "Portal Kullanıcısı";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    string FormatLeaveDays(decimal value)
+    {
+        return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
+    }
+}
+
+<section class="leave-detail-page admin-portal-user-detail-page">
+    <div class="leave-detail-shell">
+        <div class="leave-detail-header">
+            <a class="leave-detail-back" asp-controller="Admin" asp-action="PortalUsers">Portal kullanıcılarına geri dön</a>
+
+            <div class="leave-detail-title">
+                <span class="leave-detail-title__eyebrow">Yönetici işlemleri</span>
+                <h1>Portal Kullanıcısı</h1>
+            </div>
+        </div>
+
+        @if (TempData["PortalUserSuccess"] is string successMessage && !string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="announcement-form-alert announcement-form-alert--success">@successMessage</div>
+        }
+
+        <div class="leave-detail-card admin-portal-user-card">
+            <form method="post" class="admin-portal-user-form">
+                @Html.AntiForgeryToken()
+                <input asp-for="Id" type="hidden" />
+
+                <div asp-validation-summary="ModelOnly" class="announcement-form-alert announcement-form-alert--error"></div>
+
+                <div class="leave-detail-grid admin-portal-user-grid">
+                    <div class="leave-detail-field">
+                        <span>Ad</span>
+                        <input asp-for="FirstName" class="announcement-form-input" />
+                        <span asp-validation-for="FirstName" class="announcement-form-validation"></span>
+                    </div>
+
+                    <div class="leave-detail-field">
+                        <span>Soyad</span>
+                        <input asp-for="LastName" class="announcement-form-input" />
+                        <span asp-validation-for="LastName" class="announcement-form-validation"></span>
+                    </div>
+
+                    <div class="leave-detail-field">
+                        <span>E-posta</span>
+                        <input asp-for="Email" class="announcement-form-input" />
+                        <span asp-validation-for="Email" class="announcement-form-validation"></span>
+                    </div>
+
+                    <div class="leave-detail-field">
+                        <span>Telefon</span>
+                        <input asp-for="PhoneNumber" class="announcement-form-input" />
+                        <span asp-validation-for="PhoneNumber" class="announcement-form-validation"></span>
+                    </div>
+
+                    <div class="leave-detail-field">
+                        <span>İşe Giriş Tarihi</span>
+                        <input asp-for="HireDate" type="date" class="announcement-form-input" />
+                        <span asp-validation-for="HireDate" class="announcement-form-validation"></span>
+                    </div>
+
+                    <div class="leave-detail-field">
+                        <span>Doğum Tarihi</span>
+                        <input asp-for="BirthDate" type="date" class="announcement-form-input" />
+                        <span asp-validation-for="BirthDate" class="announcement-form-validation"></span>
+                    </div>
+
+                    <div class="leave-detail-field">
+                        <span>İzin Hakkı</span>
+                        <input asp-for="LeaveDays" type="number" step="0.5" min="0" class="announcement-form-input" />
+                        <small class="admin-portal-user-field-note">Mevcut değer: @FormatLeaveDays(Model.LeaveDays) Gün</small>
+                        <span asp-validation-for="LeaveDays" class="announcement-form-validation"></span>
+                    </div>
+
+                    <div class="leave-detail-field">
+                        <span>Durum</span>
+                        <select asp-for="IsDeleted" class="announcement-form-input">
+                            <option value="false">Aktif</option>
+                            <option value="true">Pasif</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="admin-portal-user-meta">
+                    <div class="leave-detail-field">
+                        <span>Kullanıcı</span>
+                        <strong>@Model.FullName</strong>
+                    </div>
+                </div>
+
+                <div class="admin-leave-detail-actions">
+                    <button type="submit" class="announcement-form-actions__save">Kaydet</button>
+                    <a asp-controller="Admin" asp-action="PortalUsers" class="announcement-form-actions__cancel">İptal</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

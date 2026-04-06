@@ -1,0 +1,116 @@
+@using System.Globalization
+@model MEC.Portal.Models.AdminPortalUserListViewModel
+
+@{
+    ViewData["Title"] = "Portal Kullanıcıları";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+
+    string FormatLeaveDays(decimal value)
+    {
+        return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
+    }
+}
+
+<section class="leave-history-page admin-portal-users-page">
+    <div class="leave-history-shell">
+        <div class="leave-history-topbar">
+            <div>
+                <span class="leave-history-topbar__eyebrow">Yönetici işlemleri</span>
+                <h1>Portal Kullanıcıları</h1>
+                <p>Portal erişimi olan kullanıcıları inceleyin, aktiflik durumuna göre filtreleyin ve detaylarını yönetin.</p>
+            </div>
+        </div>
+
+        <div class="announcement-board-filters admin-portal-users-filters">
+            <a asp-action="PortalUsers" asp-route-status="active" class="@(Model.Status == "active" ? "announcement-board-filter is-active" : "announcement-board-filter")">Aktif</a>
+            <a asp-action="PortalUsers" asp-route-status="passive" class="@(Model.Status == "passive" ? "announcement-board-filter is-active" : "announcement-board-filter")">Pasif</a>
+        </div>
+
+        @if (!Model.Items.Any())
+        {
+            <div class="leave-history-empty">
+                <h2>Kayıt bulunamadı</h2>
+                <p>Seçili filtre için görüntülenecek portal kullanıcısı bulunmuyor.</p>
+            </div>
+        }
+        else
+        {
+            <div class="leave-history-table-card admin-portal-users-table-card">
+                <div class="leave-history-table-card__meta">
+                    <span>@Model.TotalCount kayıt</span>
+                    <span>Sayfa @Model.CurrentPage / @Model.TotalPages</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table leave-history-table admin-portal-users-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Kullanıcı</th>
+                                <th>E-posta</th>
+                                <th>Telefon</th>
+                                <th>İzin Hakkı</th>
+                                <th>İşe Giriş</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr class="leave-history-table__row" data-href="/Admin/PortalUsers/@item.Id" tabindex="0">
+                                    <td>
+                                        <div class="admin-portal-users-table__identity">
+                                            <span>@item.FullName</span>
+                                        </div>
+                                    </td>
+                                    <td>@item.Email</td>
+                                    <td>@(string.IsNullOrWhiteSpace(item.PhoneNumber) ? "-" : item.PhoneNumber)</td>
+                                    <td>@FormatLeaveDays(item.LeaveDays) Gün</td>
+                                    <td>@item.HireDate.ToString("dd.MM.yyyy")</td>
+                                    <td>
+                                        <span class="leave-history-status leave-history-status--@item.StatusTone">@item.StatusLabel</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @if (Model.TotalPages > 1)
+            {
+                <nav class="leave-history-pagination" aria-label="Portal kullanıcıları sayfaları">
+                    @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                    {
+                        <a class="leave-history-pagination__item @(pageNumber == Model.CurrentPage ? "is-active" : string.Empty)"
+                           href="/Admin/PortalUsers?status=@Model.Status&page=@pageNumber">
+                            @pageNumber
+                        </a>
+                    }
+                </nav>
+            }
+        }
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll(".leave-history-table__row").forEach(function (row) {
+            row.addEventListener("click", function () {
+                var href = row.getAttribute("data-href");
+                if (href) {
+                    window.location.href = href;
+                }
+            });
+
+            row.addEventListener("keydown", function (event) {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    var href = row.getAttribute("data-href");
+                    if (href) {
+                        window.location.href = href;
+                    }
+                }
+            });
+        });
+    </script>
+}

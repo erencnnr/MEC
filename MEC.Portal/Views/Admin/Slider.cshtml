@@ -1,0 +1,173 @@
+@using System.Globalization
+@using System.Linq
+@model MEC.Portal.Models.AdminSliderViewModel
+
+@{
+    ViewData["Title"] = "Slider";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<section class="leave-history-page admin-slider-page">
+    <div class="leave-history-shell">
+        <div class="leave-history-topbar">
+            <div>
+                <span class="leave-history-topbar__eyebrow">Yönetici işlemleri</span>
+                <h1>Ana Sayfa Slider</h1>
+                <p>Ana sayfada gösterilecek görselleri yükleyin, sıralayın ve gerekli olduğunda kaldırın.</p>
+            </div>
+        </div>
+
+        @if (TempData["SliderSuccess"] is string successMessage && !string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="admin-slider-alert admin-slider-alert--success">@successMessage</div>
+        }
+
+        @if (TempData["SliderError"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="admin-slider-alert admin-slider-alert--error">@errorMessage</div>
+        }
+
+        <div class="admin-slider-upload-card">
+            <div class="admin-slider-upload-card__content">
+                <div>
+                    <span class="admin-slider-upload-card__eyebrow">Görsel Yükleme</span>
+                    <h2>Slider görsellerini yönetin</h2>
+                    <p>Birden fazla görsel yükleyebilir, kartları sürükleyerek sıralayabilir ve istemediğiniz kayıtları silebilirsiniz.</p>
+                </div>
+
+                <form asp-controller="Admin" asp-action="UploadSliderImages" method="post" enctype="multipart/form-data" class="admin-slider-upload-form">
+                    @Html.AntiForgeryToken()
+                    <div class="admin-slider-upload-form__field">
+                        <label for="sliderFiles">Slider Görselleri</label>
+                        <input id="sliderFiles" name="files" type="file" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp,image/*" multiple />
+                    </div>
+                    <button type="submit" class="leave-history-topbar__action">Görselleri Yükle</button>
+                </form>
+            </div>
+        </div>
+
+        @if (!Model.Items.Any())
+        {
+            <div class="leave-history-empty admin-slider-empty">
+                <h2>Slider görseli bulunmuyor</h2>
+                <p>İlk görsel yüklendiğinde ana sayfada slider otomatik olarak görünür hale gelir.</p>
+            </div>
+        }
+        else
+        {
+            <div class="leave-history-table-card admin-slider-board">
+                <div class="leave-history-table-card__meta">
+                    <span>@Model.Items.Count görsel</span>
+                    <span>Sürükle bırak ile sıralama</span>
+                </div>
+
+                <div class="admin-slider-grid" id="sliderSortable">
+                    @foreach (var item in Model.Items.OrderBy(x => x.DisplayOrder))
+                    {
+                        <article class="admin-slider-card" draggable="true" data-id="@item.Id">
+                            <div class="admin-slider-card__preview">
+                                <img src="@item.ImageUrl" alt="@item.OriginalFileName" />
+                                <span class="admin-slider-card__order">Sıra @item.DisplayOrder</span>
+                            </div>
+
+                            <div class="admin-slider-card__body">
+                                <div class="admin-slider-card__meta">
+                                    <strong>@item.OriginalFileName</strong>
+                                    <span>@(item.CreatedDate?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-")</span>
+                                </div>
+
+                                <div class="admin-slider-card__actions">
+                                    <span class="admin-slider-card__handle" aria-hidden="true">Taşı</span>
+
+                                    <form asp-controller="Admin" asp-action="DeleteSliderImage" asp-route-id="@item.Id" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="admin-slider-card__delete">Sil</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </article>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        (function () {
+            const grid = document.getElementById("sliderSortable");
+            if (!grid) {
+                return;
+            }
+
+            let draggedCard = null;
+
+            function getOrderedIds() {
+                return Array.from(grid.querySelectorAll("[data-id]")).map(function (item) {
+                    return Number(item.getAttribute("data-id"));
+                });
+            }
+
+            async function persistOrder() {
+                const orderedIds = getOrderedIds();
+
+                try {
+                    const response = await fetch("/Admin/Slider/Reorder", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ orderedIds: orderedIds })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error("Slider sırası güncellenemedi.");
+                    }
+
+                    grid.querySelectorAll(".admin-slider-card__order").forEach(function (badge, index) {
+                        badge.textContent = "Sıra " + (index + 1);
+                    });
+                } catch (error) {
+                    window.location.reload();
+                }
+            }
+
+            grid.querySelectorAll(".admin-slider-card").forEach(function (card) {
+                card.addEventListener("dragstart", function () {
+                    draggedCard = card;
+                    card.classList.add("is-dragging");
+                });
+
+                card.addEventListener("dragend", function () {
+                    card.classList.remove("is-dragging");
+                    draggedCard = null;
+                });
+
+                card.addEventListener("dragover", function (event) {
+                    event.preventDefault();
+                    if (!draggedCard || draggedCard === card) {
+                        return;
+                    }
+
+                    const bounds = card.getBoundingClientRect();
+                    const isAfter = event.clientY > bounds.top + bounds.height / 2;
+                    if (isAfter) {
+                        card.after(draggedCard);
+                    } else {
+                        card.before(draggedCard);
+                    }
+                });
+
+                card.addEventListener("drop", function (event) {
+                    event.preventDefault();
+                    if (!draggedCard) {
+                        return;
+                    }
+
+                    persistOrder();
+                });
+            });
+        })();
+    </script>
+}

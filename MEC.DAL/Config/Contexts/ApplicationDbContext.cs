@@ -38,9 +38,13 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<Employee> Employees { get; set; }
         public DbSet<EmployeeType> EmployeeTypes { get; set; }
         public DbSet<EmployeePortal> EmployeePortals { get; set; }
-        public DbSet<Announcement> Announcements { get; set; }
+        public DbSet<Announcement> Announcement { get; set; }
+        public DbSet<AnnouncementAttachment> AnnouncementAttachments { get; set; }
+        public DbSet<AnnouncementImage> AnnouncementImages { get; set; }
+        public DbSet<SliderImage> SliderImages { get; set; }
         public DbSet<ApiLog> ApiLogs { get; set; }
         public DbSet<UserActionLog> UserActionLogs { get; set; }
+        public DbSet<LeaveType> LeaveTypes { get; set; }
 
         // Çakışmayı önlemek için sınıfı tam adıyla (MEC.Domain.Entity.Leave.Leave) belirtiyoruz
         public DbSet<MEC.Domain.Entity.Leave.Leave> Leaves { get; set; }
@@ -65,6 +69,52 @@ namespace MEC.DAL.Config.Contexts
             //    // Entity'nin class adını (örn: Asset) alıp tablo adı yapar.
             //    entityType.SetTableName(entityType.DisplayName().ToLower());
             //}
+
+            modelBuilder.Entity<LeaveType>()
+                .HasIndex(x => x.Code)
+                .IsUnique();
+
+            modelBuilder.Entity<MEC.Domain.Entity.Leave.Leave>()
+                .HasOne(x => x.LeaveType)
+                .WithMany(x => x.Leaves)
+                .HasForeignKey(x => x.LeaveTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<AnnouncementAttachment>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<AnnouncementAttachment>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<AnnouncementAttachment>()
+                .HasOne(x => x.Announcement)
+                .WithMany(x => x.Attachments)
+                .HasForeignKey(x => x.AnnouncementId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<AnnouncementImage>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<AnnouncementImage>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<AnnouncementImage>()
+                .HasOne(x => x.Announcement)
+                .WithMany(x => x.Images)
+                .HasForeignKey(x => x.AnnouncementId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SliderImage>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<SliderImage>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
 
             base.OnModelCreating(modelBuilder);
         }

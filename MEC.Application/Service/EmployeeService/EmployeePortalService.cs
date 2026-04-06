@@ -16,7 +16,7 @@ namespace MEC.Application.Service.EmployeeService
         public async Task<EmployeePortal> GetProfileByEmailAsync(string email)
         {
             // GetAllAsync metodunuza filtre (predicate) göndererek sadece o maile ait kaydı istiyoruz
-            var results = await _repository.GetAllAsync(x => x.Email == email);
+            var results = await _repository.GetAllAsync(x => x.Email == email && !x.IsDeleted);
 
             // Dönen liste içerisinden ilkini (veya null'u) alıyoruz
             return results.FirstOrDefault();

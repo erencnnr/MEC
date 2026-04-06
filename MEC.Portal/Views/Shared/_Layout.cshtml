@@ -12,30 +12,37 @@
         var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
         var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
         var currentPath = ViewContext.HttpContext.Request.Path.Value ?? string.Empty;
-        var isAdminAnnouncementPage = currentPath.StartsWith("/Admin/Announcements", System.StringComparison.OrdinalIgnoreCase);
-        var isAdminLeaveRequestsPage = currentPath.Equals("/Admin/LeaveRequests", System.StringComparison.OrdinalIgnoreCase) ||
-                                       currentPath.StartsWith("/Admin/LeaveRequests/", System.StringComparison.OrdinalIgnoreCase);
-        var isAdminLeaveReportPage = currentPath.Equals("/Admin/LeaveReport", System.StringComparison.OrdinalIgnoreCase);
+        var isAdminAnnouncementPage = currentPath.StartsWith("/Admin/Announcements", StringComparison.OrdinalIgnoreCase);
+        var isAdminLeaveRequestsPage = currentPath.Equals("/Admin/LeaveRequests", StringComparison.OrdinalIgnoreCase) ||
+                                       currentPath.StartsWith("/Admin/LeaveRequests/", StringComparison.OrdinalIgnoreCase);
+        var isAdminLeaveReportPage = currentPath.Equals("/Admin/LeaveReport", StringComparison.OrdinalIgnoreCase);
+        var isAdminPortalUsersPage = currentPath.Equals("/Admin/PortalUsers", StringComparison.OrdinalIgnoreCase) ||
+                                     currentPath.StartsWith("/Admin/PortalUsers/", StringComparison.OrdinalIgnoreCase);
+        var isAdminSliderPage = currentPath.Equals("/Admin/Slider", StringComparison.OrdinalIgnoreCase);
         var isAdminLeavePage = isAdminLeaveRequestsPage || isAdminLeaveReportPage;
+        var isAdminSettingsPage = isAdminPortalUsersPage || isAdminSliderPage;
         var isAnnouncementPage =
-            currentPath.Equals("/Announcements", System.StringComparison.OrdinalIgnoreCase) ||
-            currentPath.StartsWith("/Announcement/", System.StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(currentController, "Home", System.StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(currentAction, "Announcements", System.StringComparison.OrdinalIgnoreCase);
-        var isAdminPage = string.Equals(currentController, "Admin", System.StringComparison.OrdinalIgnoreCase) || isAdminAnnouncementPage || isAdminLeavePage;
-        var isLeavePage = string.Equals(currentController, "Leave", System.StringComparison.OrdinalIgnoreCase);
-        var isAdminUser = User.Identity.IsAuthenticated && User.IsInRole("Admin");
+            currentPath.Equals("/Announcements", StringComparison.OrdinalIgnoreCase) ||
+            currentPath.StartsWith("/Announcement/", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(currentController, "Home", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(currentAction, "Announcements", StringComparison.OrdinalIgnoreCase);
+        var isAdminPage = string.Equals(currentController, "Admin", StringComparison.OrdinalIgnoreCase) ||
+                          isAdminAnnouncementPage ||
+                          isAdminLeavePage ||
+                          isAdminSettingsPage;
+        var isLeavePage = string.Equals(currentController, "Leave", StringComparison.OrdinalIgnoreCase);
+        var isAdminUser = User.Identity?.IsAuthenticated == true && User.IsInRole("Admin");
 
         bool HeaderRouteMatch(string controller, params string[] actions)
         {
-            if (!string.Equals(currentController, controller, System.StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
 
             foreach (var action in actions)
             {
-                if (string.Equals(currentAction, action, System.StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
@@ -99,6 +106,15 @@
                                             <div class="portal-header__nav-submenu-menu">
                                                 <a class="portal-header__nav-submenu-item @(isAdminLeaveRequestsPage ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="LeaveRequests">İzin Talepleri</a>
                                                 <a class="portal-header__nav-submenu-item @(isAdminLeaveReportPage ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="LeaveReport">İzin Raporu</a>
+                                            </div>
+                                        </div>
+                                        <div class="portal-header__nav-submenu @(isAdminSettingsPage ? "is-active" : string.Empty)">
+                                            <button class="portal-header__nav-dropdown-item portal-header__nav-submenu-toggle @(isAdminSettingsPage ? "is-active" : string.Empty)" type="button">
+                                                Ayarlar
+                                            </button>
+                                            <div class="portal-header__nav-submenu-menu">
+                                                <a class="portal-header__nav-submenu-item @(isAdminPortalUsersPage ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="PortalUsers">Portal Kullanıcıları</a>
+                                                <a class="portal-header__nav-submenu-item @(isAdminSliderPage ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="Slider">Slider</a>
                                             </div>
                                         </div>
                                     </div>

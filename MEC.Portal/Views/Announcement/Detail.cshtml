@@ -1,21 +1,106 @@
-@model MEC.Domain.Entity.School.Announcement
+@model MEC.Portal.Models.AnnouncementDetailViewModel
 
 @{
     ViewData["Title"] = Model.Title;
-    Layout = "~/Views/Shared/_Layout.cshtml";
+    Layout = Model.IsAdminView
+        ? "~/Views/Shared/_AdminLayout.cshtml"
+        : "~/Views/Shared/_Layout.cshtml";
+
+    var backAction = Model.IsAdminView ? "Index" : "Announcements";
+    var backController = Model.IsAdminView ? "Announcement" : "Home";
 }
 
-<section class="announcement-detail-page">
-    <div class="announcement-detail-page__head">
-        <a class="announcement-detail-page__back" asp-controller="Home" asp-action="Announcements">Tum duyurulara don</a>
-        <span class="announcement-detail-page__meta">Yayin tarihi: @(Model.CreatedDate?.ToString("dd MMMM yyyy, HH:mm") ?? "-")</span>
-    </div>
-
-    <article class="announcement-detail-card">
-        <span class="announcement-detail-card__eyebrow">Kurumsal duyuru</span>
-        <h1>@Model.Title</h1>
-        <div class="announcement-detail-card__content">
-            @Html.Raw(Model.Content)
+<section class="announcement-detail-v2-page">
+    <div class="announcement-detail-v2-shell">
+        <div class="announcement-detail-v2-backbar">
+            <a class="announcement-detail-v2-back"
+               asp-controller="@backController"
+               asp-action="@backAction">
+                Tum duyurulara don
+            </a>
         </div>
-    </article>
+
+        <div class="announcement-detail-v2-layout">
+            <article class="announcement-detail-v2-main">
+                <div class="announcement-detail-v2-hero">
+                    <span class="announcement-detail-v2-hero__eyebrow">Kurumsal duyuru</span>
+                    <h1>@Model.Title</h1>
+
+                    <div class="announcement-detail-v2-meta">
+                        <span>Yayinlanma Tarihi: @(Model.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</span>
+                        <span>Guncellenme Tarihi: @(Model.UpdatedDate?.ToString("dd.MM.yyyy") ?? Model.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</span>
+                    </div>
+                </div>
+
+                <div class="announcement-detail-v2-section">
+                    <h2>Duyuru Metni</h2>
+                    <div class="announcement-detail-v2-content">
+                        @Html.Raw(Model.Content)
+                    </div>
+                </div>
+
+                @if (Model.Attachments.Any())
+                {
+                    <div class="announcement-detail-v2-section">
+                        <h2>Duyuru Ekleri</h2>
+                        <div class="announcement-detail-v2-links">
+                            @foreach (var link in Model.Attachments)
+                            {
+                                <a class="announcement-detail-v2-link"
+                                   href="@link.Url"
+                                   target="_blank"
+                                   rel="noopener noreferrer">
+                                    <span class="announcement-detail-v2-link__dot"></span>
+                                    <span>@link.Label</span>
+                                </a>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (Model.GalleryImages.Any())
+                {
+                    <div class="announcement-detail-v2-section">
+                        <h2>Duyuru Galerisi</h2>
+                        <div class="announcement-detail-v2-gallery">
+                            @foreach (var imageUrl in Model.GalleryImages)
+                            {
+                                <a class="announcement-detail-v2-gallery__item" href="@imageUrl" target="_blank" rel="noopener noreferrer">
+                                    <img src="@imageUrl" alt="@Model.Title" />
+                                </a>
+                            }
+                        </div>
+                    </div>
+                }
+            </article>
+
+            <aside class="announcement-detail-v2-side">
+                <div class="announcement-detail-v2-side__card">
+                    <h3>Diger Duyurular</h3>
+
+                    <div class="announcement-detail-v2-related">
+                        @foreach (var relatedItem in Model.RelatedAnnouncements)
+                        {
+                            <a class="announcement-detail-v2-related__item"
+                               asp-controller="Announcement"
+                               asp-action="Detail"
+                               asp-route-id="@relatedItem.Id">
+                                <img src="@relatedItem.ImageUrl" alt="@relatedItem.Title" />
+                                <div>
+                                    <strong>@relatedItem.Title</strong>
+                                    <span>@(relatedItem.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</span>
+                                </div>
+                            </a>
+                        }
+                    </div>
+
+                    <a class="announcement-detail-v2-side__action"
+                       asp-controller="@backController"
+                       asp-action="@backAction">
+                        Tum Duyurular
+                    </a>
+                </div>
+            </aside>
+        </div>
+    </div>
 </section>

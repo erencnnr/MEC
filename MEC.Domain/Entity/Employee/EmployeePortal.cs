@@ -15,5 +15,6 @@ namespace MEC.Domain.Entity.Employee
         public DateTime BirthDate { get; set; }     // Doğum Günü
         [Column(TypeName = "decimal(10,2)")]
         public decimal LeaveDays { get; set; }      // İzin Gün Sayısı
+        public bool IsDeleted { get; set; }
     }
 }

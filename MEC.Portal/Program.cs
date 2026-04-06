@@ -67,6 +67,39 @@ try
         }
     });
 
+    builder.Services.AddHttpClient<IAnnouncementAttachmentApiClient, AnnouncementAttachmentApiClient>((serviceProvider, client) =>
+    {
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var baseUrl = configuration["WebApi:BaseUrl"];
+
+        if (!string.IsNullOrWhiteSpace(baseUrl))
+        {
+            client.BaseAddress = new Uri(baseUrl);
+        }
+    });
+
+    builder.Services.AddHttpClient<IAnnouncementImageApiClient, AnnouncementImageApiClient>((serviceProvider, client) =>
+    {
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var baseUrl = configuration["WebApi:BaseUrl"];
+
+        if (!string.IsNullOrWhiteSpace(baseUrl))
+        {
+            client.BaseAddress = new Uri(baseUrl);
+        }
+    });
+
+    builder.Services.AddHttpClient<ISliderImageApiClient, SliderImageApiClient>((serviceProvider, client) =>
+    {
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var baseUrl = configuration["WebApi:BaseUrl"];
+
+        if (!string.IsNullOrWhiteSpace(baseUrl))
+        {
+            client.BaseAddress = new Uri(baseUrl);
+        }
+    });
+
     builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
         .AddCookie(options =>
         {

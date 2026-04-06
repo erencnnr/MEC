@@ -4,11 +4,11 @@ namespace MEC.Portal.Models
     {
         public List<LeaveHistoryItemViewModel> LeaveHistory { get; set; } = new();
         public List<int> YearOptions { get; set; } = new();
-        public List<string> LeaveTypeOptions { get; set; } = new();
+        public List<LeaveTypeOptionViewModel> LeaveTypeOptions { get; set; } = new();
         public List<LeaveStatusFilterOptionViewModel> StatusOptions { get; set; } = new();
         public int? SelectedYear { get; set; }
         public int? SelectedStatus { get; set; }
-        public string SelectedLeaveType { get; set; } = string.Empty;
+        public int? SelectedLeaveTypeId { get; set; }
         public string SelectedSort { get; set; } = "created_desc";
         public int CurrentPage { get; set; } = 1;
         public int TotalPages { get; set; }

@@ -4,6 +4,7 @@
     {
         Pending = 0,   // Bekliyor
         Approved = 1,  // Onaylandı
-        Rejected = 2   // Reddedildi
+        Rejected = 2,  // Reddedildi
+        Cancelled = 3  // İptal
     }
 }

@@ -1,4 +1,4 @@
-@model MEC.Domain.Entity.School.Announcement
+@model MEC.Portal.Models.AnnouncementFormViewModel
 
 @{
     ViewData["Title"] = "Duyuru Düzenle";
@@ -22,8 +22,13 @@
             <div class="announcement-form-alert announcement-form-alert--success">@successMessage</div>
         }
 
+        @if (TempData["AnnouncementError"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="announcement-form-alert announcement-form-alert--error">@errorMessage</div>
+        }
+
         <div class="announcement-form-card">
-            <form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="announcement-form">
+            <form asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="announcement-form">
                 <input asp-for="Id" type="hidden" />
 
                 <div asp-validation-summary="ModelOnly" class="announcement-form-alert announcement-form-alert--error"></div>
@@ -54,6 +59,58 @@
                                 <span class="announcement-form-switch__state announcement-form-switch__state--active">Aktif</span>
                             </div>
                         </div>
+                    </div>
+
+                    <div class="announcement-form-field announcement-form-field--full">
+                        <label asp-for="AttachmentFiles">Duyuru Ekleri</label>
+                        <input asp-for="AttachmentFiles" class="announcement-form-input announcement-form-input--file" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.ppt,.pptx,.zip,.rar,.jpg,.jpeg,.png" />
+                        <span class="announcement-form-help">Yeni dosyalar eklenir; mevcut ekler korunur.</span>
+                        <span asp-validation-for="AttachmentFiles" class="announcement-form-validation"></span>
+
+                        @if (Model.ExistingAttachments.Any())
+                        {
+                            <div class="announcement-form-assets">
+                                @foreach (var asset in Model.ExistingAttachments)
+                                {
+                                    <div class="announcement-form-assets__item">
+                                        <a href="@asset.Url" target="_blank" rel="noopener noreferrer">@asset.Label</a>
+                                        <button type="submit"
+                                                class="announcement-form-assets__delete"
+                                                formaction="@Url.Action("DeleteAttachment", "Announcement", new { id = Model.Id, attachmentId = asset.Id })"
+                                                formmethod="post"
+                                                formnovalidate
+                                                aria-label="@asset.Label dosyasini sil">Sil</button>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="announcement-form-field announcement-form-field--full">
+                        <label asp-for="GalleryFiles">Duyuru Galerisi</label>
+                        <input asp-for="GalleryFiles" class="announcement-form-input announcement-form-input--file" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.gif" />
+                        <span class="announcement-form-help">Yeni fotograflar eklenir; mevcut galeri korunur.</span>
+                        <span asp-validation-for="GalleryFiles" class="announcement-form-validation"></span>
+
+                        @if (Model.ExistingGalleryImages.Any())
+                        {
+                            <div class="announcement-form-gallery">
+                                @foreach (var image in Model.ExistingGalleryImages)
+                                {
+                                    <div class="announcement-form-gallery__card">
+                                        <a class="announcement-form-gallery__item" href="@image.Url" target="_blank" rel="noopener noreferrer">
+                                            <img src="@image.Url" alt="@image.Label" />
+                                        </a>
+                                        <button type="submit"
+                                                class="announcement-form-assets__delete"
+                                                formaction="@Url.Action("DeleteImage", "Announcement", new { id = Model.Id, imageId = image.Id })"
+                                                formmethod="post"
+                                                formnovalidate
+                                                aria-label="@image.Label gorselini sil">Sil</button>
+                                    </div>
+                                }
+                            </div>
+                        }
                     </div>
                 </div>
 

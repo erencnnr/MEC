@@ -1,4 +1,4 @@
-@model MEC.Domain.Entity.School.Announcement
+@model MEC.Portal.Models.AnnouncementFormViewModel
 
 @{
     ViewData["Title"] = "Yeni Duyuru Ekle";
@@ -15,8 +15,13 @@
             </div>
         </div>
 
+        @if (TempData["AnnouncementError"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="announcement-form-alert announcement-form-alert--error">@errorMessage</div>
+        }
+
         <div class="announcement-form-card">
-            <form asp-action="Create" method="post" class="announcement-form">
+            <form asp-action="Create" method="post" enctype="multipart/form-data" class="announcement-form">
                 <div asp-validation-summary="ModelOnly" class="announcement-form-alert announcement-form-alert--error"></div>
 
                 <div class="announcement-form-grid">
@@ -45,6 +50,20 @@
                                 <span class="announcement-form-switch__state announcement-form-switch__state--active">Aktif</span>
                             </div>
                         </div>
+                    </div>
+
+                    <div class="announcement-form-field announcement-form-field--full">
+                        <label asp-for="AttachmentFiles">Duyuru Ekleri</label>
+                        <input asp-for="AttachmentFiles" class="announcement-form-input announcement-form-input--file" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.ppt,.pptx,.zip,.rar,.jpg,.jpeg,.png" />
+                        <span class="announcement-form-help">Isterseniz duyuruya belge, dokuman veya indirilebilir dosya ekleyebilirsiniz.</span>
+                        <span asp-validation-for="AttachmentFiles" class="announcement-form-validation"></span>
+                    </div>
+
+                    <div class="announcement-form-field announcement-form-field--full">
+                        <label asp-for="GalleryFiles">Duyuru Galerisi</label>
+                        <input asp-for="GalleryFiles" class="announcement-form-input announcement-form-input--file" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.gif" />
+                        <span class="announcement-form-help">Detay sayfasinda galeri alaninda gosterilecek fotograflari buradan ekleyebilirsiniz.</span>
+                        <span asp-validation-for="GalleryFiles" class="announcement-form-validation"></span>
                     </div>
                 </div>
 

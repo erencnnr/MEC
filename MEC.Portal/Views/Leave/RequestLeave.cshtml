@@ -144,16 +144,15 @@
                         </div>
 
                         <div class="leave-request-field leave-request-field--full">
-                            <label asp-for="LeaveType">İzin Türü</label>
-                            <select asp-for="LeaveType" class="leave-request-input" required>
+                            <label asp-for="LeaveTypeId">İzin Türü</label>
+                            <select asp-for="LeaveTypeId" class="leave-request-input" required>
                                 <option value="">İzin türü seçiniz</option>
-                                <option value="Yıllık İzin">Yıllık İzin</option>
-                                <option value="Hastalık İzni">Hastalık İzni</option>
-                                <option value="Mazeret İzni">Mazeret İzni</option>
-                                <option value="Ücretsiz İzin">Ücretsiz İzin</option>
-                                <option value="Diğer">Diğer</option>
+                                @foreach (var leaveType in Model.LeaveTypes)
+                                {
+                                    <option value="@leaveType.Id">@leaveType.Name</option>
+                                }
                             </select>
-                            <span asp-validation-for="LeaveType" class="leave-request-validation"></span>
+                            <span asp-validation-for="LeaveTypeId" class="leave-request-validation"></span>
                         </div>
 
                         <div class="leave-request-field leave-request-field--full">

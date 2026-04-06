@@ -4,13 +4,10 @@ namespace MEC.WebAPI.Models
 {
     public class ImageRequestModel
     {
-        // Dosyanın kendisi
-        public IFormFile File { get; set; }
-
-        // Dosyanın ait olduğu demirbaş ID'si
+        public IFormFile File { get; set; } = default!;
         public int AssetId { get; set; }
-
-        // (Opsiyonel) Eğer manuel isim göndermek isterseniz
+        public string? Scope { get; set; }
+        public int? EntityId { get; set; }
         public string? FileName { get; set; }
     }
 }
