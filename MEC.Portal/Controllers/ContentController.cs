@@ -154,7 +154,7 @@ namespace MEC.Portal.Controllers
             await NormalizeFolderOrdersAsync(folder.ParentFolderId);
 
             TempData["ContentSuccess"] = "Klasör ve bağlı içerikleri silindi.";
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction(nameof(Index), new { folderId = folder.ParentFolderId });
         }
 
         [HttpPost("UploadDocuments")]
@@ -188,7 +188,7 @@ namespace MEC.Portal.Controllers
                 var document = new LibraryDocument
                 {
                     FolderId = folderId,
-                    OriginalFileName = System.IO.Path.GetFileName(file.FileName),
+                    OriginalFileName = Path.GetFileName(file.FileName),
                     ContentType = string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType,
                     SizeBytes = file.Length,
                     CreatedDate = DateTime.Now,
@@ -226,6 +226,32 @@ namespace MEC.Portal.Controllers
             }
 
             return RedirectToAction(nameof(Index), new { folderId });
+        }
+
+        [HttpPost("RenameDocument/{id:int}")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RenameDocument(int id, string? name)
+        {
+            var document = await _libraryDocumentRepository.GetByIdAsync(id);
+            if (document == null)
+            {
+                TempData["ContentError"] = "Güncellenecek doküman bulunamadı.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var normalizedName = NormalizeDocumentName(name, document.OriginalFileName);
+            if (string.IsNullOrWhiteSpace(normalizedName))
+            {
+                TempData["ContentError"] = "Doküman adı boş bırakılamaz.";
+                return RedirectToAction(nameof(Index), new { folderId = document.FolderId, documentId = id });
+            }
+
+            document.OriginalFileName = normalizedName;
+            document.UpdateDate = DateTime.Now;
+            _libraryDocumentRepository.Update(document);
+
+            TempData["ContentSuccess"] = "Doküman adı güncellendi.";
+            return RedirectToAction(nameof(Index), new { folderId = document.FolderId, documentId = id });
         }
 
         [HttpPost("DeleteDocument/{id:int}")]
@@ -282,27 +308,101 @@ namespace MEC.Portal.Controllers
                 SelectedFolderName = selectedFolder?.Name ?? string.Empty,
                 SelectedDocumentId = selectedDocument?.Id,
                 SelectedDocument = selectedDocument != null ? MapDocumentItem(selectedDocument) : null,
-                FolderTree = BuildFolderTree(folders, null, selectedFolderId),
+                FolderTree = BuildFolderTree(folders, documents, null, selectedFolderId, documentId),
                 Breadcrumbs = selectedFolder != null ? BuildBreadcrumbs(selectedFolder.Id, folders) : new List<LibraryBreadcrumbItemViewModel>(),
-                Documents = selectedDocuments.Select(MapDocumentItem).ToList()
+                Documents = selectedDocuments.Select(MapDocumentItem).ToList(),
+                Items = selectedFolderId.HasValue
+                    ? BuildContentItems(selectedFolderId.Value, folders, documents, documentId)
+                    : new List<LibraryContentItemViewModel>()
             };
         }
 
-        private static List<LibraryFolderTreeNodeViewModel> BuildFolderTree(
+        private List<LibraryContentItemViewModel> BuildContentItems(
+            int selectedFolderId,
             IReadOnlyCollection<LibraryFolder> folders,
+            IReadOnlyCollection<LibraryDocument> documents,
+            int? selectedDocumentId)
+        {
+            var folderItems = folders
+                .Where(x => x.ParentFolderId == selectedFolderId)
+                .OrderBy(x => x.DisplayOrder)
+                .ThenBy(x => x.Name)
+                .Select(x => new LibraryContentItemViewModel
+                {
+                    FolderId = x.Id,
+                    Name = x.Name,
+                    IsFolder = true,
+                    NavigateUrl = Url.Action(nameof(Index), new { folderId = x.Id }) ?? $"/Admin/Content?folderId={x.Id}",
+                    MetaText = "Alt klasör"
+                });
+
+            var documentItems = documents
+                .Where(x => x.FolderId == selectedFolderId)
+                .OrderByDescending(x => x.CreatedDate)
+                .ThenBy(x => x.OriginalFileName)
+                .Select(x =>
+                {
+                    var isPdf = IsPdf(x);
+                    var selectUrl = Url.Action(nameof(Index), new { folderId = selectedFolderId, documentId = x.Id }) ?? $"/Admin/Content?folderId={selectedFolderId}&documentId={x.Id}";
+                    var openUrl = Url.Action("OpenDocument", "Library", new { id = x.Id }) ?? string.Empty;
+                    var previewUrl = Url.Action("PreviewDocument", "Library", new { id = x.Id }) ?? string.Empty;
+
+                    return new LibraryContentItemViewModel
+                    {
+                        DocumentId = x.Id,
+                        Name = x.OriginalFileName,
+                        IsFolder = false,
+                        IsPdf = isPdf,
+                        IsSelected = selectedDocumentId == x.Id,
+                        NavigateUrl = selectUrl,
+                        SelectUrl = selectUrl,
+                        OpenUrl = openUrl,
+                        PreviewUrl = previewUrl,
+                        MetaText = BuildDocumentMetaText(x)
+                    };
+                });
+
+            return folderItems.Concat(documentItems).ToList();
+        }
+
+        private List<LibraryTreeNodeViewModel> BuildFolderTree(
+            IReadOnlyCollection<LibraryFolder> folders,
+            IReadOnlyCollection<LibraryDocument> documents,
             int? parentFolderId,
-            int? selectedFolderId)
+            int? selectedFolderId,
+            int? selectedDocumentId)
         {
             return folders
                 .Where(x => x.ParentFolderId == parentFolderId)
                 .OrderBy(x => x.DisplayOrder)
                 .ThenBy(x => x.Name)
-                .Select(x => new LibraryFolderTreeNodeViewModel
+                .Select(folder =>
                 {
-                    Id = x.Id,
-                    Name = x.Name,
-                    IsSelected = selectedFolderId == x.Id,
-                    Children = BuildFolderTree(folders, x.Id, selectedFolderId)
+                    var childFolders = BuildFolderTree(folders, documents, folder.Id, selectedFolderId, selectedDocumentId);
+                    var childDocuments = documents
+                        .Where(x => x.FolderId == folder.Id)
+                        .OrderByDescending(x => x.CreatedDate)
+                        .ThenBy(x => x.OriginalFileName)
+                        .Select(x => new LibraryTreeNodeViewModel
+                        {
+                            DocumentId = x.Id,
+                            Name = x.OriginalFileName,
+                            IsFolder = false,
+                            IsPdf = IsPdf(x),
+                            IsSelected = selectedDocumentId == x.Id,
+                            NavigateUrl = Url.Action(nameof(Index), new { folderId = folder.Id, documentId = x.Id }) ?? $"/Admin/Content?folderId={folder.Id}&documentId={x.Id}",
+                            OpenInNewTab = false
+                        });
+
+                    return new LibraryTreeNodeViewModel
+                    {
+                        FolderId = folder.Id,
+                        Name = folder.Name,
+                        IsFolder = true,
+                        IsSelected = selectedFolderId == folder.Id,
+                        NavigateUrl = Url.Action(nameof(Index), new { folderId = folder.Id }) ?? $"/Admin/Content?folderId={folder.Id}",
+                        Children = childFolders.Concat(childDocuments).ToList()
+                    };
                 })
                 .ToList();
         }
@@ -323,6 +423,23 @@ namespace MEC.Portal.Controllers
                 OpenUrl = openUrl,
                 PreviewUrl = previewUrl
             };
+        }
+
+        private static string BuildDocumentMetaText(LibraryDocument document)
+        {
+            var parts = new List<string>();
+            if (document.CreatedDate.HasValue)
+            {
+                parts.Add(document.CreatedDate.Value.ToString("dd.MM.yyyy"));
+            }
+
+            if (document.SizeBytes > 0)
+            {
+                var sizeInKb = document.SizeBytes / 1024d;
+                parts.Add(sizeInKb < 1024 ? $"{sizeInKb:0.#} KB" : $"{sizeInKb / 1024d:0.#} MB");
+            }
+
+            return parts.Count > 0 ? string.Join(" · ", parts) : "Doküman";
         }
 
         private static List<LibraryBreadcrumbItemViewModel> BuildBreadcrumbs(int folderId, IReadOnlyCollection<LibraryFolder> folders)
@@ -386,6 +503,26 @@ namespace MEC.Portal.Controllers
             return (name ?? string.Empty).Trim();
         }
 
+        private static string NormalizeDocumentName(string? name, string currentFileName)
+        {
+            var trimmedName = (name ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(trimmedName))
+            {
+                return string.Empty;
+            }
+
+            var currentExtension = Path.GetExtension(currentFileName);
+            var normalizedBaseName = Path.GetFileNameWithoutExtension(trimmedName).Trim();
+            if (string.IsNullOrWhiteSpace(normalizedBaseName))
+            {
+                normalizedBaseName = Path.GetFileNameWithoutExtension(currentFileName).Trim();
+            }
+
+            return string.IsNullOrWhiteSpace(currentExtension)
+                ? normalizedBaseName
+                : $"{normalizedBaseName}{currentExtension}";
+        }
+
         private static bool IsAllowedDocument(IFormFile file)
         {
             if (file.Length <= 0)
@@ -393,13 +530,13 @@ namespace MEC.Portal.Controllers
                 return false;
             }
 
-            var extension = System.IO.Path.GetExtension(file.FileName);
+            var extension = Path.GetExtension(file.FileName);
             return !string.IsNullOrWhiteSpace(extension) && AllowedDocumentExtensions.Contains(extension);
         }
 
         private static bool IsPdf(LibraryDocument document)
         {
-            return string.Equals(System.IO.Path.GetExtension(document.OriginalFileName), ".pdf", StringComparison.OrdinalIgnoreCase) ||
+            return string.Equals(Path.GetExtension(document.OriginalFileName), ".pdf", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(document.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase);
         }
 

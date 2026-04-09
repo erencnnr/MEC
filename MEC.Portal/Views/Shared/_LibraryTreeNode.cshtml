@@ -1,13 +1,28 @@
 @using System.Linq
-@model MEC.Portal.Models.LibraryFolderTreeNodeViewModel
+@model MEC.Portal.Models.LibraryTreeNodeViewModel
 
-@{
-    var basePath = ViewData["LibraryTreeBasePath"]?.ToString() ?? "/Library";
-    var href = $"{basePath}?folderId={Model.Id}";
-}
-
-<li class="library-tree__item">
-    <a class="@(Model.IsSelected ? "library-tree__link is-selected" : "library-tree__link")" href="@href">
+<li class="library-tree__item @(Model.IsFolder ? "is-folder" : "is-document")">
+    <a class="@(Model.IsSelected ? "library-tree__link is-selected" : "library-tree__link")"
+       href="@Model.NavigateUrl"
+       target="@(Model.OpenInNewTab ? "_blank" : null)"
+       rel="@(Model.OpenInNewTab ? "noopener noreferrer" : null)">
+        <span class="library-tree__icon" aria-hidden="true">
+            @if (Model.IsFolder)
+            {
+                <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                    <path d="M3 7.5C3 6.67 3.67 6 4.5 6H9l1.4 1.8H19.5c.83 0 1.5.67 1.5 1.5V17c0 .83-.67 1.5-1.5 1.5h-15C3.67 18.5 3 17.83 3 17V7.5Z" fill="currentColor" opacity=".2"></path>
+                    <path d="M3 8.25C3 7.01 4.01 6 5.25 6H9l1.35 1.5H18.75C19.99 7.5 21 8.51 21 9.75V16.75C21 17.99 19.99 19 18.75 19H5.25C4.01 19 3 17.99 3 16.75V8.25Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+                </svg>
+            }
+            else
+            {
+                <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                    <path d="M7 3.75h7.2L19 8.55V19a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 6 19V5.25A1.5 1.5 0 0 1 7.5 3.75Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+                    <path d="M14 3.75V8.5h4.75" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+                    <path d="M8.75 14.25h6.5M8.75 17h4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                </svg>
+            }
+        </span>
         <span class="library-tree__label">@Model.Name</span>
     </a>
 
@@ -16,10 +31,7 @@
         <ul class="library-tree__group">
             @foreach (var child in Model.Children)
             {
-                @await Html.PartialAsync("_LibraryTreeNode", child, new ViewDataDictionary(ViewData)
-                {
-                    ["LibraryTreeBasePath"] = basePath
-                })
+                @await Html.PartialAsync("_LibraryTreeNode", child)
             }
         </ul>
     }

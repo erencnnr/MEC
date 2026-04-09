@@ -1,25 +1,7 @@
-@using System.Globalization
-@using System.Linq
 @model MEC.Portal.Models.LibraryIndexViewModel
 
 @{
     ViewData["Title"] = "Kütüphane";
-
-    string FormatFileSize(long sizeBytes)
-    {
-        if (sizeBytes <= 0)
-        {
-            return "0 KB";
-        }
-
-        var sizeInKb = sizeBytes / 1024d;
-        if (sizeInKb < 1024)
-        {
-            return $"{sizeInKb:0.#} KB";
-        }
-
-        return $"{sizeInKb / 1024d:0.#} MB";
-    }
 }
 
 <section class="library-page">
@@ -39,7 +21,7 @@
 
         <div class="library-layout">
             <aside class="library-sidebar">
-                <section class="library-card library-card--sidebar">
+                <section class="library-card library-card--sidebar library-explorer">
                     <div class="library-card__head">
                         <div>
                             <span class="library-card__eyebrow">Klasörler</span>
@@ -92,28 +74,37 @@
                             }
                         </div>
 
-                        @if (Model.Documents.Any())
+                        @if (Model.Items.Any())
                         {
-                            <div class="library-document-list">
-                                @foreach (var document in Model.Documents)
+                            <div class="library-content-grid">
+                                @foreach (var item in Model.Items)
                                 {
-                                    var selectUrl = $"/Library?folderId={Model.SelectedFolderId}&documentId={document.Id}";
-
-                                    <article class="@(Model.SelectedDocumentId == document.Id ? "library-document-card is-selected" : "library-document-card")">
-                                        <a class="library-document-card__main" href="@selectUrl">
-                                            <div class="library-document-card__icon">@(document.IsPdf ? "PDF" : "DOSYA")</div>
-                                            <div class="library-document-card__content">
-                                                <h3>@document.OriginalFileName</h3>
-                                                <p>@(document.CreatedDate?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-") · @FormatFileSize(document.SizeBytes)</p>
-                                            </div>
-                                        </a>
-
-                                        <div class="library-document-card__actions">
-                                            <a class="library-button library-button--ghost" href="@(document.IsPdf ? document.PreviewUrl : document.OpenUrl)" target="_blank" rel="noopener noreferrer">
-                                                @(document.IsPdf ? "Tarayıcıda Aç" : "Dosyayı Aç")
-                                            </a>
-                                        </div>
-                                    </article>
+                                    <a class="library-content-tile @(item.IsFolder ? "is-folder" : "is-document")"
+                                       href="@item.NavigateUrl"
+                                       target="@(item.IsFolder ? null : "_blank")"
+                                       rel="@(item.IsFolder ? null : "noopener noreferrer")">
+                                        <span class="library-content-tile__icon" aria-hidden="true">
+                                            @if (item.IsFolder)
+                                            {
+                                                <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                                                    <path d="M3 7.5C3 6.67 3.67 6 4.5 6H9l1.4 1.8H19.5c.83 0 1.5.67 1.5 1.5V17c0 .83-.67 1.5-1.5 1.5h-15C3.67 18.5 3 17.83 3 17V7.5Z" fill="currentColor" opacity=".22"></path>
+                                                    <path d="M3 8.25C3 7.01 4.01 6 5.25 6H9l1.35 1.5H18.75C19.99 7.5 21 8.51 21 9.75V16.75C21 17.99 19.99 19 18.75 19H5.25C4.01 19 3 17.99 3 16.75V8.25Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+                                                </svg>
+                                            }
+                                            else
+                                            {
+                                                <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                                                    <path d="M7 3.75h7.2L19 8.55V19a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 6 19V5.25A1.5 1.5 0 0 1 7.5 3.75Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+                                                    <path d="M14 3.75V8.5h4.75" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+                                                    <path d="M8.75 14.25h6.5M8.75 17h4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                                </svg>
+                                            }
+                                        </span>
+                                        <span class="library-content-tile__body">
+                                            <strong>@item.Name</strong>
+                                            <span>@item.MetaText</span>
+                                        </span>
+                                    </a>
                                 }
                             </div>
                         }
@@ -121,41 +112,7 @@
                         {
                             <div class="library-empty library-empty--compact">
                                 <h3>Bu klasörde doküman yok</h3>
-                                <p>Başka bir klasör seçebilir veya yönetici yüklemelerini bekleyebilirsiniz.</p>
-                            </div>
-                        }
-                    </section>
-
-                    <section class="library-card">
-                        <div class="library-card__head">
-                            <div>
-                                <span class="library-card__eyebrow">Doküman inceleme</span>
-                                <h2>@(Model.SelectedDocument?.OriginalFileName ?? "Bir doküman seçin")</h2>
-                            </div>
-                        </div>
-
-                        @if (Model.SelectedDocument != null)
-                        {
-                            if (Model.SelectedDocument.IsPdf)
-                            {
-                                <div class="library-preview">
-                                    <iframe src="@Model.SelectedDocument.PreviewUrl" title="@Model.SelectedDocument.OriginalFileName"></iframe>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="library-empty library-empty--compact">
-                                    <h3>Tarayıcı önizlemesi bulunmuyor</h3>
-                                    <p>Bu dosya türü doğrudan tarayıcı içi görüntüleme sunmuyor. Yeni sekmede açarak inceleyebilirsiniz.</p>
-                                    <a class="library-button library-button--primary" href="@Model.SelectedDocument.OpenUrl" target="_blank" rel="noopener noreferrer">Dosyayı Aç</a>
-                                </div>
-                            }
-                        }
-                        else
-                        {
-                            <div class="library-empty library-empty--compact">
-                                <h3>Seçili doküman yok</h3>
-                                <p>Listeden bir doküman seçerek içeriğini görüntüleyebilirsiniz.</p>
+                                <p>Bu klasörde görüntülenecek alt klasör veya doküman bulunmuyor.</p>
                             </div>
                         }
                     </section>

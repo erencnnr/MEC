@@ -36,23 +36,36 @@ namespace MEC.Portal.Controllers
 
             var selectedFolder = ResolveSelectedFolder(folderId, folders);
             var selectedFolderId = selectedFolder?.Id;
-            var selectedDocuments = selectedFolderId.HasValue
-                ? documents.Where(x => x.FolderId == selectedFolderId.Value).ToList()
-                : new List<LibraryDocument>();
-            var selectedDocument = documentId.HasValue
-                ? selectedDocuments.FirstOrDefault(x => x.Id == documentId.Value)
-                : null;
 
             var model = new LibraryIndexViewModel
             {
                 SelectedFolderId = selectedFolderId,
                 SelectedFolderName = selectedFolder?.Name ?? string.Empty,
-                SelectedDocumentId = selectedDocument?.Id,
-                SelectedDocument = selectedDocument != null ? MapDocumentItem(selectedDocument) : null,
-                FolderTree = BuildFolderTree(folders, null, selectedFolderId),
+                FolderTree = BuildFolderTree(folders, documents, null, selectedFolderId),
                 Breadcrumbs = selectedFolder != null ? BuildBreadcrumbs(selectedFolder.Id, folders) : new List<LibraryBreadcrumbItemViewModel>(),
-                Documents = selectedDocuments.Select(MapDocumentItem).ToList()
+                Items = selectedFolderId.HasValue
+                    ? BuildContentItems(selectedFolderId.Value, folders, documents)
+                    : new List<LibraryContentItemViewModel>()
             };
+
+            if (documentId.HasValue && documents.Any(x => x.Id == documentId.Value))
+            {
+                var selectedDocument = documents.First(x => x.Id == documentId.Value);
+                if (selectedFolderId == selectedDocument.FolderId)
+                {
+                    model.Items = model.Items
+                        .Select(x =>
+                        {
+                            if (x.DocumentId == selectedDocument.Id)
+                            {
+                                x.MetaText = $"{x.MetaText} · Seçili";
+                            }
+
+                            return x;
+                        })
+                        .ToList();
+                }
+            }
 
             return View(model);
         }
@@ -93,22 +106,112 @@ namespace MEC.Portal.Controllers
             return File(downloadResult.Content, "application/pdf");
         }
 
-        private LibraryDocumentItemViewModel MapDocumentItem(LibraryDocument document)
+        private List<LibraryContentItemViewModel> BuildContentItems(
+            int selectedFolderId,
+            IReadOnlyCollection<LibraryFolder> folders,
+            IReadOnlyCollection<LibraryDocument> documents)
         {
-            var previewUrl = Url.Action(nameof(PreviewDocument), "Library", new { id = document.Id }) ?? string.Empty;
-            var openUrl = Url.Action(nameof(OpenDocument), "Library", new { id = document.Id }) ?? string.Empty;
+            var folderItems = folders
+                .Where(x => x.ParentFolderId == selectedFolderId)
+                .OrderBy(x => x.DisplayOrder)
+                .ThenBy(x => x.Name)
+                .Select(x => new LibraryContentItemViewModel
+                {
+                    FolderId = x.Id,
+                    Name = x.Name,
+                    IsFolder = true,
+                    NavigateUrl = Url.Action(nameof(Index), "Library", new { folderId = x.Id }) ?? $"/Library?folderId={x.Id}",
+                    MetaText = "Klasör"
+                });
 
-            return new LibraryDocumentItemViewModel
+            var documentItems = documents
+                .Where(x => x.FolderId == selectedFolderId)
+                .OrderByDescending(x => x.CreatedDate)
+                .ThenBy(x => x.OriginalFileName)
+                .Select(x =>
+                {
+                    var isPdf = IsPdf(x);
+                    var openUrl = Url.Action(nameof(OpenDocument), "Library", new { id = x.Id }) ?? string.Empty;
+                    var previewUrl = Url.Action(nameof(PreviewDocument), "Library", new { id = x.Id }) ?? string.Empty;
+
+                    return new LibraryContentItemViewModel
+                    {
+                        DocumentId = x.Id,
+                        Name = x.OriginalFileName,
+                        IsFolder = false,
+                        IsPdf = isPdf,
+                        NavigateUrl = isPdf ? previewUrl : openUrl,
+                        OpenUrl = openUrl,
+                        PreviewUrl = previewUrl,
+                        SelectUrl = $"/Library?folderId={selectedFolderId}&documentId={x.Id}",
+                        MetaText = BuildDocumentMetaText(x)
+                    };
+                });
+
+            return folderItems.Concat(documentItems).ToList();
+        }
+
+        private List<LibraryTreeNodeViewModel> BuildFolderTree(
+            IReadOnlyCollection<LibraryFolder> folders,
+            IReadOnlyCollection<LibraryDocument> documents,
+            int? parentFolderId,
+            int? selectedFolderId)
+        {
+            return folders
+                .Where(x => x.ParentFolderId == parentFolderId)
+                .OrderBy(x => x.DisplayOrder)
+                .ThenBy(x => x.Name)
+                .Select(folder =>
+                {
+                    var childFolders = BuildFolderTree(folders, documents, folder.Id, selectedFolderId);
+                    var childDocuments = documents
+                        .Where(x => x.FolderId == folder.Id)
+                        .OrderByDescending(x => x.CreatedDate)
+                        .ThenBy(x => x.OriginalFileName)
+                        .Select(x =>
+                        {
+                            var isPdf = IsPdf(x);
+                            return new LibraryTreeNodeViewModel
+                            {
+                                DocumentId = x.Id,
+                                Name = x.OriginalFileName,
+                                IsFolder = false,
+                                IsPdf = isPdf,
+                                OpenInNewTab = true,
+                                NavigateUrl = isPdf
+                                    ? Url.Action(nameof(PreviewDocument), "Library", new { id = x.Id }) ?? string.Empty
+                                    : Url.Action(nameof(OpenDocument), "Library", new { id = x.Id }) ?? string.Empty
+                            };
+                        });
+
+                    return new LibraryTreeNodeViewModel
+                    {
+                        FolderId = folder.Id,
+                        Name = folder.Name,
+                        IsFolder = true,
+                        IsSelected = selectedFolderId == folder.Id,
+                        NavigateUrl = Url.Action(nameof(Index), "Library", new { folderId = folder.Id }) ?? $"/Library?folderId={folder.Id}",
+                        Children = childFolders.Concat(childDocuments).ToList()
+                    };
+                })
+                .ToList();
+        }
+
+        private static string BuildDocumentMetaText(LibraryDocument document)
+        {
+            var parts = new List<string>();
+            if (document.CreatedDate.HasValue)
             {
-                Id = document.Id,
-                OriginalFileName = document.OriginalFileName,
-                ContentType = document.ContentType,
-                SizeBytes = document.SizeBytes,
-                CreatedDate = document.CreatedDate,
-                IsPdf = IsPdf(document),
-                OpenUrl = openUrl,
-                PreviewUrl = previewUrl
-            };
+                parts.Add(document.CreatedDate.Value.ToString("dd.MM.yyyy"));
+            }
+
+            if (document.SizeBytes > 0)
+            {
+                var sizeInKb = document.SizeBytes / 1024d;
+                parts.Add(sizeInKb < 1024 ? $"{sizeInKb:0.#} KB" : $"{sizeInKb / 1024d:0.#} MB");
+            }
+
+            return parts.Count > 0 ? string.Join(" · ", parts) : "Doküman";
         }
 
         private static bool IsPdf(LibraryDocument document)
@@ -132,25 +235,6 @@ namespace MEC.Portal.Controllers
                 .OrderBy(x => x.DisplayOrder)
                 .ThenBy(x => x.Name)
                 .FirstOrDefault();
-        }
-
-        private static List<LibraryFolderTreeNodeViewModel> BuildFolderTree(
-            IReadOnlyCollection<LibraryFolder> folders,
-            int? parentFolderId,
-            int? selectedFolderId)
-        {
-            return folders
-                .Where(x => x.ParentFolderId == parentFolderId)
-                .OrderBy(x => x.DisplayOrder)
-                .ThenBy(x => x.Name)
-                .Select(x => new LibraryFolderTreeNodeViewModel
-                {
-                    Id = x.Id,
-                    Name = x.Name,
-                    IsSelected = selectedFolderId == x.Id,
-                    Children = BuildFolderTree(folders, x.Id, selectedFolderId)
-                })
-                .ToList();
         }
 
         private static List<LibraryBreadcrumbItemViewModel> BuildBreadcrumbs(int folderId, IReadOnlyCollection<LibraryFolder> folders)
