@@ -20,6 +20,7 @@ namespace MEC.Portal.Models
         public string PhoneNumber { get; set; } = string.Empty;
         public decimal LeaveDays { get; set; }
         public DateTime HireDate { get; set; }
+        public bool IsAdmin { get; set; }
         public bool IsDeleted { get; set; }
         public string StatusLabel => IsDeleted ? "Pasif" : "Aktif";
         public string StatusTone => IsDeleted ? "rejected" : "approved";
@@ -49,6 +50,8 @@ namespace MEC.Portal.Models
 
         [Range(typeof(decimal), "0", "9999")]
         public decimal LeaveDays { get; set; }
+
+        public bool IsAdmin { get; set; }
 
         public bool IsDeleted { get; set; }
         public string FullName => string.Join(" ", new[] { FirstName, LastName }.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();

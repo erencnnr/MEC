@@ -1,157 +1,239 @@
-﻿using MEC.Application.Abstractions.Service.LdapService;
+using MEC.Application.Abstractions.Service.LdapService;
 using MEC.DAL.Config.Abstractions.Common;
 using MEC.Domain.Entity.Employee;
 using Microsoft.Extensions.Configuration;
-using System;
-using System.Collections.Generic;
 using System.DirectoryServices.Protocols;
-using System.Linq;
 using System.Net;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MEC.Application.Service.LdapService
 {
     public class LdapService : ILdapService
     {
+        private static readonly DateTime MySqlMinimumDate = new(1000, 1, 1);
+
         private readonly IGenericRepository<Employee> _employeeRepository;
+        private readonly IGenericRepository<EmployeePortal> _employeePortalRepository;
         private readonly IConfiguration _configuration;
-        public LdapService(IGenericRepository<Employee> employeeRepository, IConfiguration configuration)
+
+        public LdapService(
+            IGenericRepository<Employee> employeeRepository,
+            IGenericRepository<EmployeePortal> employeePortalRepository,
+            IConfiguration configuration)
         {
             _employeeRepository = employeeRepository;
+            _employeePortalRepository = employeePortalRepository;
             _configuration = configuration;
         }
+
         public async Task<int> SyncUsersFromLdapAsync()
         {
-            var server = _configuration["LdapSettings:Server"];
-            var port = int.Parse(_configuration["LdapSettings:Port"] ?? "389");
-            var searchBase = _configuration["LdapSettings:SearchBase"]; // Örn: DC=domain,DC=com
-            var bindUser = _configuration["LdapSettings:BindUser"]; // domain\user
-            var bindPass = _configuration["LdapSettings:BindPass"];
-
-            int processedCount = 0;
-
             try
             {
-                using (var connection = new LdapConnection(new LdapDirectoryIdentifier(server, port)))
-                {
-                    connection.SessionOptions.ProtocolVersion = 3;
-                    connection.AuthType = AuthType.Basic;
+                var ldapUsers = GetActiveLdapUsers();
+                var processedCount = 0;
 
-                    if (!string.IsNullOrEmpty(bindUser) && !string.IsNullOrEmpty(bindPass))
+                foreach (var ldapUser in ldapUsers)
+                {
+                    var users = await _employeeRepository.GetAllAsync(x => x.Email == ldapUser.EffectiveEmail);
+                    var existingUser = users.FirstOrDefault();
+
+                    if (existingUser != null)
                     {
-                        connection.Bind(new NetworkCredential(bindUser, bindPass));
+                        existingUser.FirstName = ldapUser.FirstName;
+                        existingUser.LastName = ldapUser.LastName;
+                        existingUser.Phone = ldapUser.Phone;
+                        existingUser.IsDeleted = false;
+                        existingUser.UpdateDate = DateTime.Now;
+
+                        _employeeRepository.Update(existingUser);
                     }
                     else
                     {
-                        connection.Bind();
+                        var newEmployee = new Employee
+                        {
+                            FirstName = ldapUser.FirstName,
+                            LastName = ldapUser.LastName,
+                            Email = ldapUser.EffectiveEmail,
+                            Phone = ldapUser.Phone,
+                            CreatedDate = DateTime.Now,
+                            IsDeleted = false
+                        };
+
+                        await _employeeRepository.AddAsync(newEmployee);
                     }
 
-                    // Arama Filtresi: Aktif Kullanıcılar
-                    // objectClass=user: Kullanıcılar
-                    // !userAccountControl:2: Pasif (Disabled) olmayanlar
-                    string filter = "(&(objectClass=user)(objectCategory=person)(!userAccountControl:1.2.840.113556.1.4.803:=2))";
-
-                    string[] attributes = { "sAMAccountName", "mail", "givenName", "sn", "displayName", "telephoneNumber" };
-
-                    var searchRequest = new SearchRequest(
-                        searchBase,
-                        filter,
-                        SearchScope.Subtree,
-                        attributes
-                    );
-
-                    // Paging (Sayfalama) Kontrolü - Çok fazla kullanıcı varsa hepsini çekmek için
-                    // Basit olması adına şu an standart Search yapıyoruz. 
-                    // Eğer 1000'den fazla kullanıcı varsa PageResultRequestControl eklenmelidir.
-
-                    var response = (SearchResponse)connection.SendRequest(searchRequest);
-
-                    foreach (SearchResultEntry entry in response.Entries)
-                    {
-                        // 1. Verileri LDAP'tan Oku
-                        string username = GetAttributeValue(entry, "sAMAccountName");
-                        string email = GetAttributeValue(entry, "mail");
-                        string firstName = GetAttributeValue(entry, "givenName");
-                        string lastName = GetAttributeValue(entry, "sn");
-                        string displayName = GetAttributeValue(entry, "displayName");
-                        string phone = GetAttributeValue(entry, "telephoneNumber");
-
-                        // Eğer Email boşsa Username kullan
-                        string effectiveEmail = !string.IsNullOrEmpty(email) ? email : username;
-
-                        // Ad Soyad Ayrıştırma Mantığı
-                        if (string.IsNullOrEmpty(firstName) && !string.IsNullOrEmpty(displayName))
-                        {
-                            var parts = displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                            if (parts.Length > 0)
-                            {
-                                firstName = parts[0];
-                                lastName = parts.Length > 1 ? string.Join(" ", parts.Skip(1)) : "";
-                            }
-                        }
-
-                        // Son kontrol: İsim hala yoksa username ver
-                        if (string.IsNullOrEmpty(firstName)) firstName = username;
-                        if (string.IsNullOrEmpty(lastName)) lastName = "-";
-
-                        // 2. Veritabanı İşlemleri
-                        // Email (veya username) ile eşleşen var mı?
-                        var users = await _employeeRepository.GetAllAsync(x => x.Email == effectiveEmail);
-                        var existingUser = users.FirstOrDefault();
-
-                        if (existingUser != null)
-                        {
-                            // --- UPDATE ---
-                            existingUser.FirstName = firstName;
-                            existingUser.LastName = lastName;
-                            existingUser.Phone = phone;
-                            existingUser.IsDeleted = false; // Varsa aktif et
-                            existingUser.UpdateDate = DateTime.Now;
-
-                            _employeeRepository.Update(existingUser);
-                        }
-                        else
-                        {
-                            // --- INSERT ---
-                            var newEmployee = new Employee
-                            {
-                                FirstName = firstName,
-                                LastName = lastName,
-                                Email = effectiveEmail,
-                                Phone = phone,
-                                CreatedDate = DateTime.Now,
-                                IsDeleted = false,
-                                // EmployeeTypeId null kalabilir veya varsayılan bir tip atanabilir
-                            };
-
-                            await _employeeRepository.AddAsync(newEmployee);
-                        }
-
-                        processedCount++;
-                    }
+                    processedCount++;
                 }
+
+                return processedCount;
             }
             catch (Exception ex)
             {
-                // Loglama yapılabilir
                 throw new Exception($"LDAP Senkronizasyon hatası: {ex.Message}");
             }
-
-            return processedCount;
         }
 
-        // Yardımcı Metot: Attribute değerini güvenli çekmek için
-        private string GetAttributeValue(SearchResultEntry entry, string attributeName)
+        public async Task<int> SyncPortalUsersFromLdapAsync()
+        {
+            try
+            {
+                var ldapUsers = GetActiveLdapUsers();
+                var processedCount = 0;
+
+                foreach (var ldapUser in ldapUsers)
+                {
+                    var portalUsers = await _employeePortalRepository.GetAllAsync(x => x.Email == ldapUser.EffectiveEmail);
+                    var existingPortalUser = portalUsers.FirstOrDefault();
+
+                    if (existingPortalUser != null)
+                    {
+                        existingPortalUser.FirstName = ldapUser.FirstName;
+                        existingPortalUser.LastName = ldapUser.LastName;
+                        existingPortalUser.PhoneNumber = ldapUser.Phone;
+                        existingPortalUser.Email = ldapUser.EffectiveEmail;
+                        existingPortalUser.IsDeleted = false;
+                        existingPortalUser.UpdateDate = DateTime.Now;
+
+                        _employeePortalRepository.Update(existingPortalUser);
+                    }
+                    else
+                    {
+                        var newPortalUser = new EmployeePortal
+                        {
+                            FirstName = ldapUser.FirstName,
+                            LastName = ldapUser.LastName,
+                            PhoneNumber = ldapUser.Phone,
+                            Email = ldapUser.EffectiveEmail,
+                            HireDate = MySqlMinimumDate,
+                            BirthDate = MySqlMinimumDate,
+                            LeaveDays = 0,
+                            CreatedDate = DateTime.Now,
+                            IsDeleted = false
+                        };
+
+                        await _employeePortalRepository.AddAsync(newPortalUser);
+                    }
+
+                    processedCount++;
+                }
+
+                return processedCount;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"LDAP portal kullanıcı senkronizasyon hatası: {ex.Message}");
+            }
+        }
+
+        private List<LdapUserModel> GetActiveLdapUsers()
+        {
+            var server = _configuration["LdapSettings:Server"];
+            var port = int.Parse(_configuration["LdapSettings:Port"] ?? "389");
+            var searchBase = _configuration["LdapSettings:SearchBase"];
+            var bindUser = _configuration["LdapSettings:BindUser"];
+            var bindPass = _configuration["LdapSettings:BindPass"];
+
+            using var connection = new LdapConnection(new LdapDirectoryIdentifier(server, port));
+            connection.SessionOptions.ProtocolVersion = 3;
+            connection.AuthType = AuthType.Basic;
+
+            if (!string.IsNullOrEmpty(bindUser) && !string.IsNullOrEmpty(bindPass))
+            {
+                connection.Bind(new NetworkCredential(bindUser, bindPass));
+            }
+            else
+            {
+                connection.Bind();
+            }
+
+            const string filter = "(&(objectClass=user)(objectCategory=person)(!userAccountControl:1.2.840.113556.1.4.803:=2))";
+            string[] attributes = { "sAMAccountName", "mail", "givenName", "sn", "displayName", "telephoneNumber" };
+
+            var searchRequest = new SearchRequest(
+                searchBase,
+                filter,
+                SearchScope.Subtree,
+                attributes);
+
+            var response = (SearchResponse)connection.SendRequest(searchRequest);
+            var users = new List<LdapUserModel>();
+
+            foreach (SearchResultEntry entry in response.Entries)
+            {
+                var username = GetAttributeValue(entry, "sAMAccountName");
+                var email = GetAttributeValue(entry, "mail");
+                var firstName = GetAttributeValue(entry, "givenName");
+                var lastName = GetAttributeValue(entry, "sn");
+                var displayName = GetAttributeValue(entry, "displayName");
+                var phone = GetAttributeValue(entry, "telephoneNumber");
+                var effectiveEmail = !string.IsNullOrWhiteSpace(email) ? email : username;
+
+                if (string.IsNullOrWhiteSpace(firstName) && !string.IsNullOrWhiteSpace(displayName))
+                {
+                    var parts = displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length > 0)
+                    {
+                        firstName = parts[0];
+                        lastName = parts.Length > 1 ? string.Join(" ", parts.Skip(1)) : string.Empty;
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(firstName))
+                {
+                    firstName = username;
+                }
+
+                if (string.IsNullOrWhiteSpace(lastName))
+                {
+                    lastName = "-";
+                }
+
+                if (string.IsNullOrWhiteSpace(effectiveEmail))
+                {
+                    continue;
+                }
+
+                users.Add(new LdapUserModel
+                {
+                    Username = username ?? string.Empty,
+                    EffectiveEmail = effectiveEmail,
+                    FirstName = firstName ?? string.Empty,
+                    LastName = lastName,
+                    Phone = phone ?? string.Empty
+                });
+            }
+
+            return users;
+        }
+
+        private static string? GetAttributeValue(SearchResultEntry entry, string attributeName)
         {
             if (entry.Attributes.Contains(attributeName) && entry.Attributes[attributeName].Count > 0)
             {
                 var value = entry.Attributes[attributeName][0];
-                if (value is string strVal) return strVal;
-                if (value is byte[] bytes) return System.Text.Encoding.UTF8.GetString(bytes);
+                if (value is string stringValue)
+                {
+                    return stringValue;
+                }
+
+                if (value is byte[] bytes)
+                {
+                    return System.Text.Encoding.UTF8.GetString(bytes);
+                }
+
                 return value.ToString();
             }
+
             return null;
+        }
+
+        private sealed class LdapUserModel
+        {
+            public string Username { get; set; } = string.Empty;
+            public string EffectiveEmail { get; set; } = string.Empty;
+            public string FirstName { get; set; } = string.Empty;
+            public string LastName { get; set; } = string.Empty;
+            public string Phone { get; set; } = string.Empty;
         }
     }
 }

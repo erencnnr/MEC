@@ -25,5 +25,19 @@ namespace MEC.WebAPI.Controllers
                 return StatusCode(500, new { Message = "Senkronizasyon sırasında hata oluştu.", Error = ex.Message });
             }
         }
+
+        [HttpGet("SyncPortalUsers")]
+        public async Task<IActionResult> SyncPortalUsers()
+        {
+            try
+            {
+                int count = await _ldapService.SyncPortalUsersFromLdapAsync();
+                return Ok(new { Message = "Portal kullanıcı senkronizasyonu başarıyla tamamlandı.", ProcessedUsers = count });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Portal kullanıcı senkronizasyonu sırasında hata oluştu.", Error = ex.Message });
+            }
+        }
     }
 }

@@ -27,8 +27,8 @@ namespace MEC.WebAPI.Controllers
             _rootPath = configuration["ImageSettings:RootPath"] ?? @"C:\Images";
         }
 
-        [HttpPost("Upload")]
-        public Task<IActionResult> UploadImage([FromForm] ImageRequestModel request)
+        [HttpPost("upload")]
+        public Task<IActionResult> Upload([FromForm] ImageRequestModel request)
         {
             if (!string.IsNullOrWhiteSpace(request.Scope) && request.EntityId.HasValue)
             {
@@ -36,12 +36,6 @@ namespace MEC.WebAPI.Controllers
             }
 
             return UploadInternalAsync(request.File, "assets", request.AssetId);
-        }
-
-        [HttpPost("upload")]
-        public Task<IActionResult> Upload(IFormFile file, [FromForm] string scope, [FromForm] int entityId)
-        {
-            return UploadInternalAsync(file, scope, entityId);
         }
 
         [HttpGet("GetImageList")]

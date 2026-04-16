@@ -21,9 +21,42 @@
             </div>
         </div>
 
-        <div class="announcement-board-filters admin-portal-users-filters">
-            <a asp-action="PortalUsers" asp-route-status="active" class="@(Model.Status == "active" ? "announcement-board-filter is-active" : "announcement-board-filter")">Aktif</a>
-            <a asp-action="PortalUsers" asp-route-status="passive" class="@(Model.Status == "passive" ? "announcement-board-filter is-active" : "announcement-board-filter")">Pasif</a>
+        <div id="bulkLeaveUploadAlert" class="admin-portal-users-upload-alert" hidden></div>
+
+        <div class="admin-portal-users-controls">
+            <div class="announcement-board-filters admin-portal-users-filters">
+                <a asp-action="PortalUsers" asp-route-status="active" class="@(Model.Status == "active" ? "announcement-board-filter is-active" : "announcement-board-filter")">Aktif</a>
+                <a asp-action="PortalUsers" asp-route-status="passive" class="@(Model.Status == "passive" ? "announcement-board-filter is-active" : "announcement-board-filter")">Pasif</a>
+            </div>
+
+            <div class="admin-portal-users-actions">
+                <button type="button"
+                        class="admin-portal-users-sync-button"
+                        id="syncPortalUsersButton"
+                        data-sync-url="/Admin/PortalUsers/Sync">
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true" hidden></span>
+                    <span class="admin-portal-users-action-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M20 6v5h-5M4 18v-5h5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path d="M19 11a7 7 0 0 0-12-4.9L4 9M5 13a7 7 0 0 0 12 4.9l3-2.9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                    </span>
+                    <span data-sync-submit-text>Kullanıcıları Senkronize Et</span>
+                </button>
+
+                <button type="button"
+                        class="admin-portal-users-bulk-button"
+                        data-bs-toggle="modal"
+                        data-bs-target="#bulkLeaveUploadModal">
+                    <span class="admin-portal-users-action-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" focusable="false">
+                            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zm0 0v5h5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path d="M9 10.5l4 7M13 10.5l-4 7M8 14h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                    </span>
+                    <span>Toplu İzin Yükle</span>
+                </button>
+            </div>
         </div>
 
         @if (!Model.Items.Any())
@@ -56,7 +89,7 @@
                         <tbody>
                             @foreach (var item in Model.Items)
                             {
-                                <tr class="leave-history-table__row" data-href="/Admin/PortalUsers/@item.Id" tabindex="0">
+                                <tr class="leave-history-table__row" data-href="/Admin/PortalUsers/@item.Id" data-user-email="@item.Email" tabindex="0">
                                     <td>
                                         <div class="admin-portal-users-table__identity">
                                             <span>@item.FullName</span>
@@ -64,7 +97,7 @@
                                     </td>
                                     <td>@item.Email</td>
                                     <td>@(string.IsNullOrWhiteSpace(item.PhoneNumber) ? "-" : item.PhoneNumber)</td>
-                                    <td>@FormatLeaveDays(item.LeaveDays) Gün</td>
+                                    <td class="admin-portal-users-table__leave-days" data-user-email="@item.Email">@FormatLeaveDays(item.LeaveDays) Gün</td>
                                     <td>@item.HireDate.ToString("dd.MM.yyyy")</td>
                                     <td>
                                         <span class="leave-history-status leave-history-status--@item.StatusTone">@item.StatusLabel</span>
@@ -90,6 +123,44 @@
             }
         }
     </div>
+
+    <div class="modal fade bulk-leave-upload-modal" id="bulkLeaveUploadModal" tabindex="-1" aria-labelledby="bulkLeaveUploadModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bulk-leave-upload-modal__content">
+                <form id="bulkLeaveUploadForm" enctype="multipart/form-data">
+                    @Html.AntiForgeryToken()
+                    <div class="modal-header bulk-leave-upload-modal__header">
+                        <div>
+                            <span class="bulk-leave-upload-modal__eyebrow">Excel import</span>
+                            <h2 class="modal-title" id="bulkLeaveUploadModalLabel">Toplu İzin Yükle</h2>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                    </div>
+                    <div class="modal-body bulk-leave-upload-modal__body">
+                        <p class="bulk-leave-upload-modal__description">
+                            Excel yüklemek için
+                            <a class="bulk-leave-upload-modal__template-link" href="/Leave/BulkLeaveUpload/Template">şablon indir</a>.
+                        </p>
+
+                        <div id="bulkLeaveUploadModalAlert" class="admin-portal-users-upload-alert" hidden></div>
+
+                        <label class="bulk-leave-upload-modal__file" for="bulkLeaveUploadFile">
+                            <span>Excel dosyası</span>
+                            <input id="bulkLeaveUploadFile" name="file" type="file" accept=".xlsx" required />
+                            <small>Sadece .xlsx dosyaları desteklenir. Maksimum dosya boyutu 10 MB.</small>
+                        </label>
+                    </div>
+                    <div class="modal-footer bulk-leave-upload-modal__footer">
+                        <button type="button" class="bulk-leave-upload-modal__button bulk-leave-upload-modal__button--ghost" data-bs-dismiss="modal">Vazgeç</button>
+                        <button type="submit" class="bulk-leave-upload-modal__button bulk-leave-upload-modal__button--primary" id="bulkLeaveUploadSubmit">
+                            <span class="spinner-border spinner-border-sm" aria-hidden="true" hidden></span>
+                            <span data-bulk-submit-text>Yükle</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </section>
 
 @section Scripts {
@@ -112,5 +183,170 @@
                 }
             });
         });
+
+        function renderPortalUsersAlert(target, level, message, reportUrl) {
+            if (!target) {
+                return;
+            }
+
+            target.hidden = false;
+            target.className = "admin-portal-users-upload-alert admin-portal-users-upload-alert--" + (level || "danger");
+            target.replaceChildren();
+
+            var messageElement = document.createElement("span");
+            messageElement.textContent = message || "İşlem sonucu alınamadı.";
+            target.appendChild(messageElement);
+
+            if (reportUrl) {
+                var link = document.createElement("a");
+                link.href = reportUrl;
+                link.textContent = "Hatalı satır raporunu indir";
+                link.className = "admin-portal-users-upload-alert__link";
+                target.appendChild(link);
+            }
+        }
+
+        function clearPortalUsersAlert(target) {
+            if (!target) {
+                return;
+            }
+
+            target.hidden = true;
+            target.replaceChildren();
+        }
+
+        (function () {
+            var syncButton = document.getElementById("syncPortalUsersButton");
+            if (!syncButton) {
+                return;
+            }
+
+            var pageAlert = document.getElementById("bulkLeaveUploadAlert");
+            var syncText = syncButton.querySelector("[data-sync-submit-text]");
+            var syncSpinner = syncButton.querySelector(".spinner-border");
+            var tokenInput = document.querySelector("input[name='__RequestVerificationToken']");
+
+            function setSyncLoading(isLoading) {
+                syncButton.disabled = isLoading;
+
+                if (syncText) {
+                    syncText.textContent = isLoading ? "Senkronize ediliyor..." : "Kullanıcıları Senkronize Et";
+                }
+
+                if (syncSpinner) {
+                    syncSpinner.hidden = !isLoading;
+                }
+            }
+
+            syncButton.addEventListener("click", async function () {
+                clearPortalUsersAlert(pageAlert);
+                setSyncLoading(true);
+
+                try {
+                    var response = await fetch(syncButton.dataset.syncUrl || "/Admin/PortalUsers/Sync", {
+                        method: "POST",
+                        headers: {
+                            "X-Requested-With": "XMLHttpRequest",
+                            "RequestVerificationToken": tokenInput ? tokenInput.value : ""
+                        }
+                    });
+
+                    var result = await response.json();
+                    renderPortalUsersAlert(
+                        pageAlert,
+                        result.level || (response.ok ? "success" : "danger"),
+                        response.ok ? "Kullanıcılar başarıyla senkronize edildi." : "Hata! Senkronizasyon başarısız.",
+                        null);
+                } catch (error) {
+                    renderPortalUsersAlert(pageAlert, "danger", "Hata! Senkronizasyon başarısız.", null);
+                } finally {
+                    setSyncLoading(false);
+                }
+            });
+        })();
+
+        (function () {
+            var form = document.getElementById("bulkLeaveUploadForm");
+            if (!form) {
+                return;
+            }
+
+            var modalElement = document.getElementById("bulkLeaveUploadModal");
+            var pageAlert = document.getElementById("bulkLeaveUploadAlert");
+            var modalAlert = document.getElementById("bulkLeaveUploadModalAlert");
+            var submitButton = document.getElementById("bulkLeaveUploadSubmit");
+            var submitText = submitButton ? submitButton.querySelector("[data-bulk-submit-text]") : null;
+            var spinner = submitButton ? submitButton.querySelector(".spinner-border") : null;
+            var formatter = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 });
+
+            function setLoading(isLoading) {
+                if (!submitButton) {
+                    return;
+                }
+
+                submitButton.disabled = isLoading;
+                if (submitText) {
+                    submitText.textContent = isLoading ? "Yükleniyor..." : "Yükle";
+                }
+                if (spinner) {
+                    spinner.hidden = !isLoading;
+                }
+            }
+
+            function updateVisibleLeaveDays(updatedUsers) {
+                if (!Array.isArray(updatedUsers)) {
+                    return;
+                }
+
+                var cells = document.querySelectorAll(".admin-portal-users-table__leave-days[data-user-email]");
+                updatedUsers.forEach(function (user) {
+                    var email = (user.email || "").toLowerCase();
+                    if (!email) {
+                        return;
+                    }
+
+                    cells.forEach(function (cell) {
+                        if ((cell.dataset.userEmail || "").toLowerCase() === email) {
+                            cell.textContent = formatter.format(Number(user.newLeaveDays || 0)) + " Gün";
+                        }
+                    });
+                });
+            }
+
+            form.addEventListener("submit", async function (event) {
+                event.preventDefault();
+                clearPortalUsersAlert(pageAlert);
+                clearPortalUsersAlert(modalAlert);
+
+                var formData = new FormData(form);
+                setLoading(true);
+
+                try {
+                    var response = await fetch("/Leave/BulkLeaveUpload", {
+                        method: "POST",
+                        body: formData,
+                        headers: {
+                            "X-Requested-With": "XMLHttpRequest"
+                        }
+                    });
+
+                    var result = await response.json();
+                    if (result.success) {
+                        var modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+                        modal.hide();
+                        form.reset();
+                        renderPortalUsersAlert(pageAlert, result.level, result.message, result.errorReportUrl);
+                        updateVisibleLeaveDays(result.updatedUsers);
+                    } else {
+                        renderPortalUsersAlert(modalAlert, result.level, result.message, result.errorReportUrl);
+                        renderPortalUsersAlert(pageAlert, result.level, result.message, result.errorReportUrl);
+                    }
+                } catch (error) {
+                    renderPortalUsersAlert(modalAlert, "danger", "Toplu izin yükleme sırasında beklenmeyen bir hata oluştu.", null);
+                } finally {
+                    setLoading(false);
+                }
+            });
+        })();
     </script>
 }

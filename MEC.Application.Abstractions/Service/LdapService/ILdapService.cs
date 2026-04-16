@@ -10,5 +10,6 @@ namespace MEC.Application.Abstractions.Service.LdapService
     public interface ILdapService : IApplicationService
     {
         Task<int> SyncUsersFromLdapAsync();
+        Task<int> SyncPortalUsersFromLdapAsync();
     }
 }

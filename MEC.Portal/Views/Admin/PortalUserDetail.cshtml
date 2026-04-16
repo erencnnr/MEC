@@ -92,6 +92,14 @@
                         <span>Kullanıcı</span>
                         <strong>@Model.FullName</strong>
                     </div>
+
+                    <div class="leave-detail-field">
+                        <span>Admin</span>
+                        <select asp-for="IsAdmin" class="announcement-form-input">
+                            <option value="false">Hayır</option>
+                            <option value="true">Evet</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="admin-leave-detail-actions">

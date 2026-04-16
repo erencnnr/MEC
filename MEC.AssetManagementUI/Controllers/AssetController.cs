@@ -12,6 +12,7 @@ using MEC.AssetManagementUI.Extensions;
 using MEC.AssetManagementUI.Models.AssetModel;
 using MEC.AssetManagementUI.Models.LoanModel;
 using MEC.AssetManagementUI.Models.ServiceHistoryModel;
+using MEC.AssetManagementUI.Services;
 using MEC.Domain.Common;
 using MEC.Domain.Entity.Asset;
 using Microsoft.AspNetCore.Mvc;
@@ -27,29 +28,32 @@ namespace MEC.AssetManagementUI.Controllers
         private readonly IAssetStatusService _assetStatusService;
         private readonly ILoanService _loanService;
         private ILoanStatusService _loanStatusService;
-        private readonly IAssetImageService _imageService;
         private readonly IEmployeeService _employeeService;
         private readonly ISchoolClassService _schoolClassService;
         private readonly IAssetImageService _assetImageService;
         private readonly IAssetAttachmentService _assetAttachmentService;
+        private readonly IAssetImageApiClient _assetImageApiClient;
+        private readonly IAssetAttachmentApiClient _assetAttachmentApiClient;
         private readonly IServiceHistoryService _serviceHistoryService;
         
 
         public AssetController(IAssetService assetService, ISchoolService schoolService, IAssetTypeService assetTypeService, IAssetStatusService assetStatusService,
-            ILoanService loanService, IAssetImageService imageService, IEmployeeService employeeService, ILoanStatusService loanStatusService, ISchoolClassService schoolClassService,
-            IAssetImageService assetImageService, IAssetAttachmentService assetAttachmentService, IServiceHistoryService serviceHistoryService)
+            ILoanService loanService, IEmployeeService employeeService, ILoanStatusService loanStatusService, ISchoolClassService schoolClassService,
+            IAssetImageService assetImageService, IAssetAttachmentService assetAttachmentService, IAssetImageApiClient assetImageApiClient,
+            IAssetAttachmentApiClient assetAttachmentApiClient, IServiceHistoryService serviceHistoryService)
         {
             _assetService = assetService;
             _schoolService = schoolService;
             _assetTypeService = assetTypeService;
             _assetStatusService = assetStatusService;
             _loanService = loanService;
-            _imageService = imageService;
             _employeeService = employeeService;
             _loanStatusService = loanStatusService;
             _schoolClassService = schoolClassService;
             _assetImageService = assetImageService;
             _assetAttachmentService = assetAttachmentService;
+            _assetImageApiClient = assetImageApiClient;
+            _assetAttachmentApiClient = assetAttachmentApiClient;
             _serviceHistoryService = serviceHistoryService;
             
         }
@@ -132,7 +136,7 @@ namespace MEC.AssetManagementUI.Controllers
             if (asset == null) return NotFound();
 
             // 2. Resim ve Zimmet listelerini servislerden çek
-            var assetImages = await _imageService.GetImagesByAssetIdAsync(id);
+            var assetImages = await _assetImageService.GetImagesByAssetIdAsync(id);
             var assetLoans = await _loanService.GetLoansByAssetIdAsync(id);
             var serviceHistories = await _serviceHistoryService.GetServiceHistoriesByAssetIdAsync(id, serviceSort);
             var employees = await _employeeService.GetAllEmployeesAsync();
@@ -198,7 +202,7 @@ namespace MEC.AssetManagementUI.Controllers
             ViewBag.AssetId = id;
 
             // Listeler null gitmesin diye tekrar çekiyoruz (Opsiyonel, view null check yapıyorsa gerekmeyebilir)
-            model.Images = await _imageService.GetImagesByAssetIdAsync(id);
+            model.Images = await _assetImageService.GetImagesByAssetIdAsync(id);
             model.Loans = await _loanService.GetLoansByAssetIdAsync(id);
 
             return View(model);
@@ -273,33 +277,83 @@ namespace MEC.AssetManagementUI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> AddImage(int assetId, string fileName)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UploadImage(int assetId, IFormFile file, CancellationToken cancellationToken)
         {
-            // 1. Bu Asset için bu isimde bir resim zaten var mı kontrol et
-            // (Servis katmanınızda böyle bir metod olduğunu varsayıyorum)
-            var existingImage = await _assetImageService.GetImageByAssetAndNameAsync(assetId, fileName);
-
-            if (existingImage != null)
+            var uploadResult = await _assetImageApiClient.UploadAsync(assetId, file, cancellationToken);
+            if (!uploadResult.IsSuccess)
             {
-                // Dosya zaten diskte güncellendi (API tarafında).
-                // DB'de kayıt zaten var, sadece update tarihini güncelleyebiliriz veya hiçbir şey yapmayız.
-                existingImage.UpdateDate = DateTime.Now;
-                await _assetImageService.UpdateAssetImageAsync(existingImage);
-
-                return Json(new { success = true, message = "Mevcut resim güncellendi." });
+                return Json(new { success = false, message = uploadResult.Message });
             }
 
-            // 2. Kayıt yoksa yeni ekle
-            var newImage = new AssetImage
+            try
             {
-                AssetId = assetId,
-                Path = fileName, // Sadece isim tutuluyor, klasör ID'den biliniyor
-                CreatedDate = DateTime.Now
-            };
+                var existingImage = await _assetImageService.GetImageByAssetAndNameAsync(assetId, uploadResult.FileName);
+                if (existingImage != null)
+                {
+                    existingImage.UpdateDate = DateTime.Now;
+                    await _assetImageService.UpdateAssetImageAsync(existingImage);
+                }
+                else
+                {
+                    var newImage = new AssetImage
+                    {
+                        AssetId = assetId,
+                        Path = uploadResult.FileName,
+                        CreatedDate = DateTime.Now
+                    };
 
-            await _assetImageService.CreateAsync(newImage);
+                    await _assetImageService.CreateAsync(newImage);
+                }
 
-            return Json(new { success = true, message = "Yeni resim eklendi." });
+                return Json(new
+                {
+                    success = true,
+                    message = "Resim başarıyla yüklendi.",
+                    fileName = uploadResult.FileName
+                });
+            }
+            catch (Exception ex)
+            {
+                await _assetImageApiClient.DeleteAsync(assetId, uploadResult.FileName, cancellationToken);
+                return Json(new { success = false, message = "Resim kaydı oluşturulamadı: " + ex.Message });
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ListAssetImages(int assetId)
+        {
+            var images = await _assetImageService.GetImagesByAssetIdAsync(assetId);
+            var files = images
+                .Where(x => !string.IsNullOrWhiteSpace(x.Path))
+                .OrderByDescending(x => x.CreatedDate ?? DateTime.MinValue)
+                .ThenByDescending(x => x.Id)
+                .Select(x => new
+                {
+                    fileName = x.Path,
+                    url = Url.Action(nameof(AssetImageFile), "Asset", new { assetId, fileName = x.Path })
+                })
+                .ToList();
+
+            return Json(new { success = true, files });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> AssetImageFile(int assetId, string fileName, CancellationToken cancellationToken)
+        {
+            var imageRecord = await _assetImageService.GetImageByAssetAndNameAsync(assetId, fileName);
+            if (imageRecord == null)
+            {
+                return NotFound();
+            }
+
+            var downloadResult = await _assetImageApiClient.DownloadAsync(assetId, fileName, cancellationToken);
+            if (!downloadResult.IsSuccess)
+            {
+                return NotFound(downloadResult.Message);
+            }
+
+            return File(downloadResult.Content, downloadResult.ContentType);
         }
 
         [HttpGet] // Form GET ile çalıştığı için HttpGet kullanıyoruz
@@ -372,75 +426,136 @@ namespace MEC.AssetManagementUI.Controllers
             return Json(filteredClasses);
         }
         [HttpPost]
-        public async Task<IActionResult> DeleteImage(int assetId, string fileName)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteImage(int assetId, string fileName, CancellationToken cancellationToken)
         {
             try
             {
-                // 1. Kaydı bul
                 var imageRecord = await _assetImageService.GetImageByAssetAndNameAsync(assetId, fileName);
-
-                // 2. Kayıt varsa sil
-                if (imageRecord != null)
+                if (imageRecord == null)
                 {
-                    await _assetImageService.DeleteAsync(imageRecord.Id);
-                    return Json(new { success = true, message = "Veritabanından silindi." });
+                    return Json(new { success = true, message = "Kayıt zaten mevcut değil." });
                 }
 
-                return Json(new { success = false, message = "Kayıt bulunamadı." });
-            }
-            catch (Exception ex)
-            {
-                return Json(new { success = false, message = "DB Hatası: " + ex.Message });
-            }
-        }
-        [HttpPost]
-        public async Task<IActionResult> AddAttachment(int assetId, string fileName)
-        {
-            try
-            {
-                // Varsa güncelle, yoksa ekle mantığı
-                // (Eğer aynı isimde dosya yüklenirse DB'de mükerrer olmasın diye kontrol)
-                // Servisinizde bu metodun (GetByAssetAndName) olduğunu varsayıyoruz, yoksa eklenmeli.
-                // Yoksa direkt CreateAsync de yapabilirsiniz ama mükerrer kayıt oluşabilir.
-
-                var attachment = new AssetAttachment
+                var deleteResult = await _assetImageApiClient.DeleteAsync(assetId, fileName, cancellationToken);
+                if (!deleteResult.IsSuccess)
                 {
-                    AssetId = assetId,
-                    Path = fileName, // Dosya adı
-                    CreatedDate = DateTime.Now
-                };
+                    return Json(new { success = false, message = deleteResult.Message });
+                }
 
-                await _assetAttachmentService.CreateAsync(attachment);
-
-                return Json(new { success = true, message = "Ek başarıyla kaydedildi." });
+                await _assetImageService.DeleteAsync(imageRecord.Id);
+                return Json(new { success = true, message = "Resim silindi." });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = "DB Hatası: " + ex.Message });
+                return Json(new { success = false, message = "Resim silinirken hata oluştu: " + ex.Message });
             }
         }
 
         [HttpPost]
-        public async Task<IActionResult> DeleteAttachment(int assetId, string fileName)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UploadAttachment(int assetId, IFormFile file, CancellationToken cancellationToken)
+        {
+            var uploadResult = await _assetAttachmentApiClient.UploadAsync(assetId, file, cancellationToken);
+            if (!uploadResult.IsSuccess)
+            {
+                return Json(new { success = false, message = uploadResult.Message });
+            }
+
+            try
+            {
+                var existingAttachment = await _assetAttachmentService.GetAttachmentByAssetAndNameAsync(assetId, uploadResult.FileName);
+                if (existingAttachment != null)
+                {
+                    existingAttachment.UpdateDate = DateTime.Now;
+                    await _assetAttachmentService.UpdateAttachmentAsync(existingAttachment);
+                }
+                else
+                {
+                    var attachment = new AssetAttachment
+                    {
+                        AssetId = assetId,
+                        Path = uploadResult.FileName,
+                        CreatedDate = DateTime.Now
+                    };
+
+                    await _assetAttachmentService.CreateAsync(attachment);
+                }
+
+                return Json(new
+                {
+                    success = true,
+                    message = "Ek başarıyla yüklendi.",
+                    fileName = uploadResult.FileName
+                });
+            }
+            catch (Exception ex)
+            {
+                await _assetAttachmentApiClient.DeleteAsync(assetId, uploadResult.FileName, cancellationToken);
+                return Json(new { success = false, message = "Ek kaydı oluşturulamadı: " + ex.Message });
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ListAssetAttachments(int assetId)
+        {
+            var attachments = await _assetAttachmentService.GetAttachmentsByAssetIdAsync(assetId);
+            var files = attachments
+                .Where(x => !string.IsNullOrWhiteSpace(x.Path))
+                .OrderByDescending(x => x.CreatedDate ?? DateTime.MinValue)
+                .ThenByDescending(x => x.Id)
+                .Select(x => new
+                {
+                    fileName = x.Path,
+                    url = Url.Action(nameof(AssetAttachmentFile), "Asset", new { assetId, fileName = x.Path })
+                })
+                .ToList();
+
+            return Json(new { success = true, files });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> AssetAttachmentFile(int assetId, string fileName, CancellationToken cancellationToken)
+        {
+            var attachmentRecord = await _assetAttachmentService.GetAttachmentByAssetAndNameAsync(assetId, fileName);
+            if (attachmentRecord == null)
+            {
+                return NotFound();
+            }
+
+            var downloadResult = await _assetAttachmentApiClient.DownloadAsync(assetId, fileName, cancellationToken);
+            if (!downloadResult.IsSuccess)
+            {
+                return NotFound(downloadResult.Message);
+            }
+
+            return File(downloadResult.Content, downloadResult.ContentType, downloadResult.FileName);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteAttachment(int assetId, string fileName, CancellationToken cancellationToken)
         {
             try
             {
-                // İsimden ve AssetId'den kaydı bul (Servisinizde bu metodun olması gerekir)
-                // Eğer yoksa GetAll yapıp LINQ ile de bulabilirsiniz.
                 var attachment = await _assetAttachmentService.GetAttachmentByAssetAndNameAsync(assetId, fileName);
-
-                if (attachment != null)
+                if (attachment == null)
                 {
-                    await _assetAttachmentService.DeleteAsync(attachment.Id);
-                    return Json(new { success = true, message = "Veritabanından silindi." });
+                    return Json(new { success = true, message = "Kayıt zaten mevcut değil." });
                 }
 
-                // DB'de yoksa bile diskten silinmesi için true dönüyoruz
-                return Json(new { success = true, message = "Kayıt bulunamadı, disk işlemine geçiliyor." });
+                var deleteResult = await _assetAttachmentApiClient.DeleteAsync(assetId, fileName, cancellationToken);
+                if (!deleteResult.IsSuccess)
+                {
+                    return Json(new { success = false, message = deleteResult.Message });
+                }
+
+                await _assetAttachmentService.DeleteAsync(attachment.Id);
+                return Json(new { success = true, message = "Ek silindi." });
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = "DB Hatası: " + ex.Message });
+                return Json(new { success = false, message = "Ek silinirken hata oluştu: " + ex.Message });
             }
         }
 

@@ -1,9 +1,10 @@
 using System.Text.RegularExpressions;
 using MEC.Application.Abstractions.Service.SchoolService;
-using MEC.DAL.Config.Abstractions.Common;
+using MEC.Application.Abstractions.Service.SchoolService.Model;
 using MEC.Domain.Entity.School;
 using MEC.Portal.Models;
 using MEC.Portal.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MEC.Portal.Controllers
@@ -22,72 +23,51 @@ namespace MEC.Portal.Controllers
         };
 
         private readonly IAnnouncementService _announcementService;
-        private readonly IGenericRepository<AnnouncementAttachment> _announcementAttachmentRepository;
-        private readonly IGenericRepository<AnnouncementImage> _announcementImageRepository;
         private readonly IAnnouncementAttachmentApiClient _announcementAttachmentApiClient;
         private readonly IAnnouncementImageApiClient _announcementImageApiClient;
 
         public AnnouncementController(
             IAnnouncementService announcementService,
-            IGenericRepository<AnnouncementAttachment> announcementAttachmentRepository,
-            IGenericRepository<AnnouncementImage> announcementImageRepository,
             IAnnouncementAttachmentApiClient announcementAttachmentApiClient,
             IAnnouncementImageApiClient announcementImageApiClient)
         {
             _announcementService = announcementService;
-            _announcementAttachmentRepository = announcementAttachmentRepository;
-            _announcementImageRepository = announcementImageRepository;
             _announcementAttachmentApiClient = announcementAttachmentApiClient;
             _announcementImageApiClient = announcementImageApiClient;
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpGet("")]
         public async Task<IActionResult> Index(string? status = "active", int page = 1)
         {
-            var normalizedStatus = NormalizeStatus(status);
-            var announcements = await _announcementService.GetAllAnnouncementsAsync();
-
-            var filteredAnnouncements = announcements
-                .Where(x => normalizedStatus == "passive" ? !x.IsActive : x.IsActive)
-                .OrderByDescending(x => x.CreatedDate ?? DateTime.MinValue)
-                .ToList();
-
-            var totalCount = filteredAnnouncements.Count;
-            var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)PageSize));
-            var currentPage = Math.Min(Math.Max(page, 1), totalPages);
-
-            var items = filteredAnnouncements
-                .Skip((currentPage - 1) * PageSize)
-                .Take(PageSize)
-                .Select(x => new AnnouncementCardViewModel
-                {
-                    Id = x.Id,
-                    Title = x.Title,
-                    Summary = BuildSummary(x.Content),
-                    CreatedDate = x.CreatedDate,
-                    IsActive = x.IsActive
-                })
-                .ToList();
+            var result = await _announcementService.GetAnnouncementBoardAsync(new AnnouncementListQueryModel
+            {
+                Status = status,
+                Page = page,
+                PageSize = PageSize
+            });
 
             var model = new AnnouncementListViewModel
             {
-                Items = items,
-                Status = normalizedStatus,
-                CurrentPage = currentPage,
-                TotalPages = totalPages,
-                TotalCount = totalCount,
-                PageSize = PageSize
+                Items = result.Items.Select(MapAnnouncementCard).ToList(),
+                Status = result.Status,
+                CurrentPage = result.CurrentPage,
+                TotalPages = result.TotalPages,
+                TotalCount = result.TotalCount,
+                PageSize = result.PageSize
             };
 
             return View(model);
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpGet("Create")]
         public IActionResult Create()
         {
             return View(new AnnouncementFormViewModel { IsActive = true });
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost("Create")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(AnnouncementFormViewModel model, CancellationToken cancellationToken)
@@ -131,6 +111,7 @@ namespace MEC.Portal.Controllers
             return RedirectToAction(nameof(Index), new { status = announcement.IsActive ? "active" : "passive" });
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpGet("Edit/{id:int}")]
         public async Task<IActionResult> Edit(int id)
         {
@@ -143,6 +124,7 @@ namespace MEC.Portal.Controllers
             return View(await BuildFormModelAsync(announcement));
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost("Edit/{id:int}")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, AnnouncementFormViewModel model, CancellationToken cancellationToken)
@@ -185,11 +167,12 @@ namespace MEC.Portal.Controllers
             return RedirectToAction(nameof(Edit), new { id });
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost("Edit/{id:int}/DeleteAttachment/{attachmentId:int}")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteAttachment(int id, int attachmentId, CancellationToken cancellationToken)
         {
-            var attachment = await _announcementAttachmentRepository.GetByIdAsync(attachmentId);
+            var attachment = await _announcementService.GetAnnouncementAttachmentAsync(attachmentId);
             if (attachment == null || attachment.AnnouncementId != id)
             {
                 return NotFound();
@@ -202,16 +185,17 @@ namespace MEC.Portal.Controllers
                 return RedirectToAction(nameof(Edit), new { id });
             }
 
-            _announcementAttachmentRepository.Delete(attachment);
+            await _announcementService.DeleteAnnouncementAttachmentMetadataAsync(attachmentId);
             TempData["AnnouncementSuccess"] = "Duyuru eki silindi.";
             return RedirectToAction(nameof(Edit), new { id });
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost("Edit/{id:int}/DeleteImage/{imageId:int}")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteImage(int id, int imageId, CancellationToken cancellationToken)
         {
-            var image = await _announcementImageRepository.GetByIdAsync(imageId);
+            var image = await _announcementService.GetAnnouncementImageAsync(imageId);
             if (image == null || image.AnnouncementId != id)
             {
                 return NotFound();
@@ -224,22 +208,23 @@ namespace MEC.Portal.Controllers
                 return RedirectToAction(nameof(Edit), new { id });
             }
 
-            _announcementImageRepository.Delete(image);
+            await _announcementService.DeleteAnnouncementImageMetadataAsync(imageId);
             TempData["AnnouncementSuccess"] = "Galeri görseli silindi.";
             return RedirectToAction(nameof(Edit), new { id });
         }
 
         [HttpGet("/Announcements/{id:int}", Name = "AnnouncementDetail")]
+        [Authorize]
         public async Task<IActionResult> Detail(int id)
         {
-            var announcement = await _announcementService.GetAnnouncementByIdAsync(id);
-            if (announcement == null)
+            var detail = await _announcementService.GetAnnouncementDetailDataAsync(id);
+            if (detail == null)
             {
                 return NotFound();
             }
 
-            var attachments = (await _announcementAttachmentRepository.GetAllAsync(x => x.AnnouncementId == id))
-                .OrderBy(x => x.CreatedDate ?? DateTime.MinValue)
+            var announcement = detail.Announcement;
+            var attachments = detail.Attachments
                 .Select(x => new AnnouncementDetailLinkViewModel
                 {
                     Label = x.OriginalFileName,
@@ -247,28 +232,9 @@ namespace MEC.Portal.Controllers
                 })
                 .ToList();
 
-            var galleryImages = (await _announcementImageRepository.GetAllAsync(x => x.AnnouncementId == id))
-                .OrderBy(x => x.CreatedDate ?? DateTime.MinValue)
+            var galleryImages = detail.GalleryImages
                 .Select(x => _announcementImageApiClient.GetFileUrl(x.AnnouncementId, x.FileName))
                 .ToList();
-
-            var allAnnouncements = await _announcementService.GetAllAnnouncementsAsync();
-            var relatedAnnouncements = allAnnouncements
-                .Where(x => x.Id != id && x.IsActive)
-                .OrderByDescending(x => x.CreatedDate ?? DateTime.MinValue)
-                .Take(4)
-                .ToList();
-
-            var relatedAnnouncementIds = relatedAnnouncements.Select(x => x.Id).ToList();
-            var relatedImages = relatedAnnouncementIds.Count == 0
-                ? new List<AnnouncementImage>()
-                : (await _announcementImageRepository.GetAllAsync(x => relatedAnnouncementIds.Contains(x.AnnouncementId)))
-                    .OrderBy(x => x.CreatedDate ?? DateTime.MinValue)
-                    .ToList();
-
-            var relatedImageLookup = relatedImages
-                .GroupBy(x => x.AnnouncementId)
-                .ToDictionary(x => x.Key, x => x.First());
 
             var model = new AnnouncementDetailViewModel
             {
@@ -280,13 +246,13 @@ namespace MEC.Portal.Controllers
                 IsAdminView = false,
                 GalleryImages = galleryImages,
                 Attachments = attachments,
-                RelatedAnnouncements = relatedAnnouncements
+                RelatedAnnouncements = detail.RelatedAnnouncements
                     .Select(x => new AnnouncementDetailRelatedItemViewModel
                     {
                         Id = x.Id,
                         Title = x.Title,
                         CreatedDate = x.CreatedDate,
-                        ImageUrl = relatedImageLookup.TryGetValue(x.Id, out var image)
+                        ImageUrl = detail.RelatedCoverImages.TryGetValue(x.Id, out var image)
                             ? _announcementImageApiClient.GetFileUrl(image.AnnouncementId, image.FileName)
                             : "/content/images/logo.png"
                     })
@@ -296,19 +262,19 @@ namespace MEC.Portal.Controllers
             return View(model);
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost("Delete/{id:int}")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
         {
-            var attachments = await _announcementAttachmentRepository.GetAllAsync(x => x.AnnouncementId == id);
-            var images = await _announcementImageRepository.GetAllAsync(x => x.AnnouncementId == id);
+            var deletePrepare = await _announcementService.PrepareAnnouncementDeleteAsync(id);
 
-            foreach (var attachment in attachments)
+            foreach (var attachment in deletePrepare.Attachments)
             {
                 await _announcementAttachmentApiClient.DeleteAsync(id, attachment.FileName, cancellationToken);
             }
 
-            foreach (var image in images)
+            foreach (var image in deletePrepare.GalleryImages)
             {
                 await _announcementImageApiClient.DeleteAsync(id, image.FileName, cancellationToken);
             }
@@ -358,8 +324,7 @@ namespace MEC.Portal.Controllers
 
         private async Task PopulateExistingAssetsAsync(AnnouncementFormViewModel model, int announcementId)
         {
-            model.ExistingAttachments = (await _announcementAttachmentRepository.GetAllAsync(x => x.AnnouncementId == announcementId))
-                .OrderBy(x => x.CreatedDate ?? DateTime.MinValue)
+            model.ExistingAttachments = (await _announcementService.GetAnnouncementAttachmentsAsync(announcementId))
                 .Select(x => new AnnouncementAssetViewModel
                 {
                     Id = x.Id,
@@ -368,8 +333,7 @@ namespace MEC.Portal.Controllers
                 })
                 .ToList();
 
-            model.ExistingGalleryImages = (await _announcementImageRepository.GetAllAsync(x => x.AnnouncementId == announcementId))
-                .OrderBy(x => x.CreatedDate ?? DateTime.MinValue)
+            model.ExistingGalleryImages = (await _announcementService.GetAnnouncementImagesAsync(announcementId))
                 .Select(x => new AnnouncementAssetViewModel
                 {
                     Id = x.Id,
@@ -416,29 +380,27 @@ namespace MEC.Portal.Controllers
         {
             foreach (var attachment in uploadedAttachments)
             {
-                await _announcementAttachmentRepository.AddAsync(new AnnouncementAttachment
+                await _announcementService.AddAnnouncementAttachmentAsync(new AnnouncementAssetPersistModel
                 {
                     AnnouncementId = announcementId,
                     FileName = attachment.StoredFileName,
                     OriginalFileName = Path.GetFileName(attachment.OriginalFileName),
                     RelativePath = attachment.RelativePath,
                     ContentType = string.IsNullOrWhiteSpace(attachment.ContentType) ? "application/octet-stream" : attachment.ContentType,
-                    SizeBytes = attachment.SizeBytes,
-                    CreatedDate = DateTime.Now
+                    SizeBytes = attachment.SizeBytes
                 });
             }
 
             foreach (var image in uploadedImages)
             {
-                await _announcementImageRepository.AddAsync(new AnnouncementImage
+                await _announcementService.AddAnnouncementImageAsync(new AnnouncementAssetPersistModel
                 {
                     AnnouncementId = announcementId,
                     FileName = image.StoredFileName,
                     OriginalFileName = Path.GetFileName(image.OriginalFileName),
                     RelativePath = image.RelativePath,
                     ContentType = string.IsNullOrWhiteSpace(image.ContentType) ? "application/octet-stream" : image.ContentType,
-                    SizeBytes = image.SizeBytes,
-                    CreatedDate = DateTime.Now
+                    SizeBytes = image.SizeBytes
                 });
             }
         }
@@ -465,6 +427,18 @@ namespace MEC.Portal.Controllers
             return string.Equals(status, "passive", StringComparison.OrdinalIgnoreCase)
                 ? "passive"
                 : "active";
+        }
+
+        private static AnnouncementCardViewModel MapAnnouncementCard(AnnouncementCardModel item)
+        {
+            return new AnnouncementCardViewModel
+            {
+                Id = item.Id,
+                Title = item.Title,
+                Summary = item.Summary,
+                CreatedDate = item.CreatedDate,
+                IsActive = item.IsActive
+            };
         }
 
         private static string BuildSummary(string? htmlContent)

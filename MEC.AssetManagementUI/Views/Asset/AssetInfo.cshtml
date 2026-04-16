@@ -86,6 +86,7 @@
 </style>
 
 <div class="container-fluid">
+    @Html.AntiForgeryToken()
 
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="h3 mb-0 text-gray-800">
@@ -439,23 +440,26 @@
 
 @section Scripts {
     <script>
-        // --- ORTAK DEĞİŞKENLER ---
         var assetId = '@Model.Id';
 
         $(document).ready(function () {
-            // Dropdown Mantığı (Aynı kalıyor)
-            // ... (Dropdown kodları burada varsayılıyor, önceki kodunuzdan alabilirsiniz) ...
-
-            // Açılışta hangi tab aktifse onu yükle
             if ($('#images-tab').hasClass('active')) loadAssetImages();
             if ($('#attachments-tab').hasClass('active')) loadAttachments();
         });
 
-        // ----------------------------------------------------
-        // --- BÖLÜM 1: DOKÜMAN / EK YÖNETİMİ (Attachment) ---
-        // ----------------------------------------------------
+        function getAntiForgeryToken() {
+            return $('input[name="__RequestVerificationToken"]').val();
+        }
 
-        // 1.1 Yükleme
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         async function uploadAttachment() {
             const fileInput = document.getElementById('attachmentInput');
             const file = fileInput.files[0];
@@ -469,35 +473,27 @@
             const formData = new FormData();
             formData.append('file', file);
             formData.append('assetId', assetId);
+            formData.append('__RequestVerificationToken', getAntiForgeryToken());
 
             statusDiv.innerHTML = '<span class="text-info"><i class="spinner-border spinner-border-sm"></i> Yükleniyor...</span>';
 
-            // API'ye Yükle
             try {
-                const apiResponse = await fetch('http://192.168.1.12:5051/api/Attachment/UploadAttachment', {
+                const response = await fetch('/Asset/UploadAttachment', {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    credentials: 'same-origin'
                 });
 
-                if (apiResponse.ok) {
-                    const result = await apiResponse.json();
-
-                    // Başarılı ise DB'ye Kaydet (MVC)
-                    $.post('/Asset/AddAttachment', { assetId: assetId, fileName: result.fileName }, function (dbRes) {
-                        if (dbRes.success) {
-                            statusDiv.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Yüklendi.</span>';
-                            fileInput.value = ''; // Inputu temizle
-                            Swal.fire({ icon: 'success', title: 'Başarılı', text: 'Doküman yüklendi.', timer: 1500, showConfirmButton: false });
-                            loadAttachments(); // Listeyi yenile
-                        } else {
-                            statusDiv.innerHTML = '<span class="text-warning">Dosya yüklendi fakat veritabanı kaydı başarısız.</span>';
-                        }
-                    });
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    statusDiv.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Yüklendi.</span>';
+                    fileInput.value = '';
+                    Swal.fire({ icon: 'success', title: 'Başarılı', text: 'Doküman yüklendi.', timer: 1500, showConfirmButton: false });
+                    loadAttachments();
 
                 } else {
-                    const errorText = await apiResponse.text();
                     statusDiv.innerHTML = '<span class="text-danger">Yükleme başarısız.</span>';
-                    Swal.fire('Hata', errorText || 'API hatası.', 'error');
+                    Swal.fire('Hata', result.message || 'Doküman yüklenemedi.', 'error');
                 }
             } catch (error) {
                 console.error(error);
@@ -505,39 +501,41 @@
             }
         }
 
-        // 1.2 Listeleme
         function loadAttachments() {
             const tableBody = $('#attachmentTableBody');
             tableBody.html('<tr><td colspan="3" class="text-center"><div class="spinner-border text-primary spinner-border-sm"></div> Yükleniyor...</td></tr>');
 
             $.ajax({
-                url: 'http://192.168.1.12:5051/api/Attachment/GetAttachmentList?assetId=' + assetId,
+                url: '/Asset/ListAssetAttachments',
                 type: 'GET',
+                data: { assetId: assetId },
                 success: function (response) {
                     if (response.success && response.files && response.files.length > 0) {
                         let html = '';
-                        $.each(response.files, function (index, fileName) {
-                            // İndirme URL'si
-                            let downloadUrl = `http://192.168.1.12:5051/api/Attachment/GetAttachment?assetId=${assetId}&fileName=${fileName}`;
+                        $.each(response.files, function (index, file) {
+                            const safeName = escapeHtml(file.fileName);
+                            const safeUrl = escapeHtml(file.url);
 
                             html += `
-                                        <tr>
-                                            <td>${index + 1}</td>
-                                            <td>
-                                                <span class="attachment-link" onclick="forceDownload('${downloadUrl}')">
-                                                    <i class="bi bi-file-earmark-text me-2"></i>${fileName}
-                                                </span>
-                                            </td>
-                                            <td class="text-end">
-                                                <button class="btn btn-sm btn-outline-primary me-1" onclick="forceDownload('${downloadUrl}')" title="İndir">
-                                                    <i class="bi bi-download"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteAttachment('${fileName}')" title="Sil">
-                                                    <i class="bi bi-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    `;
+                                <tr>
+                                    <td>${index + 1}</td>
+                                    <td>
+                                        <button type="button" class="attachment-link border-0 bg-transparent p-0 js-download-file"
+                                                data-url="${safeUrl}" data-filename="${safeName}">
+                                            <i class="bi bi-file-earmark-text me-2"></i>${safeName}
+                                        </button>
+                                    </td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-sm btn-outline-primary me-1 js-download-file"
+                                                data-url="${safeUrl}" data-filename="${safeName}" title="İndir">
+                                            <i class="bi bi-download"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-danger js-delete-attachment"
+                                                data-filename="${safeName}" title="Sil">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>`;
                         });
                         tableBody.html(html);
                     } else {
@@ -550,7 +548,6 @@
             });
         }
 
-        // 1.3 Silme
         function deleteAttachment(fileName) {
             Swal.fire({
                 title: 'Silinsin mi?',
@@ -561,23 +558,14 @@
                 confirmButtonText: 'Evet, Sil'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Önce DB'den sil
-                    $.post('/Asset/DeleteAttachment', { assetId: assetId, fileName: fileName }, function (dbRes) {
+                    $.post('/Asset/DeleteAttachment', {
+                        assetId: assetId,
+                        fileName: fileName,
+                        __RequestVerificationToken: getAntiForgeryToken()
+                    }, function (dbRes) {
                         if (dbRes.success) {
-                            // Sonra Diskten Sil (API)
-                            $.ajax({
-                                url: `http://192.168.1.12:5051/api/Attachment/DeleteAttachment?assetId=${assetId}&fileName=${encodeURIComponent(fileName)}`,
-                                type: 'DELETE',
-                                crossDomain: true,
-                                success: function () {
-                                    Swal.fire({ icon: 'success', title: 'Silindi', timer: 1500, showConfirmButton: false });
-                                    loadAttachments();
-                                },
-                                error: function (xhr) {
-                                    Swal.fire({ icon: 'warning', title: 'Kısmen Silindi', text: 'DB kaydı silindi ama diskten silinemedi.' });
-                                    loadAttachments();
-                                }
-                            });
+                            Swal.fire({ icon: 'success', title: 'Silindi', timer: 1500, showConfirmButton: false });
+                            loadAttachments();
                         } else {
                             Swal.fire('Hata', dbRes.message, 'error');
                         }
@@ -586,31 +574,28 @@
             });
         }
 
-        // ----------------------------------------------
-        // --- BÖLÜM 2: RESİM YÜKLEME / LİSTELEME ---
-        // ----------------------------------------------
-        // (Bu kısımlar önceki çalışan kodunuzun aynısıdır)
-
         function loadAssetImages() {
-            var apiUrl = 'http://192.168.1.12:5051/api/Image/GetImageList?assetId=' + assetId;
             var container = $('#imageGalleryContainer');
             container.html('<div class="col-12 text-center py-5"><div class="spinner-border text-primary"></div></div>');
 
             $.ajax({
-                url: apiUrl, type: 'GET',
+                url: '/Asset/ListAssetImages',
+                type: 'GET',
+                data: { assetId: assetId },
                 success: function (response) {
                     if (response.success && response.files && response.files.length > 0) {
                         var html = '';
-                        $.each(response.files, function (index, fileName) {
-                            var imgUrl = 'http://192.168.1.12:5051/api/Image/GetImage/' + assetId + '/' + fileName;
+                        $.each(response.files, function (index, file) {
+                            const safeName = escapeHtml(file.fileName);
+                            const safeUrl = escapeHtml(file.url);
                             html += `
                                          <div class="col-md-3 mb-3">
-                                             <div class="img-wrapper" onclick="showImageModal('${imgUrl}')">
+                                             <div class="img-wrapper js-show-image" data-url="${safeUrl}" data-filename="${safeName}">
                                                  <div style="height: 180px; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
-                                                     <img src="${imgUrl}" class="img-fluid" style="max-height: 100%; max-width: 100%;">
+                                                     <img src="${safeUrl}" class="img-fluid" style="max-height: 100%; max-width: 100%;" alt="${safeName}">
                                                  </div>
-                                                 <a href="javascript:void(0);" class="download-btn-overlay" onclick="event.stopPropagation(); forceDownload('${imgUrl}')"><i class="bi bi-download small"></i></a>
-                                                 <a href="javascript:void(0);" class="delete-btn-overlay" onclick="event.stopPropagation(); deleteAssetImage('${fileName}')"><i class="bi bi-trash-fill small"></i></a>
+                                                 <button type="button" class="download-btn-overlay border-0 js-download-file" data-url="${safeUrl}" data-filename="${safeName}"><i class="bi bi-download small"></i></button>
+                                                 <button type="button" class="delete-btn-overlay border-0 js-delete-image" data-filename="${safeName}"><i class="bi bi-trash-fill small"></i></button>
                                              </div>
                                          </div>`;
                         });
@@ -621,9 +606,9 @@
             });
         }
 
-        function showImageModal(url) {
+        function showImageModal(url, fileName) {
             $('#modalFullImage').attr('src', url);
-            $('#modalDownloadBtn').off('click').on('click', function (e) { e.preventDefault(); forceDownload(url); });
+            $('#modalDownloadBtn').off('click').on('click', function (e) { e.preventDefault(); forceDownload(url, fileName); });
             new bootstrap.Modal(document.getElementById('imageViewerModal')).show();
         }
 
@@ -631,44 +616,47 @@
             var file = this.files[0];
             if (!file) return;
             var formData = new FormData();
-            formData.append('File', file);
-            formData.append('AssetId', assetId);
+            formData.append('file', file);
+            formData.append('assetId', assetId);
+            formData.append('__RequestVerificationToken', getAntiForgeryToken());
             Swal.fire({ title: 'Yükleniyor...', didOpen: () => { Swal.showLoading() } });
 
             $.ajax({
-                url: 'http://192.168.1.12:5051/api/Image/Upload', type: 'POST', data: formData, processData: false, contentType: false,
+                url: '/Asset/UploadImage', type: 'POST', data: formData, processData: false, contentType: false,
                 success: function (res) {
                     if (res.success) {
-                        $.post('/Asset/AddImage', { assetId: assetId, fileName: res.fileName }, function (dbRes) {
-                            if (dbRes.success) { Swal.fire({ icon: 'success', title: 'Yüklendi', timer: 1500, showConfirmButton: false }); loadAssetImages(); }
-                        });
+                        Swal.fire({ icon: 'success', title: 'Yüklendi', timer: 1500, showConfirmButton: false });
+                        document.getElementById('imageInput').value = '';
+                        loadAssetImages();
+                    } else {
+                        Swal.fire('Hata', res.message || 'Resim yüklenemedi.', 'error');
                     }
                 },
-                error: function () { Swal.fire('Hata', 'API Hatası', 'error'); }
+                error: function () { Swal.fire('Hata', 'Resim yüklenemedi.', 'error'); }
             });
         });
 
         function deleteAssetImage(fileName) {
             Swal.fire({ title: 'Silinsin mi?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sil' }).then((r) => {
                 if (r.isConfirmed) {
-                    $.post('/Asset/DeleteImage', { assetId: assetId, fileName: fileName }, function (res) {
+                    $.post('/Asset/DeleteImage', {
+                        assetId: assetId,
+                        fileName: fileName,
+                        __RequestVerificationToken: getAntiForgeryToken()
+                    }, function (res) {
                         if (res.success) {
-                            $.ajax({
-                                url: `http://192.168.1.12:5051/api/Image/DeleteImage?assetId=${assetId}&fileName=${encodeURIComponent(fileName)}`,
-                                type: 'DELETE', crossDomain: true,
-                                success: function () { Swal.fire('Silindi', '', 'success'); loadAssetImages(); },
-                                error: function (xhr) { Swal.fire('Hata', 'Disk silme hatası: ' + xhr.status, 'warning'); loadAssetImages(); }
-                            });
+                            Swal.fire('Silindi', '', 'success');
+                            loadAssetImages();
+                        } else {
+                            Swal.fire('Hata', res.message || 'Resim silinemedi.', 'error');
                         }
                     });
                 }
             });
         }
 
-        // --- ORTAK İNDİRME FONKSİYONU ---
-        function forceDownload(url) {
-            var filename = url.substring(url.lastIndexOf('/') + 1);
-            filename = decodeURIComponent(filename);
+        function forceDownload(url, fileName) {
+            var filename = fileName || decodeURIComponent(url.substring(url.lastIndexOf('/') + 1));
             Swal.fire({ title: 'İndiriliyor...', timer: 1000, showConfirmButton: false, didOpen: () => { Swal.showLoading() } });
             fetch(url).then(r => r.blob()).then(blob => {
                 var u = window.URL.createObjectURL(blob);
@@ -677,7 +665,32 @@
             }).catch(e => Swal.fire('Hata', 'İndirilemedi', 'error'));
         }
 
-        // --- DİĞER FONKSİYONLAR (Zimmet, Dropdown vs.) ---
+        $(document).on('click', '.js-download-file', function (event) {
+            event.stopPropagation();
+            forceDownload($(this).data('url'), $(this).data('filename'));
+        });
+
+        $(document).on('click', '.js-delete-attachment', function () {
+            deleteAttachment($(this).data('filename'));
+        });
+
+        $(document).on('click', '.js-show-image', function () {
+            showImageModal($(this).data('url'), $(this).data('filename'));
+        });
+
+        $(document).on('click', '.js-delete-image', function (event) {
+            event.stopPropagation();
+            deleteAssetImage($(this).data('filename'));
+        });
+
         function setReturnModal(id) { document.getElementById('returnLoanId').value = id; }
+
+        function showActiveLoanError() {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Aktif zimmet var',
+                text: 'Bu demirbaş üzerinde aktif zimmet bulunduğu için yeni zimmetleme yapılamaz.'
+            });
+        }
     </script>
 }

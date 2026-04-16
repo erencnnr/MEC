@@ -1,4 +1,5 @@
-﻿using MEC.Application.Abstractions.Service.LoginService;
+﻿using MEC.Application.Abstractions.Service.EmployeeService;
+using MEC.Application.Abstractions.Service.LoginService;
 using MEC.Portal.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -11,22 +12,28 @@ namespace MEC.Portal.Controllers
     public class AccountController : Controller
     {
         private readonly ILoginService _loginService;
+        private readonly IEmployeePortalService _employeePortalService;
+        private readonly IConfiguration _configuration;
 
-        // Dependency Injection üzerinden servisin alınması
-        public AccountController(ILoginService loginService)
+        public AccountController(
+            ILoginService loginService,
+            IEmployeePortalService employeePortalService,
+            IConfiguration configuration)
         {
             _loginService = loginService;
+            _employeePortalService = employeePortalService;
+            _configuration = configuration;
         }
 
         [HttpGet]
         [AllowAnonymous]
         public IActionResult Login()
         {
-            if (User.Identity.IsAuthenticated)
+            if (User.Identity?.IsAuthenticated == true)
             {
-                // Portal'ın ana sayfasına yönlendirme
                 return RedirectToAction("Index", "Home");
             }
+
             return View();
         }
 
@@ -34,22 +41,39 @@ namespace MEC.Portal.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Login(LoginViewModel model)
         {
-            if (!ModelState.IsValid) return View(model);
-            
-            bool isAuthenticated = false;
-            if (model.Email == "admin" && model.Password == "1234")
+            if (!ModelState.IsValid)
             {
-                 isAuthenticated = true;
+                return View(model);
             }
-            //bool isAuthenticated = await _loginService.ValidateUserAsync(email,password);
 
+            bool isAuthenticated = await _loginService.ValidateUserAsync(model.Email, model.Password);
+            
             if (isAuthenticated)
             {
+                var portalUser = await _employeePortalService.GetActivePortalUserByEmailAsync(model.Email);
+
                 var claims = new List<Claim>
                 {
-                    new Claim(ClaimTypes.Name, model.Email),
-                    new Claim(ClaimTypes.Role, "Admin")
+                    new(ClaimTypes.Name, model.Email)
                 };
+
+                if (portalUser != null)
+                {
+                    if (portalUser.IsAdmin)
+                    {
+                        claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(portalUser.FirstName))
+                    {
+                        claims.Add(new Claim(ClaimTypes.GivenName, portalUser.FirstName.Trim()));
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(portalUser.LastName))
+                    {
+                        claims.Add(new Claim(ClaimTypes.Surname, portalUser.LastName.Trim()));
+                    }
+                }
 
                 var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 

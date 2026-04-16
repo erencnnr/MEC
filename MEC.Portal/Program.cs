@@ -47,10 +47,13 @@ try
             .Build();
         options.Filters.Add(new AuthorizeFilter(policy));
     });
+    builder.Services.AddMemoryCache();
 
     builder.Services.AddScoped<ILoginService, LoginService>();
     builder.Services.AddScoped<IEmployeePortalService, EmployeePortalService>();
     builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
+    builder.Services.AddScoped<ILibraryService, LibraryService>();
+    builder.Services.AddScoped<ISliderService, SliderService>();
     builder.Services.AddScoped<IEmailService, EmailService>();
     builder.Services.AddScoped<ILeaveService, LeaveService>();
     builder.Services.AddScoped<IApiLogService, ApiLogService>();
@@ -101,6 +104,17 @@ try
     });
 
     builder.Services.AddHttpClient<ILibraryAttachmentApiClient, LibraryAttachmentApiClient>((serviceProvider, client) =>
+    {
+        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var baseUrl = configuration["WebApi:BaseUrl"];
+
+        if (!string.IsNullOrWhiteSpace(baseUrl))
+        {
+            client.BaseAddress = new Uri(baseUrl);
+        }
+    });
+
+    builder.Services.AddHttpClient<IPortalUserSyncApiClient, PortalUserSyncApiClient>((serviceProvider, client) =>
     {
         var configuration = serviceProvider.GetRequiredService<IConfiguration>();
         var baseUrl = configuration["WebApi:BaseUrl"];

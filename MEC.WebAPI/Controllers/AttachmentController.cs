@@ -130,7 +130,8 @@ namespace MEC.WebAPI.Controllers
                     fileName = sanitizedFileName,
                     scope = normalizedScope,
                     entityId,
-                    relativePath = Path.Combine(normalizedScope, entityId.ToString(), sanitizedFileName).Replace("\\", "/")
+                    relativePath = Path.Combine(normalizedScope, entityId.ToString(), sanitizedFileName).Replace("\\", "/"),
+                    contentType = GetContentType(filePath)
                 });
             }
             catch (Exception ex)

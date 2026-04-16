@@ -12,6 +12,10 @@
         var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
         var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
         var currentPath = ViewContext.HttpContext.Request.Path.Value ?? string.Empty;
+        var givenName = User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value;
+        var surname = User.FindFirst(System.Security.Claims.ClaimTypes.Surname)?.Value;
+        var fullName = string.Join(" ", new[] { givenName, surname }.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
+        var welcomeName = !string.IsNullOrWhiteSpace(fullName) ? fullName : (User.Identity?.Name ?? "Kullanici");
 
         var isAdminAnnouncementPage = currentPath.StartsWith("/Admin/Announcements", StringComparison.OrdinalIgnoreCase);
         var isAdminLeaveRequestsPage = currentPath.Equals("/Admin/LeaveRequests", StringComparison.OrdinalIgnoreCase) ||
@@ -113,23 +117,23 @@
                                         <a class="portal-header__nav-dropdown-item @(isAdminAnnouncementPage ? "is-active" : string.Empty)" asp-controller="Announcement" asp-action="Index">Duyuru Yönetimi</a>
                                         <a class="portal-header__nav-dropdown-item @(isAdminContentPage ? "is-active" : string.Empty)" asp-controller="Content" asp-action="Index">İçerik Yönetimi</a>
 
-                                        <div class="portal-header__nav-submenu @(isAdminLeavePage ? "is-active" : string.Empty)">
-                                            <button class="portal-header__nav-dropdown-item portal-header__nav-submenu-toggle @(isAdminLeavePage ? "is-active" : string.Empty)" type="button">
+                                        <div class="portal-header__nav-submenu">
+                                            <button class="portal-header__nav-dropdown-item portal-header__nav-submenu-toggle" type="button">
                                                 İzinler
                                             </button>
                                             <div class="portal-header__nav-submenu-menu">
-                                                <a class="portal-header__nav-submenu-item @(isAdminLeaveRequestsPage ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="LeaveRequests">İzin Talepleri</a>
-                                                <a class="portal-header__nav-submenu-item @(isAdminLeaveReportPage ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="LeaveReport">İzin Raporu</a>
+                                                <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveRequests">İzin Talepleri</a>
+                                                <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveReport">İzin Raporu</a>
                                             </div>
                                         </div>
 
-                                        <div class="portal-header__nav-submenu @(isAdminSettingsPage ? "is-active" : string.Empty)">
-                                            <button class="portal-header__nav-dropdown-item portal-header__nav-submenu-toggle @(isAdminSettingsPage ? "is-active" : string.Empty)" type="button">
+                                        <div class="portal-header__nav-submenu">
+                                            <button class="portal-header__nav-dropdown-item portal-header__nav-submenu-toggle" type="button">
                                                 Ayarlar
                                             </button>
                                             <div class="portal-header__nav-submenu-menu">
-                                                <a class="portal-header__nav-submenu-item @(isAdminPortalUsersPage ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="PortalUsers">Portal Kullanıcıları</a>
-                                                <a class="portal-header__nav-submenu-item @(isAdminSliderPage ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="Slider">Slider</a>
+                                                <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="PortalUsers">Portal Kullanıcıları</a>
+                                                <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="Slider">Slider</a>
                                             </div>
                                         </div>
                                     </div>
@@ -138,7 +142,7 @@
                         </div>
 
                         <div class="portal-header__actions">
-                            <span class="portal-header__welcome">Hoş geldiniz, @User.Identity?.Name</span>
+                            <span class="portal-header__welcome">Ho&#351; geldiniz, @welcomeName</span>
                             <a class="portal-header__button portal-header__button--ghost" asp-controller="Account" asp-action="Logout">Çıkış Yap</a>
                         </div>
                     </div>
@@ -159,3 +163,5 @@
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
+
+

@@ -1,12 +1,14 @@
 using System.Globalization;
-using MEC.DAL.Config.Abstractions.Common;
+using ClosedXML.Excel;
+using MEC.Application.Abstractions.Service.LeaveService;
+using MEC.Application.Abstractions.Service.LeaveService.Model;
 using MEC.Domain.Common;
 using MEC.Domain.Common.Enum;
-using MEC.Domain.Entity.Employee;
 using MEC.Domain.Entity.Leave;
 using MEC.Portal.Models;
 using MEC.Portal.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace MEC.Portal.Controllers
 {
@@ -14,6 +16,9 @@ namespace MEC.Portal.Controllers
     {
         private const int DefaultPageSize = 10;
         private const long MaxAttachmentSizeBytes = 10 * 1024 * 1024;
+        private const long MaxBulkLeaveUploadSizeBytes = 10 * 1024 * 1024;
+        private const string BulkLeaveUploadMethodName = "BulkLeaveUpload";
+        private const string BulkLeaveErrorReportCachePrefix = "bulk-leave-error-report:";
 
         private static readonly string[] SupportedDateFormats =
         {
@@ -39,21 +44,18 @@ namespace MEC.Portal.Controllers
             ".xlsx"
         };
 
-        private readonly IGenericRepository<Leave> _leaveRepository;
-        private readonly IGenericRepository<Employee> _employeeRepository;
-        private readonly IGenericRepository<LeaveType> _leaveTypeRepository;
         private readonly IAttachmentApiClient _attachmentApiClient;
+        private readonly ILeaveService _leaveService;
+        private readonly IMemoryCache _memoryCache;
 
         public LeaveController(
-            IGenericRepository<Leave> leaveRepository,
-            IGenericRepository<Employee> employeeRepository,
-            IGenericRepository<LeaveType> leaveTypeRepository,
-            IAttachmentApiClient attachmentApiClient)
+            IAttachmentApiClient attachmentApiClient,
+            ILeaveService leaveService,
+            IMemoryCache memoryCache)
         {
-            _leaveRepository = leaveRepository;
-            _employeeRepository = employeeRepository;
-            _leaveTypeRepository = leaveTypeRepository;
             _attachmentApiClient = attachmentApiClient;
+            _leaveService = leaveService;
+            _memoryCache = memoryCache;
         }
 
         [HttpGet]
@@ -81,69 +83,36 @@ namespace MEC.Portal.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            var currentYear = DateTime.Today.Year;
-            var selectedSort = string.Equals(sort, "created_asc", StringComparison.OrdinalIgnoreCase)
-                ? "created_asc"
-                : "created_desc";
-            var leaveTypeOptions = await GetActiveLeaveTypeOptionsAsync();
-
-            var employee = (await _employeeRepository.GetAllAsync(x => x.Email == userEmail && !x.IsDeleted)).FirstOrDefault();
-            if (employee == null)
+            var result = await _leaveService.GetLeaveHistoryAsync(new LeaveHistoryQueryModel
             {
-                ViewBag.Error = "Kullanıcı kaydı bulunamadı.";
-                return View(CreateEmptyHistoryViewModel(currentYear, status, leaveTypeId, selectedSort, leaveTypeOptions));
-            }
+                UserEmail = userEmail,
+                Year = year,
+                Status = status,
+                LeaveTypeId = leaveTypeId,
+                Sort = sort,
+                Page = page,
+                PageSize = DefaultPageSize
+            });
 
-            var employeeLeaves = (await _leaveRepository.GetAllAsync(x => x.EmployeeId == employee.Id, x => x.LeaveType))
-                .OrderByDescending(x => x.CreatedDate)
-                .ThenByDescending(x => x.Id)
-                .ToList();
-
-            var allItems = employeeLeaves.Select(MapLeaveHistoryItem).ToList();
-            var filteredItems = allItems.AsEnumerable();
-
-            if (year.HasValue)
+            if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
             {
-                filteredItems = filteredItems.Where(x => x.StartDate.Year == year.Value || x.EndDate.Year == year.Value);
+                ViewBag.Error = result.ErrorMessage;
             }
-
-            if (status.HasValue)
-            {
-                filteredItems = filteredItems.Where(x => x.Status == status.Value);
-            }
-
-            if (leaveTypeId.HasValue)
-            {
-                filteredItems = filteredItems.Where(x => x.LeaveTypeId == leaveTypeId.Value);
-            }
-
-            filteredItems = selectedSort == "created_asc"
-                ? filteredItems.OrderBy(x => x.CreatedDate ?? DateTime.MinValue).ThenBy(x => x.Id)
-                : filteredItems.OrderByDescending(x => x.CreatedDate ?? DateTime.MinValue).ThenByDescending(x => x.Id);
-
-            var totalCount = filteredItems.Count();
-            var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)DefaultPageSize));
-            var currentPage = Math.Min(Math.Max(page, 1), totalPages);
-
-            var pagedItems = filteredItems
-                .Skip((currentPage - 1) * DefaultPageSize)
-                .Take(DefaultPageSize)
-                .ToList();
 
             var historyViewModel = new LeaveHistoryViewModel
             {
-                LeaveHistory = pagedItems,
-                YearOptions = CreateYearOptions(employeeLeaves, currentYear),
-                LeaveTypeOptions = leaveTypeOptions,
-                StatusOptions = CreateStatusOptions(),
-                SelectedYear = year,
-                SelectedStatus = status,
-                SelectedLeaveTypeId = leaveTypeId,
-                SelectedSort = selectedSort,
-                CurrentPage = currentPage,
-                TotalPages = totalPages,
-                TotalCount = totalCount,
-                PageSize = DefaultPageSize
+                LeaveHistory = result.Items.Select(MapLeaveHistoryItem).ToList(),
+                YearOptions = result.YearOptions,
+                LeaveTypeOptions = result.LeaveTypeOptions.Select(MapLeaveTypeOption).ToList(),
+                StatusOptions = result.StatusOptions.Select(MapLeaveStatusOption).ToList(),
+                SelectedYear = result.SelectedYear,
+                SelectedStatus = result.SelectedStatus,
+                SelectedLeaveTypeId = result.SelectedLeaveTypeId,
+                SelectedSort = result.SelectedSort,
+                CurrentPage = result.CurrentPage,
+                TotalPages = result.TotalPages,
+                TotalCount = result.TotalCount,
+                PageSize = result.PageSize
             };
 
             return View(historyViewModel);
@@ -158,13 +127,7 @@ namespace MEC.Portal.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            var employee = (await _employeeRepository.GetAllAsync(x => x.Email == userEmail && !x.IsDeleted)).FirstOrDefault();
-            if (employee == null)
-            {
-                return RedirectToAction(nameof(History));
-            }
-
-            var leave = (await _leaveRepository.GetAllAsync(x => x.EmployeeId == employee.Id && x.Id == id, x => x.LeaveType)).FirstOrDefault();
+            var leave = await _leaveService.GetLeaveHistoryDetailAsync(userEmail, id);
             if (leave == null)
             {
                 return NotFound();
@@ -192,47 +155,32 @@ namespace MEC.Portal.Controllers
                 ModelState.AddModelError(nameof(model.EndDate), "Bitiş tarihi geçersiz.");
             }
 
-            if (ModelState.IsValid && endDate < startDate)
-            {
-                ModelState.AddModelError(nameof(model.EndDate), "Bitiş tarihi başlangıç tarihinden önce olamaz.");
-            }
-
-            if (ModelState.IsValid && !LeaveDurationCalculator.IsWithinWorkingHours(startDate))
-            {
-                ModelState.AddModelError(nameof(model.StartDate), "Başlangıç saati 09:00 ile 18:00 arasında olmalıdır.");
-            }
-
-            if (ModelState.IsValid && !LeaveDurationCalculator.IsWithinWorkingHours(endDate))
-            {
-                ModelState.AddModelError(nameof(model.EndDate), "Bitiş saati 09:00 ile 18:00 arasında olmalıdır.");
-            }
-
+            LeaveRequestValidationModel? validation = null;
             if (ModelState.IsValid)
             {
-                model.RequestedDays = LeaveDurationCalculator.CalculateRequestedDays(startDate, endDate);
-
-                if (model.RequestedDays <= 0)
+                validation = await _leaveService.ValidateLeaveRequestAsync(new LeaveRequestCreateModel
                 {
-                    ModelState.AddModelError(nameof(model.EndDate), "Seçilen tarih ve saat aralığı için kullanılabilir izin günü hesaplanamadı.");
-                }
-            }
+                    UserEmail = User.Identity?.Name ?? string.Empty,
+                    StartDate = startDate,
+                    EndDate = endDate,
+                    LeaveTypeId = model.LeaveTypeId ?? 0,
+                    Reason = model.Reason
+                });
 
-            if (string.IsNullOrWhiteSpace(model.Reason))
-            {
-                ModelState.AddModelError(nameof(model.Reason), "İzin nedeni zorunludur.");
-            }
+                model.RequestedDays = validation.RequestedDays;
 
-            LeaveTypeOptionViewModel? selectedLeaveType = null;
-            if (!model.LeaveTypeId.HasValue || model.LeaveTypeId.Value <= 0)
-            {
-                ModelState.AddModelError(nameof(model.LeaveTypeId), "Geçerli bir izin türü seçiniz.");
-            }
-            else
-            {
-                selectedLeaveType = model.LeaveTypes.FirstOrDefault(x => x.Id == model.LeaveTypeId.Value);
-                if (selectedLeaveType == null)
+                foreach (var fieldError in validation.FieldErrors)
                 {
-                    ModelState.AddModelError(nameof(model.LeaveTypeId), "Geçerli bir izin türü seçiniz.");
+                    var fieldName = fieldError.Key switch
+                    {
+                        "StartDate" => nameof(model.StartDate),
+                        "EndDate" => nameof(model.EndDate),
+                        "Reason" => nameof(model.Reason),
+                        "LeaveTypeId" => nameof(model.LeaveTypeId),
+                        _ => string.Empty
+                    };
+
+                    ModelState.AddModelError(fieldName, fieldError.Value);
                 }
             }
 
@@ -261,55 +209,147 @@ namespace MEC.Portal.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            var employee = (await _employeeRepository.GetAllAsync(x => x.Email == userEmail && !x.IsDeleted)).FirstOrDefault();
-            if (employee == null)
+            var createResult = await _leaveService.CreateLeaveRequestAsync(new LeaveRequestCreateModel
             {
-                ModelState.AddModelError(string.Empty, "Kullanıcı kaydı bulunamadı.");
+                UserEmail = userEmail,
+                StartDate = startDate,
+                EndDate = endDate,
+                LeaveTypeId = model.LeaveTypeId ?? 0,
+                RequestedDays = model.RequestedDays,
+                Reason = model.Reason
+            });
+
+            if (!createResult.IsSuccess || createResult.Data == null)
+            {
+                ModelState.AddModelError(string.Empty, createResult.Message);
                 return View(model);
             }
 
-            var leaveRequest = new Leave
-            {
-                EmployeeId = employee.Id,
-                StartDate = startDate,
-                EndDate = endDate,
-                LeaveTypeId = selectedLeaveType!.Id,
-                RequestedDays = model.RequestedDays,
-                Reason = model.Reason.Trim(),
-                Status = (int)LeaveStatus.Pending,
-                CreatedDate = DateTime.Now
-            };
-
-            await _leaveRepository.AddAsync(leaveRequest);
-
             if (model.Attachment != null && model.Attachment.Length > 0)
             {
-                var uploadResult = await _attachmentApiClient.UploadLeaveAttachmentAsync(leaveRequest.Id, model.Attachment);
+                var uploadResult = await _attachmentApiClient.UploadLeaveAttachmentAsync(createResult.Data.LeaveId, model.Attachment);
                 if (!uploadResult.IsSuccess)
                 {
-                    _leaveRepository.Delete(leaveRequest);
+                    await _leaveService.DeleteLeaveAsync(createResult.Data.LeaveId);
                     ModelState.AddModelError(nameof(model.Attachment), "Ek dosya yüklenemedi. " + uploadResult.Message);
                     return View(model);
                 }
             }
 
-            TempData["LeaveSuccess"] = "İzin talebiniz başarıyla gönderildi.";
+            TempData["LeaveSuccess"] = createResult.Message;
             return RedirectToAction(nameof(RequestLeave));
+        }
+
+        [HttpPost("/Leave/BulkLeaveUpload")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BulkLeaveUpload(IFormFile? file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return Json(CreateBulkLeaveResponse(false, "danger", "Yüklenecek Excel dosyası seçiniz.", 0, 0, null, Array.Empty<BulkLeaveUpdatedUserModel>()));
+            }
+
+            if (file.Length > MaxBulkLeaveUploadSizeBytes)
+            {
+                return Json(CreateBulkLeaveResponse(false, "danger", "Excel dosyası 10 MB sınırını aşamaz.", 0, 0, null, Array.Empty<BulkLeaveUpdatedUserModel>()));
+            }
+
+            var extension = Path.GetExtension(file.FileName);
+            if (!string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                return Json(CreateBulkLeaveResponse(false, "danger", "Sadece .xlsx uzantılı Excel dosyası yükleyebilirsiniz.", 0, 0, null, Array.Empty<BulkLeaveUpdatedUserModel>()));
+            }
+
+            using var stream = file.OpenReadStream();
+            var result = await _leaveService.BulkUploadLeaveDaysAsync(new BulkLeaveUploadRequestModel
+            {
+                ExcelStream = stream,
+                CurrentUser = User.Identity?.Name ?? "anonymous",
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                MethodName = BulkLeaveUploadMethodName
+            });
+
+            var errorReportUrl = result.FailedRows.Count > 0
+                ? CreateBulkLeaveErrorReportUrl(result.FailedRows)
+                : null;
+
+            return Json(CreateBulkLeaveResponse(result, errorReportUrl));
+        }
+
+        [HttpGet("/Leave/BulkLeaveUpload/ErrorReport/{token}")]
+        public IActionResult DownloadBulkLeaveErrorReport(string token)
+        {
+            if (string.IsNullOrWhiteSpace(token) ||
+                !_memoryCache.TryGetValue(GetBulkLeaveErrorReportCacheKey(token), out byte[]? reportBytes) ||
+                reportBytes == null)
+            {
+                return NotFound();
+            }
+
+            var fileName = $"toplu-izin-hata-raporu-{DateTime.Now:yyyyMMdd-HHmm}.xlsx";
+            return File(
+                reportBytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                fileName);
+        }
+
+        [HttpGet("/Leave/BulkLeaveUpload/Template")]
+        public IActionResult DownloadBulkLeaveUploadTemplate()
+        {
+            var templateBytes = CreateBulkLeaveUploadTemplate();
+
+            return File(
+                templateBytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "toplu-izin-yukleme-sablonu.xlsx");
         }
 
         private async Task<List<LeaveTypeOptionViewModel>> GetActiveLeaveTypeOptionsAsync()
         {
-            var leaveTypes = await _leaveTypeRepository.GetAllAsync(x => x.IsActive);
+            var leaveTypes = await _leaveService.GetActiveLeaveTypeOptionsAsync();
 
             return leaveTypes
-                .OrderBy(x => x.Id)
-                .Select(x => new LeaveTypeOptionViewModel
-                {
-                    Id = x.Id,
-                    Name = x.Name,
-                    Code = x.Code
-                })
+                .Select(MapLeaveTypeOption)
                 .ToList();
+        }
+
+        private static LeaveTypeOptionViewModel MapLeaveTypeOption(LeaveTypeOptionModel option)
+        {
+            return new LeaveTypeOptionViewModel
+            {
+                Id = option.Id,
+                Name = option.Name,
+                Code = option.Code
+            };
+        }
+
+        private static LeaveStatusFilterOptionViewModel MapLeaveStatusOption(LeaveStatusOptionModel option)
+        {
+            return new LeaveStatusFilterOptionViewModel
+            {
+                Value = option.Value,
+                Label = option.Label
+            };
+        }
+
+        private static LeaveHistoryItemViewModel MapLeaveHistoryItem(LeaveHistoryItemModel item)
+        {
+            return new LeaveHistoryItemViewModel
+            {
+                Id = item.Id,
+                LeaveTypeId = item.LeaveTypeId,
+                LeaveType = item.LeaveType,
+                StartDate = item.StartDate,
+                EndDate = item.EndDate,
+                RequestedDays = item.RequestedDays,
+                Reason = item.Reason,
+                Status = item.Status,
+                RemainingLeaveDays = item.RemainingLeaveDays,
+                CreatedDate = item.CreatedDate,
+                StatusLabel = item.StatusLabel,
+                StatusTone = item.StatusTone,
+                DecisionDisplay = item.DecisionDisplay
+            };
         }
 
         private static LeaveHistoryViewModel CreateEmptyHistoryViewModel(
@@ -458,5 +498,126 @@ namespace MEC.Portal.Controllers
 
             return leave.Status == (int)LeaveStatus.Pending ? "-" : "Belirtilmedi";
         }
+
+        private string CreateBulkLeaveErrorReportUrl(IReadOnlyCollection<BulkLeaveUploadErrorRowModel> errorRows)
+        {
+            var token = Guid.NewGuid().ToString("N");
+            var reportBytes = CreateBulkLeaveErrorReport(errorRows);
+
+            _memoryCache.Set(
+                GetBulkLeaveErrorReportCacheKey(token),
+                reportBytes,
+                new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15)
+                });
+
+            return $"/Leave/BulkLeaveUpload/ErrorReport/{Uri.EscapeDataString(token)}";
+        }
+
+        private static byte[] CreateBulkLeaveErrorReport(IReadOnlyCollection<BulkLeaveUploadErrorRowModel> errorRows)
+        {
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Hatalı Satırlar");
+
+            worksheet.Cell(1, 1).Value = "Satır No";
+            worksheet.Cell(1, 2).Value = "Email";
+            worksheet.Cell(1, 3).Value = "Eklenecek İzin Gün Sayısı";
+            worksheet.Cell(1, 4).Value = "Açıklama";
+            worksheet.Cell(1, 5).Value = "Hata Nedeni";
+
+            var headerRange = worksheet.Range(1, 1, 1, 5);
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#fff4d6");
+            headerRange.Style.Font.FontColor = XLColor.FromHtml("#18285c");
+
+            var rowIndex = 2;
+            foreach (var errorRow in errorRows)
+            {
+                worksheet.Cell(rowIndex, 1).Value = errorRow.RowNumber;
+                worksheet.Cell(rowIndex, 2).Value = errorRow.Email;
+                worksheet.Cell(rowIndex, 3).Value = errorRow.RawDays;
+                worksheet.Cell(rowIndex, 4).Value = errorRow.Description;
+                worksheet.Cell(rowIndex, 5).Value = errorRow.ErrorMessage;
+                rowIndex++;
+            }
+
+            worksheet.Columns().AdjustToContents();
+            worksheet.SheetView.FreezeRows(1);
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            return stream.ToArray();
+        }
+
+        private static byte[] CreateBulkLeaveUploadTemplate()
+        {
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Toplu İzin Yükleme");
+
+            worksheet.Cell(1, 1).Value = "email";
+            worksheet.Cell(1, 2).Value = "eklenecek izin gün sayısı";
+            worksheet.Cell(1, 3).Value = "açıklama";
+
+            worksheet.Cell(2, 1).Value = "ornek@domain.com";
+            worksheet.Cell(2, 2).Value = 1.5;
+            worksheet.Cell(2, 3).Value = "Açıklama örneği";
+
+            var headerRange = worksheet.Range(1, 1, 1, 3);
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#e9f7ef");
+            headerRange.Style.Font.FontColor = XLColor.FromHtml("#18285c");
+
+            worksheet.Column(2).Style.NumberFormat.Format = "0.##";
+            worksheet.Columns().AdjustToContents();
+            worksheet.SheetView.FreezeRows(1);
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            return stream.ToArray();
+        }
+
+        private static string GetBulkLeaveErrorReportCacheKey(string token)
+        {
+            return BulkLeaveErrorReportCachePrefix + token;
+        }
+
+        private static object CreateBulkLeaveResponse(
+            bool success,
+            string level,
+            string message,
+            int updatedCount,
+            int failedCount,
+            string? errorReportUrl,
+            IReadOnlyCollection<BulkLeaveUpdatedUserModel> updatedUsers)
+        {
+            return new
+            {
+                success,
+                level,
+                message,
+                updatedCount,
+                failedCount,
+                errorReportUrl,
+                updatedUsers = updatedUsers.Select(x => new
+                {
+                    email = x.Email,
+                    newLeaveDays = x.NewLeaveDays
+                })
+            };
+        }
+
+        private static object CreateBulkLeaveResponse(BulkLeaveUploadResultModel result, string? errorReportUrl)
+        {
+            return CreateBulkLeaveResponse(
+                result.Success,
+                result.Level,
+                result.Message,
+                result.UpdatedCount,
+                result.FailedCount,
+                errorReportUrl,
+                result.UpdatedUsers);
+        }
+
     }
 }

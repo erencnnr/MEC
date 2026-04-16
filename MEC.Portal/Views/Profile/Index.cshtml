@@ -5,7 +5,6 @@
     ViewData["Title"] = "Profilim";
     const decimal annualLeaveAllowance = 14m;
     var profile = Model?.Profile;
-    var usedLeaveDays = profile == null ? 0m : annualLeaveAllowance - profile.LeaveDays;
     var fullName = profile == null ? "Kullanıcı" : $"{profile.FirstName} {profile.LastName}";
 
     string FormatLeaveDays(decimal value)
@@ -51,23 +50,6 @@
                 </div>
             }
 
-            <div class="profile-metrics">
-                <article class="profile-metric">
-                    <span class="profile-metric__label">Yıllık İzin Hakkı</span>
-                    <strong>@FormatLeaveDays(annualLeaveAllowance) Gün</strong>
-                </article>
-
-                <article class="profile-metric">
-                    <span class="profile-metric__label">Kullanılan İzin</span>
-                    <strong>@FormatLeaveDays(usedLeaveDays) Gün</strong>
-                </article>
-
-                <article class="profile-metric">
-                    <span class="profile-metric__label">Kalan İzin</span>
-                    <strong>@FormatLeaveDays(profile.LeaveDays) Gün</strong>
-                </article>
-            </div>
-
             <div class="profile-card">
                 <div class="profile-card__header">
                     <span class="profile-card__eyebrow">Bilgiler</span>
@@ -103,6 +85,16 @@
                     <div class="profile-field">
                         <span>Durum</span>
                         <strong>Aktif Çalışan</strong>
+                    </div>
+
+                    <div class="profile-field">
+                        <span>Yıllık İzin Hakkı</span>
+                        <strong>@FormatLeaveDays(annualLeaveAllowance) Gün</strong>
+                    </div>
+
+                    <div class="profile-field">
+                        <span>Kalan İzin</span>
+                        <strong>@FormatLeaveDays(profile.LeaveDays) Gün</strong>
                     </div>
                 </div>
             </div>

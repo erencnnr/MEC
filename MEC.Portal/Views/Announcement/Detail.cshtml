@@ -16,19 +16,18 @@
             <a class="announcement-detail-v2-back"
                asp-controller="@backController"
                asp-action="@backAction">
-                Tum duyurulara don
+                Tüm duyurulara dön
             </a>
         </div>
 
         <div class="announcement-detail-v2-layout">
             <article class="announcement-detail-v2-main">
                 <div class="announcement-detail-v2-hero">
-                    <span class="announcement-detail-v2-hero__eyebrow">Kurumsal duyuru</span>
                     <h1>@Model.Title</h1>
 
                     <div class="announcement-detail-v2-meta">
-                        <span>Yayinlanma Tarihi: @(Model.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</span>
-                        <span>Guncellenme Tarihi: @(Model.UpdatedDate?.ToString("dd.MM.yyyy") ?? Model.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</span>
+                        <span>Yayınlanma Tarihi: @(Model.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</span>
+                        <span>Güncellenme Tarihi: @(Model.UpdatedDate?.ToString("dd.MM.yyyy") ?? Model.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</span>
                     </div>
                 </div>
 
@@ -76,7 +75,7 @@
 
             <aside class="announcement-detail-v2-side">
                 <div class="announcement-detail-v2-side__card">
-                    <h3>Diger Duyurular</h3>
+                    <h3>Diğer Duyurular</h3>
 
                     <div class="announcement-detail-v2-related">
                         @foreach (var relatedItem in Model.RelatedAnnouncements)
@@ -97,7 +96,7 @@
                     <a class="announcement-detail-v2-side__action"
                        asp-controller="@backController"
                        asp-action="@backAction">
-                        Tum Duyurular
+                        Tüm Duyurular
                     </a>
                 </div>
             </aside>

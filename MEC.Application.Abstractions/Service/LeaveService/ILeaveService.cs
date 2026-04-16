@@ -1,6 +1,6 @@
+using MEC.Application.Abstractions.Common.Models;
+using MEC.Application.Abstractions.Service.LeaveService.Model;
 using MEC.Domain.Entity.Leave;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace MEC.Application.Abstractions.Service.LeaveService
 {
@@ -8,5 +8,18 @@ namespace MEC.Application.Abstractions.Service.LeaveService
     {
         Task<List<Leave>> GetAllLeavesAsync();
         Task<bool> UpdateLeaveStatusAsync(int leaveId, int status);
+        Task<BulkLeaveUploadResultModel> BulkUploadLeaveDaysAsync(BulkLeaveUploadRequestModel request);
+        Task<List<LeaveTypeOptionModel>> GetActiveLeaveTypeOptionsAsync();
+        Task<LeaveRequestValidationModel> ValidateLeaveRequestAsync(LeaveRequestCreateModel request);
+        Task<OperationResultModel<LeaveRequestCreateResultModel>> CreateLeaveRequestAsync(LeaveRequestCreateModel request);
+        Task DeleteLeaveAsync(int id);
+        Task<LeaveHistoryResultModel> GetLeaveHistoryAsync(LeaveHistoryQueryModel query);
+        Task<LeaveHistoryItemModel?> GetLeaveHistoryDetailAsync(string userEmail, int leaveId);
+        Task<PagedResultModel<AdminLeaveRequestItemModel>> GetAdminLeaveRequestsAsync(AdminLeaveRequestListQueryModel query);
+        Task<AdminLeaveRequestItemModel?> GetAdminLeaveRequestDetailAsync(int id);
+        Task<AdminLeaveReportResultModel> GetAdminLeaveReportAsync(AdminLeaveReportQueryModel query);
+        Task<LeaveReportExportModel> ExportAdminLeaveReportAsync(AdminLeaveReportQueryModel query);
+        Task<OperationResultModel> UpdateLeaveStatusWithLogAsync(LeaveStatusUpdateRequestModel request);
+        Task<AdminDashboardModel> GetAdminDashboardAsync(string adminName);
     }
 }

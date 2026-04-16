@@ -1,6 +1,4 @@
 using MEC.Application.Abstractions.Service.SchoolService;
-using MEC.DAL.Config.Abstractions.Common;
-using MEC.Domain.Entity.School;
 using MEC.Portal.Models;
 using MEC.Portal.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -13,18 +11,18 @@ namespace MEC.Portal.Controllers
     {
         private readonly ILogger<HomeController> _logger;
         private readonly IAnnouncementService _announcementService;
-        private readonly IGenericRepository<SliderImage> _sliderImageRepository;
+        private readonly ISliderService _sliderService;
         private readonly ISliderImageApiClient _sliderImageApiClient;
 
         public HomeController(
             ILogger<HomeController> logger,
             IAnnouncementService announcementService,
-            IGenericRepository<SliderImage> sliderImageRepository,
+            ISliderService sliderService,
             ISliderImageApiClient sliderImageApiClient)
         {
             _logger = logger;
             _announcementService = announcementService;
-            _sliderImageRepository = sliderImageRepository;
+            _sliderService = sliderService;
             _sliderImageApiClient = sliderImageApiClient;
         }
 
@@ -34,9 +32,7 @@ namespace MEC.Portal.Controllers
                 .OrderByDescending(x => x.CreatedDate)
                 .ToList();
 
-            var sliderItems = (await _sliderImageRepository.GetAllAsync())
-                .OrderBy(x => x.DisplayOrder)
-                .ThenBy(x => x.CreatedDate)
+            var sliderItems = (await _sliderService.GetSliderImagesAsync())
                 .Select(x => new HomeSliderItemViewModel
                 {
                     Id = x.Id,

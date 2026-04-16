@@ -19,6 +19,7 @@ using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.LoginService;
 using MEC.Application.Abstractions.Service.ServiceHistoryService;
 using MEC.Application.Service.ServiceHistoryService;
+using MEC.AssetManagementUI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 var environment = builder.Configuration["AppSettings:Environment"];
@@ -42,6 +43,8 @@ builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IEmployeeTypeService, EmployeeTypeService>();
 builder.Services.AddScoped<ILoginService, LoginService>();
 builder.Services.AddScoped<IServiceHistoryService, ServiceHistoryService>();
+builder.Services.AddHttpClient<IAssetImageApiClient, AssetImageApiClient>(ConfigureWebApiClient);
+builder.Services.AddHttpClient<IAssetAttachmentApiClient, AssetAttachmentApiClient>(ConfigureWebApiClient);
 
 // MVC Servisleri
 builder.Services.AddControllersWithViews(options =>
@@ -77,4 +80,16 @@ app.MapControllerRoute(
     pattern: "{controller=Asset}/{action=Index}/{id?}");
 
 app.Run();
+
+static void ConfigureWebApiClient(IServiceProvider serviceProvider, HttpClient httpClient)
+{
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    var baseUrl = configuration["WebApi:BaseUrl"] ?? "https://localhost:7103/";
+
+    if (!string.IsNullOrWhiteSpace(baseUrl) &&
+        Uri.TryCreate(baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/", UriKind.Absolute, out var baseAddress))
+    {
+        httpClient.BaseAddress = baseAddress;
+    }
+}
 
