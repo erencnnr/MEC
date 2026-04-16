@@ -38,7 +38,8 @@ try
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
 
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    var environment = builder.Configuration["AppSettings:Environment"];
+    var connectionString = builder.Configuration.GetConnectionString(environment == "Test" ? "DefaultConnection" : "ProdConnection");
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
