@@ -12,16 +12,20 @@
             <div>
                 <span class="library-topbar__eyebrow">Yönetici işlemleri</span>
                 <h1>İçerik Yönetimi</h1>
-                <p>Klasör yapısını yönetin, seçili klasöre alt klasör ve doküman ekleyin, dokümanları yeniden adlandırın ve PDF içerikleri sayfa içinde görüntüleyin.</p>
             </div>
 
             @if (Model.SelectedFolderId.HasValue)
             {
                 <div class="content-management-toolbar">
                     <button type="button"
+                            class="library-button library-button--secondary content-management-toolbar__delete-button"
+                            data-modal-target="delete-folder-modal">
+                        Seçili Klasörü Sil
+                    </button>
+                    <button type="button"
                             class="library-button library-button--secondary"
                             data-modal-target="new-folder-modal">
-                        Yeni Klasör
+                        Yeni Alt Klasör
                     </button>
                     <button type="button"
                             class="library-button library-button--secondary content-management-toolbar__upload-button"
@@ -45,11 +49,16 @@
         <div class="library-layout content-management-layout">
             <aside class="library-sidebar">
                 <section class="library-card library-card--sidebar library-explorer">
-                    <div class="library-card__head">
+                    <div class="library-card__head content-management-sidebar-head">
                         <div>
                             <span class="library-card__eyebrow">Klasörler</span>
                             <h2>İçerik ağacı</h2>
                         </div>
+                        <button type="button"
+                                class="library-button library-button--secondary content-management-root-button"
+                                data-modal-target="root-folder-modal">
+                            Yeni Ana Klasör
+                        </button>
                     </div>
 
                     @if (Model.FolderTree.Any())
@@ -68,18 +77,8 @@
                         <div class="content-management-root">
                             <div class="library-empty library-empty--compact">
                                 <h3>Henüz klasör yok</h3>
-                                <p>İlk ana klasörü oluşturarak içerik yapısını başlatabilirsiniz.</p>
+                                <p>İlk ana klasörü oluşturmak için Yeni Ana Klasör butonunu kullanabilirsiniz.</p>
                             </div>
-
-                            <form asp-controller="Content" asp-action="CreateFolder" method="post" class="content-management-root__form">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="parentFolderId" value="" />
-                                <label class="library-form__label" for="rootFolderName">Ana klasör adı</label>
-                                <div class="library-inline-form">
-                                    <input id="rootFolderName" class="library-input" type="text" name="name" maxlength="120" placeholder="Ana klasör adı" />
-                                    <button type="submit" class="library-button library-button--primary">Oluştur</button>
-                                </div>
-                            </form>
                         </div>
                     }
                 </section>
@@ -237,14 +236,55 @@
         </div>
     </div>
 
+    <div id="root-folder-modal" class="content-management-modal" aria-hidden="true">
+        <div class="content-management-modal__backdrop" data-modal-close></div>
+        <div class="content-management-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="rootFolderModalTitle">
+            <button type="button" class="content-management-modal__close" data-modal-close aria-label="Pencereyi kapat">×</button>
+            <div class="content-management-modal__head">
+                <span class="library-card__eyebrow">Yeni ana klasör</span>
+                <h3 id="rootFolderModalTitle">Ana klasör oluştur</h3>
+                <p>Kütüphane ağacının en üst seviyesine yeni bir klasör ekleyin.</p>
+            </div>
+            <form asp-controller="Content" asp-action="CreateFolder" method="post" class="content-management-modal__form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="parentFolderId" value="" />
+                <label class="library-form__label" for="rootFolderName">Klasör adı</label>
+                <input id="rootFolderName" class="library-input" type="text" name="name" maxlength="120" placeholder="Ana klasör adı" />
+                <div class="content-management-modal__actions">
+                    <button type="button" class="library-button library-button--ghost" data-modal-close>Vazgeç</button>
+                    <button type="submit" class="library-button library-button--primary">Ekle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     @if (Model.SelectedFolderId.HasValue)
     {
+        <div id="delete-folder-modal" class="content-management-modal" aria-hidden="true">
+            <div class="content-management-modal__backdrop" data-modal-close></div>
+            <div class="content-management-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="deleteFolderModalTitle">
+                <button type="button" class="content-management-modal__close" data-modal-close aria-label="Pencereyi kapat">×</button>
+                <div class="content-management-modal__head">
+                    <span class="library-card__eyebrow content-management-modal__eyebrow--danger">Klasör silme</span>
+                    <h3 id="deleteFolderModalTitle">@Model.SelectedFolderName klasörünü sil</h3>
+                    <p>Bu işlemi gerçekleştirirseniz doküman ve alt klasörler de seçtiğiniz klasör ile beraber silinecektir.</p>
+                </div>
+                <form asp-controller="Content" asp-action="DeleteFolder" asp-route-id="@Model.SelectedFolderId.Value" method="post" class="content-management-modal__form">
+                    @Html.AntiForgeryToken()
+                    <div class="content-management-modal__actions">
+                        <button type="button" class="library-button library-button--ghost" data-modal-close>İptal</button>
+                        <button type="submit" class="library-button library-button--danger">Sil</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <div id="new-folder-modal" class="content-management-modal" aria-hidden="true">
             <div class="content-management-modal__backdrop" data-modal-close></div>
             <div class="content-management-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="newFolderModalTitle">
                 <button type="button" class="content-management-modal__close" data-modal-close aria-label="Pencereyi kapat">×</button>
                 <div class="content-management-modal__head">
-                    <span class="library-card__eyebrow">Yeni klasör</span>
+                    <span class="library-card__eyebrow">Yeni alt klasör</span>
                     <h3 id="newFolderModalTitle">Seçili klasöre alt klasör ekle</h3>
                     <p>@Model.SelectedFolderName klasörünün içine yeni bir alt klasör oluşturun.</p>
                 </div>

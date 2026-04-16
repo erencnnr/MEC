@@ -5333,6 +5333,46 @@ body {
     box-shadow: none;
 }
 
+.content-management-sidebar-head {
+    gap: 14px;
+}
+
+.content-management-sidebar-head .library-button {
+    flex: 0 0 auto;
+}
+
+.content-management-root-button {
+    min-height: 40px;
+    padding: 0 14px;
+    border-color: #dbe6f3 !important;
+    background: #f7fbff !important;
+    color: var(--primary) !important;
+    font-size: 0.86rem;
+    white-space: nowrap;
+}
+
+.content-management-root-button:hover,
+.content-management-root-button:focus-visible {
+    border-color: #c8d8ea !important;
+    background: #eef5fd !important;
+    color: #101d45 !important;
+}
+
+.content-management-toolbar__delete-button {
+    border-color: #f2c9c4 !important;
+    background: #fff2f0 !important;
+    color: #b62b1e !important;
+    -webkit-text-fill-color: #b62b1e;
+}
+
+.content-management-toolbar__delete-button:hover,
+.content-management-toolbar__delete-button:focus-visible {
+    border-color: #eaa99f !important;
+    background: #ffe7e3 !important;
+    color: #982318 !important;
+    -webkit-text-fill-color: #982318;
+}
+
 .content-management-toolbar__upload-button {
     border-color: #b9e6c8 !important;
     background: #eefaf2 !important;
@@ -5486,6 +5526,26 @@ body {
     background: #e4f6ea !important;
     color: #0b7a3a !important;
     -webkit-text-fill-color: #0b7a3a;
+}
+
+.content-management-modal__eyebrow--danger {
+    background: #fff2f0;
+    color: #b62b1e;
+}
+
+.content-management-modal .library-button--danger {
+    border-color: #c9382a !important;
+    background: #c9382a !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff;
+}
+
+.content-management-modal .library-button--danger:hover,
+.content-management-modal .library-button--danger:focus-visible {
+    border-color: #ab2d20 !important;
+    background: #ab2d20 !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff;
 }
 
 body.content-management-modal-open {
@@ -5756,6 +5816,15 @@ body.content-management-modal-open {
 }
 
 @media (max-width: 767.98px) {
+    .content-management-sidebar-head {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .content-management-sidebar-head .library-button {
+        width: 100%;
+    }
+
     .content-management-toolbar {
         width: 100%;
     }

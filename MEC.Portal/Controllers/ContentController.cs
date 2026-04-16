@@ -72,7 +72,14 @@ namespace MEC.Portal.Controllers
 
             foreach (var document in prepare.Data.Documents.Where(x => !string.IsNullOrWhiteSpace(x.FileName)))
             {
-                await _libraryAttachmentApiClient.DeleteAsync(document.Id, document.FileName);
+                var deleteResult = await _libraryAttachmentApiClient.DeleteAsync(document.Id, document.FileName);
+                if (!deleteResult.IsSuccess)
+                {
+                    TempData["ContentError"] = string.IsNullOrWhiteSpace(deleteResult.Message)
+                        ? $"{document.OriginalFileName} dosyası sunucudan silinemedi."
+                        : deleteResult.Message;
+                    return RedirectToAction(nameof(Index), new { folderId = id });
+                }
             }
 
             var result = await _libraryService.DeleteFolderMetadataAsync(id);
