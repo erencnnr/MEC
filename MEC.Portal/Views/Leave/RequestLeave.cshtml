@@ -1,4 +1,5 @@
 @using System.Globalization
+@using System.Text.Json
 @model MEC.Portal.Models.LeaveRequestViewModel
 
 @{
@@ -61,10 +62,18 @@
             timeSlots.Add($"{hour:D2}:{minute:D2}");
         }
     }
+
+    var holidayCalendarJson = JsonSerializer.Serialize(Model.Holidays.Select(x => new
+    {
+        name = x.Name,
+        startDate = x.StartDate.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture),
+        endDate = x.EndDate.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture)
+    }));
 }
 
 <style>
-    .weekend-day {
+    .weekend-day,
+    .holiday-day {
         color: #c62828 !important;
         font-weight: 700;
     }
@@ -140,7 +149,7 @@
                         <div class="leave-request-field leave-request-field--full">
                             <label for="RequestedDaysDisplay">Kullanılacak İzin Gün Sayısı</label>
                             <input id="RequestedDaysDisplay" class="leave-request-input leave-request-input--readonly" type="text" value="@requestedDaysDisplay Gün" readonly />
-                            <span class="leave-request-help">Hafta sonları otomatik olarak hesaptan çıkarılır. Sonuç en yakın yarım güne yukarı yuvarlanır.</span>
+                            <span class="leave-request-help">Hafta sonları ve resmi tatiller otomatik olarak hesaptan çıkarılır. Sonuç en yakın yarım güne yukarı yuvarlanır.</span>
                         </div>
 
                         <div class="leave-request-field leave-request-field--full">
@@ -190,6 +199,17 @@
             const workDayStartHour = 9;
             const workDayEndHour = 18;
             const workMinutesPerDay = (workDayEndHour - workDayStartHour) * 60;
+            const holidayRanges = (@Html.Raw(holidayCalendarJson)).map(function (holiday) {
+                return {
+                    name: holiday.name,
+                    start: new Date(holiday.startDate),
+                    end: new Date(holiday.endDate)
+                };
+            }).filter(function (holiday) {
+                return !Number.isNaN(holiday.start.getTime())
+                    && !Number.isNaN(holiday.end.getTime())
+                    && holiday.end > holiday.start;
+            });
 
             const requestedDaysDisplay = document.getElementById("RequestedDaysDisplay");
             const hiddenStartInput = document.getElementById("StartDate");
@@ -203,6 +223,15 @@
 
             function isWeekend(date) {
                 return date.getDay() === 0 || date.getDay() === 6;
+            }
+
+            function isHoliday(date) {
+                const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+                const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+                return holidayRanges.some(function (holiday) {
+                    return holiday.start <= dayEnd && holiday.end >= dayStart;
+                });
             }
 
             function normalizeDate(date) {
@@ -251,6 +280,52 @@
                     : "";
             }
 
+            function getHolidayBlockedMinutes(effectiveStart, effectiveEnd) {
+                const overlaps = holidayRanges
+                    .filter(function (holiday) {
+                        return holiday.start < effectiveEnd && holiday.end > effectiveStart;
+                    })
+                    .map(function (holiday) {
+                        return {
+                            start: holiday.start > effectiveStart ? holiday.start : effectiveStart,
+                            end: holiday.end < effectiveEnd ? holiday.end : effectiveEnd
+                        };
+                    })
+                    .filter(function (overlap) {
+                        return overlap.end > overlap.start;
+                    })
+                    .sort(function (a, b) {
+                        return a.start - b.start;
+                    });
+
+                if (overlaps.length === 0) {
+                    return 0;
+                }
+
+                let totalMinutes = 0;
+                let currentStart = overlaps[0].start;
+                let currentEnd = overlaps[0].end;
+
+                for (let index = 1; index < overlaps.length; index++) {
+                    const overlap = overlaps[index];
+
+                    if (overlap.start <= currentEnd) {
+                        if (overlap.end > currentEnd) {
+                            currentEnd = overlap.end;
+                        }
+
+                        continue;
+                    }
+
+                    totalMinutes += (currentEnd - currentStart) / 60000;
+                    currentStart = overlap.start;
+                    currentEnd = overlap.end;
+                }
+
+                totalMinutes += (currentEnd - currentStart) / 60000;
+                return totalMinutes;
+            }
+
             function calculateRequestedDays(startDate, endDate) {
                 if (!startDate || !endDate || endDate < startDate) {
                     return 0;
@@ -269,7 +344,9 @@
                         const effectiveEnd = endDate < dayEnd ? endDate : dayEnd;
 
                         if (effectiveEnd > effectiveStart) {
-                            totalMinutes += (effectiveEnd - effectiveStart) / 60000;
+                            const dayMinutes = (effectiveEnd - effectiveStart) / 60000;
+                            const holidayMinutes = getHolidayBlockedMinutes(effectiveStart, effectiveEnd);
+                            totalMinutes += Math.max(0, dayMinutes - holidayMinutes);
                         }
                     }
 
@@ -314,7 +391,7 @@
 
                         const currentDate = normalizeDate(dayElem.dateObj);
 
-                        if (currentDate < normalizedStart || currentDate > normalizedEnd || isWeekend(currentDate)) {
+                        if (currentDate < normalizedStart || currentDate > normalizedEnd || isWeekend(currentDate) || isHoliday(currentDate)) {
                             return;
                         }
 
@@ -338,6 +415,10 @@
                 onDayCreate: function (dObj, dStr, fp, dayElem) {
                     if (dayElem.dateObj.getDay() === 0 || dayElem.dateObj.getDay() === 6) {
                         dayElem.classList.add("weekend-day");
+                    }
+
+                    if (isHoliday(dayElem.dateObj)) {
+                        dayElem.classList.add("holiday-day");
                     }
                 },
                 onReady: function () {

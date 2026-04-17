@@ -61,10 +61,8 @@ namespace MEC.Portal.Controllers
         [HttpGet]
         public async Task<IActionResult> RequestLeave()
         {
-            var model = new LeaveRequestViewModel
-            {
-                LeaveTypes = await GetActiveLeaveTypeOptionsAsync()
-            };
+            var model = new LeaveRequestViewModel();
+            await PopulateLeaveRequestOptionsAsync(model);
 
             return View(model);
         }
@@ -143,7 +141,7 @@ namespace MEC.Portal.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RequestLeave(LeaveRequestViewModel model)
         {
-            model.LeaveTypes = await GetActiveLeaveTypeOptionsAsync();
+            await PopulateLeaveRequestOptionsAsync(model);
 
             if (!TryParseDate(model.StartDate, out var startDate))
             {
@@ -313,6 +311,14 @@ namespace MEC.Portal.Controllers
                 .ToList();
         }
 
+        private async Task PopulateLeaveRequestOptionsAsync(LeaveRequestViewModel model)
+        {
+            model.LeaveTypes = await GetActiveLeaveTypeOptionsAsync();
+            model.Holidays = (await _leaveService.GetHolidayCalendarItemsAsync())
+                .Select(MapHolidayCalendarItem)
+                .ToList();
+        }
+
         private static LeaveTypeOptionViewModel MapLeaveTypeOption(LeaveTypeOptionModel option)
         {
             return new LeaveTypeOptionViewModel
@@ -320,6 +326,16 @@ namespace MEC.Portal.Controllers
                 Id = option.Id,
                 Name = option.Name,
                 Code = option.Code
+            };
+        }
+
+        private static HolidayCalendarItemViewModel MapHolidayCalendarItem(HolidayCalendarItemModel option)
+        {
+            return new HolidayCalendarItemViewModel
+            {
+                Name = option.Name,
+                StartDate = option.StartDate,
+                EndDate = option.EndDate
             };
         }
 

@@ -47,6 +47,7 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<ApiLog> ApiLogs { get; set; }
         public DbSet<UserActionLog> UserActionLogs { get; set; }
         public DbSet<LeaveType> LeaveTypes { get; set; }
+        public DbSet<Holiday> Holidays { get; set; }
 
         // Çakışmayı önlemek için sınıfı tam adıyla (MEC.Domain.Entity.Leave.Leave) belirtiyoruz
         public DbSet<MEC.Domain.Entity.Leave.Leave> Leaves { get; set; }
@@ -75,6 +76,17 @@ namespace MEC.DAL.Config.Contexts
             modelBuilder.Entity<LeaveType>()
                 .HasIndex(x => x.Code)
                 .IsUnique();
+
+            modelBuilder.Entity<Holiday>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<Holiday>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<Holiday>()
+                .HasIndex(x => new { x.StartDate, x.EndDate });
 
             modelBuilder.Entity<MEC.Domain.Entity.Leave.Leave>()
                 .HasOne(x => x.LeaveType)

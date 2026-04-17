@@ -10,6 +10,7 @@ namespace MEC.Application.Abstractions.Service.LeaveService
         Task<bool> UpdateLeaveStatusAsync(int leaveId, int status, string? decisionBy = null);
         Task<BulkLeaveUploadResultModel> BulkUploadLeaveDaysAsync(BulkLeaveUploadRequestModel request);
         Task<List<LeaveTypeOptionModel>> GetActiveLeaveTypeOptionsAsync();
+        Task<List<HolidayCalendarItemModel>> GetHolidayCalendarItemsAsync();
         Task<LeaveRequestValidationModel> ValidateLeaveRequestAsync(LeaveRequestCreateModel request);
         Task<OperationResultModel<LeaveRequestCreateResultModel>> CreateLeaveRequestAsync(LeaveRequestCreateModel request);
         Task DeleteLeaveAsync(int id);

@@ -12,14 +12,20 @@ namespace MEC.Domain.Common
             return time >= WorkDayStart && time <= WorkDayEnd;
         }
 
-        public static decimal CalculateRequestedDays(DateTime startDateTime, DateTime endDateTime)
+        public static decimal CalculateRequestedDays(
+            DateTime startDateTime,
+            DateTime endDateTime,
+            IEnumerable<HolidayInterval>? holidays = null)
         {
             if (endDateTime < startDateTime)
             {
                 return 0m;
             }
 
-            decimal totalHours = 0m;
+            var holidayIntervals = holidays?
+                .Where(x => x.EndDate > x.StartDate)
+                .ToList() ?? new List<HolidayInterval>();
+            decimal totalMinutes = 0m;
 
             for (var day = startDateTime.Date; day <= endDateTime.Date; day = day.AddDays(1))
             {
@@ -39,10 +45,12 @@ namespace MEC.Domain.Common
                     continue;
                 }
 
-                totalHours += (decimal)(effectiveEnd - effectiveStart).TotalHours;
+                var dayMinutes = (decimal)(effectiveEnd - effectiveStart).TotalMinutes;
+                var holidayMinutes = CalculateHolidayOverlapMinutes(effectiveStart, effectiveEnd, holidayIntervals);
+                totalMinutes += Math.Max(0m, dayMinutes - holidayMinutes);
             }
 
-            var rawDays = totalHours / WorkHoursPerDay;
+            var rawDays = (totalMinutes / 60m) / WorkHoursPerDay;
             return RoundRequestedDays(rawDays);
         }
 
@@ -59,6 +67,57 @@ namespace MEC.Domain.Common
         private static bool IsWeekend(DateTime value)
         {
             return value.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+        }
+
+        private static decimal CalculateHolidayOverlapMinutes(
+            DateTime effectiveStart,
+            DateTime effectiveEnd,
+            IReadOnlyCollection<HolidayInterval> holidays)
+        {
+            if (holidays.Count == 0)
+            {
+                return 0m;
+            }
+
+            var overlaps = holidays
+                .Where(x => x.StartDate < effectiveEnd && x.EndDate > effectiveStart)
+                .Select(x => new
+                {
+                    Start = x.StartDate > effectiveStart ? x.StartDate : effectiveStart,
+                    End = x.EndDate < effectiveEnd ? x.EndDate : effectiveEnd
+                })
+                .Where(x => x.End > x.Start)
+                .OrderBy(x => x.Start)
+                .ToList();
+
+            if (overlaps.Count == 0)
+            {
+                return 0m;
+            }
+
+            decimal totalMinutes = 0m;
+            var currentStart = overlaps[0].Start;
+            var currentEnd = overlaps[0].End;
+
+            foreach (var overlap in overlaps.Skip(1))
+            {
+                if (overlap.Start <= currentEnd)
+                {
+                    if (overlap.End > currentEnd)
+                    {
+                        currentEnd = overlap.End;
+                    }
+
+                    continue;
+                }
+
+                totalMinutes += (decimal)(currentEnd - currentStart).TotalMinutes;
+                currentStart = overlap.Start;
+                currentEnd = overlap.End;
+            }
+
+            totalMinutes += (decimal)(currentEnd - currentStart).TotalMinutes;
+            return totalMinutes;
         }
     }
 }

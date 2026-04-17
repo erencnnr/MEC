@@ -18,6 +18,7 @@ public class LeaveService : ILeaveService
     private readonly IGenericRepository<Leave> _leaveRepository;
     private readonly IGenericRepository<EmployeePortal> _employeePortalRepository;
     private readonly IGenericRepository<LeaveType> _leaveTypeRepository;
+    private readonly IGenericRepository<Holiday> _holidayRepository;
     private readonly IAnnouncementService _announcementService;
     private readonly IUserActionLogService _userActionLogService;
 
@@ -25,12 +26,14 @@ public class LeaveService : ILeaveService
         IGenericRepository<Leave> leaveRepository,
         IGenericRepository<EmployeePortal> employeePortalRepository,
         IGenericRepository<LeaveType> leaveTypeRepository,
+        IGenericRepository<Holiday> holidayRepository,
         IAnnouncementService announcementService,
         IUserActionLogService userActionLogService)
     {
         _leaveRepository = leaveRepository;
         _employeePortalRepository = employeePortalRepository;
         _leaveTypeRepository = leaveTypeRepository;
+        _holidayRepository = holidayRepository;
         _announcementService = announcementService;
         _userActionLogService = userActionLogService;
     }
@@ -55,7 +58,7 @@ public class LeaveService : ILeaveService
 
         var requestedDays = leave.RequestedDays > 0
             ? leave.RequestedDays
-            : LeaveDurationCalculator.CalculateRequestedDays(leave.StartDate, leave.EndDate);
+            : await CalculateRequestedDaysWithHolidaysAsync(leave.StartDate, leave.EndDate);
         var affectsAnnualBalance = string.Equals(leave.LeaveType?.Code, LeaveTypeCodes.Annual, StringComparison.OrdinalIgnoreCase);
         var statusChanged = leave.Status != status;
 
@@ -116,6 +119,23 @@ public class LeaveService : ILeaveService
             .ToList();
     }
 
+    public async Task<List<HolidayCalendarItemModel>> GetHolidayCalendarItemsAsync()
+    {
+        var holidays = await _holidayRepository.GetAllAsync(x => x.EndDate > x.StartDate);
+
+        return holidays
+            .OrderBy(x => x.StartDate)
+            .ThenBy(x => x.EndDate)
+            .Select(x => new HolidayCalendarItemModel
+            {
+                Id = x.Id,
+                Name = x.Name,
+                StartDate = x.StartDate,
+                EndDate = x.EndDate
+            })
+            .ToList();
+    }
+
     public async Task<LeaveRequestValidationModel> ValidateLeaveRequestAsync(LeaveRequestCreateModel request)
     {
         var result = new LeaveRequestValidationModel
@@ -141,7 +161,7 @@ public class LeaveService : ILeaveService
 
         if (result.FieldErrors.Count == 0)
         {
-            result.RequestedDays = LeaveDurationCalculator.CalculateRequestedDays(request.StartDate, request.EndDate);
+            result.RequestedDays = await CalculateRequestedDaysWithHolidaysAsync(request.StartDate, request.EndDate);
             if (result.RequestedDays <= 0)
             {
                 AddFieldError(result, "EndDate", "Seçilen tarih ve saat aralığı için kullanılabilir izin günü hesaplanamadı.");
@@ -187,13 +207,19 @@ public class LeaveService : ILeaveService
             return OperationResultModel<LeaveRequestCreateResultModel>.Fail("Geçerli bir izin türü seçiniz.");
         }
 
+        var requestedDays = await CalculateRequestedDaysWithHolidaysAsync(request.StartDate, request.EndDate);
+        if (requestedDays <= 0)
+        {
+            return OperationResultModel<LeaveRequestCreateResultModel>.Fail("Seçilen tarih ve saat aralığı için kullanılabilir izin günü hesaplanamadı.");
+        }
+
         var leaveRequest = new Leave
         {
             EmployeeId = employeePortal.Id,
             StartDate = request.StartDate,
             EndDate = request.EndDate,
             LeaveTypeId = leaveType.Id,
-            RequestedDays = request.RequestedDays,
+            RequestedDays = requestedDays,
             RemainingLeaveDays = employeePortal.LeaveDays,
             Reason = request.Reason.Trim(),
             Status = (int)LeaveStatus.Pending,
@@ -641,6 +667,27 @@ public class LeaveService : ILeaveService
         };
 
         return CreateBulkLeaveResult(success, level, message, updatedUsers, errorRows);
+    }
+
+    private async Task<decimal> CalculateRequestedDaysWithHolidaysAsync(DateTime startDate, DateTime endDate)
+    {
+        var holidayIntervals = await GetHolidayIntervalsAsync(startDate, endDate);
+        return LeaveDurationCalculator.CalculateRequestedDays(startDate, endDate, holidayIntervals);
+    }
+
+    private async Task<List<HolidayInterval>> GetHolidayIntervalsAsync(DateTime startDate, DateTime endDate)
+    {
+        if (endDate < startDate)
+        {
+            return new List<HolidayInterval>();
+        }
+
+        var holidays = await _holidayRepository.GetAllAsync(x => x.StartDate <= endDate && x.EndDate >= startDate);
+
+        return holidays
+            .Where(x => x.EndDate > x.StartDate)
+            .Select(x => new HolidayInterval(x.StartDate, x.EndDate))
+            .ToList();
     }
 
     private static void AddFieldError(LeaveRequestValidationModel result, string fieldName, string message)
