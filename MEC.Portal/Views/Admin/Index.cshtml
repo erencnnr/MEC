@@ -8,16 +8,17 @@
 <section class="dashboard-hero">
     <div>
         <span class="dashboard-hero__eyebrow">Yönetim merkezi</span>
-        <h1>Hoş geldiniz, @Model.AdminName</h1>
         <p>
             İzin süreçlerini, duyuru trafiğini ve personel durumunu tek ekrandan takip edebilirsiniz.
         </p>
     </div>
 
-    <div class="dashboard-hero__meta">
-        <span>Güncellenme</span>
-        <strong>@Model.GeneratedAt.ToString("dd MMMM yyyy, HH:mm")</strong>
-    </div>
+    <a class="dashboard-hero__action"
+       asp-controller="Admin"
+       asp-action="LeaveRequests"
+       asp-route-status="0">
+        Bekleyen İzin Talepleri
+    </a>
 </section>
 
 <section class="dashboard-metrics">
@@ -33,17 +34,6 @@
         <p>Sistemde kayıtlı tüm duyurular</p>
     </article>
 
-    <article class="dashboard-metric-card">
-        <span class="dashboard-metric-card__label">Bugün eklenen duyuru</span>
-        <strong>@Model.TodayAnnouncementCount</strong>
-        <p>Gün içinde yayımlanan yeni duyurular</p>
-    </article>
-
-    <article class="dashboard-metric-card dashboard-metric-card--alert">
-        <span class="dashboard-metric-card__label">Negatif izin bakiyesi</span>
-        <strong>@Model.NegativeLeaveBalanceCount</strong>
-        <p>Takip edilmesi gereken personel sayısı</p>
-    </article>
 </section>
 
 <section class="dashboard-grid">

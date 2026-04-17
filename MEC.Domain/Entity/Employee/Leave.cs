@@ -18,6 +18,10 @@ namespace MEC.Domain.Entity.Leave
         public decimal RemainingLeaveDays { get; set; }
         public string Reason { get; set; }
         public int Status { get; set; }
+        [Column("decision_by")]
+        public string? DecisionBy { get; set; }
+        [Column("decision_date")]
+        public DateTime? DecisionDate { get; set; }
         public LeaveType? LeaveType { get; set; }
     }
 }

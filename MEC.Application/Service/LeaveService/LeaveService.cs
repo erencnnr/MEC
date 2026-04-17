@@ -44,7 +44,7 @@ public class LeaveService : ILeaveService
             .ToList();
     }
 
-    public async Task<bool> UpdateLeaveStatusAsync(int leaveId, int status)
+    public async Task<bool> UpdateLeaveStatusAsync(int leaveId, int status, string? decisionBy = null)
     {
         var leave = (await _leaveRepository.GetAllAsync(x => x.Id == leaveId, x => x.LeaveType)).FirstOrDefault();
 
@@ -57,8 +57,9 @@ public class LeaveService : ILeaveService
             ? leave.RequestedDays
             : LeaveDurationCalculator.CalculateRequestedDays(leave.StartDate, leave.EndDate);
         var affectsAnnualBalance = string.Equals(leave.LeaveType?.Code, LeaveTypeCodes.Annual, StringComparison.OrdinalIgnoreCase);
+        var statusChanged = leave.Status != status;
 
-        if (leave.Status != status)
+        if (statusChanged)
         {
             var employeePortal = await _employeePortalRepository.GetByIdAsync(leave.EmployeeId);
             if (employeePortal != null)
@@ -79,6 +80,21 @@ public class LeaveService : ILeaveService
 
         leave.Status = status;
         leave.RequestedDays = requestedDays;
+        leave.UpdateDate = DateTime.Now;
+
+        if (statusChanged)
+        {
+            if (status == (int)LeaveStatus.Pending)
+            {
+                leave.DecisionBy = null;
+                leave.DecisionDate = null;
+            }
+            else
+            {
+                leave.DecisionBy = string.IsNullOrWhiteSpace(decisionBy) ? "anonymous" : decisionBy;
+                leave.DecisionDate = DateTime.UtcNow;
+            }
+        }
 
         _leaveRepository.Update(leave);
 
@@ -289,6 +305,11 @@ public class LeaveService : ILeaveService
         var currentPage = query.Page < 1 ? 1 : query.Page;
         var pageSize = query.PageSize <= 0 ? 10 : query.PageSize;
         var leaves = await GetAllLeavesAsync();
+        if (query.Status.HasValue && Enum.IsDefined(typeof(LeaveStatus), query.Status.Value))
+        {
+            leaves = leaves.Where(x => x.Status == query.Status.Value).ToList();
+        }
+
         var portalUserNames = await GetPortalUserNamesAsync();
         var mappedItems = leaves.Select(x => MapAdminLeaveRequestItem(x, portalUserNames)).ToList();
 
@@ -459,7 +480,7 @@ public class LeaveService : ILeaveService
 
         try
         {
-            var result = await UpdateLeaveStatusAsync(request.LeaveId, request.Status);
+            var result = await UpdateLeaveStatusAsync(request.LeaveId, request.Status, currentUser);
             if (result)
             {
                 await TryLogLeaveStatusChangeAsync(
@@ -713,7 +734,7 @@ public class LeaveService : ILeaveService
             CreatedDate = leave.CreatedDate,
             StatusLabel = GetLeaveStatusDisplayName(leave.Status),
             StatusTone = GetLeaveStatusTone(leave.Status),
-            DecisionDisplay = "-",
+            DecisionDisplay = GetDecisionDisplay(leave),
             CanTakeAction = leave.Status == (int)LeaveStatus.Pending
         };
     }
@@ -792,26 +813,14 @@ public class LeaveService : ILeaveService
 
     private static string GetDecisionDisplay(Leave leave)
     {
-        var propertyNames = new[]
+        if (leave.Status == (int)LeaveStatus.Pending)
         {
-            "ApprovedBy",
-            "RejectedBy",
-            "CancelledBy",
-            "CanceledBy",
-            "DecisionBy",
-            "UpdatedBy"
-        };
-
-        foreach (var propertyName in propertyNames)
-        {
-            var propertyValue = leave.GetType().GetProperty(propertyName)?.GetValue(leave)?.ToString();
-            if (!string.IsNullOrWhiteSpace(propertyValue))
-            {
-                return propertyValue;
-            }
+            return "-";
         }
 
-        return leave.Status == (int)LeaveStatus.Pending ? "-" : "Belirtilmedi";
+        return string.IsNullOrWhiteSpace(leave.DecisionBy)
+            ? "Belirtilmedi"
+            : leave.DecisionBy;
     }
 
     private static DateTime? TryParseReportDate(string? value)

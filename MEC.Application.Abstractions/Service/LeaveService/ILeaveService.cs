@@ -7,7 +7,7 @@ namespace MEC.Application.Abstractions.Service.LeaveService
     public interface ILeaveService
     {
         Task<List<Leave>> GetAllLeavesAsync();
-        Task<bool> UpdateLeaveStatusAsync(int leaveId, int status);
+        Task<bool> UpdateLeaveStatusAsync(int leaveId, int status, string? decisionBy = null);
         Task<BulkLeaveUploadResultModel> BulkUploadLeaveDaysAsync(BulkLeaveUploadRequestModel request);
         Task<List<LeaveTypeOptionModel>> GetActiveLeaveTypeOptionsAsync();
         Task<LeaveRequestValidationModel> ValidateLeaveRequestAsync(LeaveRequestCreateModel request);

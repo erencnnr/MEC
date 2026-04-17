@@ -246,6 +246,31 @@ body {
     line-height: 1.75;
 }
 
+.dashboard-hero__action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 220px;
+    min-height: 44px;
+    padding: 0 18px;
+    border: 1px solid var(--border-2);
+    border-radius: 14px;
+    background: var(--surface-1);
+    color: var(--brand-1);
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: none;
+    transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.dashboard-hero__action:hover {
+    border-color: var(--accent-1);
+    background: var(--accent-1);
+    color: #ffffff;
+    text-decoration: none;
+    box-shadow: none;
+}
+
 .dashboard-hero__meta {
     min-width: 220px;
     padding: 16px 18px;
@@ -273,7 +298,7 @@ body {
 }
 
 .dashboard-metrics {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-bottom: 22px;
 }
 
@@ -854,6 +879,11 @@ body {
         align-items: stretch;
     }
 
+    .dashboard-hero__action {
+        width: 100%;
+        min-width: 0;
+    }
+
     .dashboard-hero__meta {
         min-width: 0;
     }
@@ -1356,6 +1386,8 @@ body {
 
 .portal-header {
     margin-top: 0;
+    padding-top: 0;
+    padding-bottom: 0;
 }
 
 .portal-header__inner {
@@ -1393,6 +1425,45 @@ body {
 
 .portal-header__toggle {
     border-color: rgba(255, 255, 255, 0.2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 42px;
+    padding: 0;
+}
+
+.portal-header__toggle:focus {
+    box-shadow: 0 0 0 0.18rem rgba(255, 255, 255, 0.16);
+}
+
+.portal-header__toggle .navbar-toggler-icon {
+    width: 22px;
+    height: 16px;
+    background-image: none;
+    position: relative;
+}
+
+.portal-header__toggle .navbar-toggler-icon::before,
+.portal-header__toggle .navbar-toggler-icon::after,
+.portal-header__toggle .navbar-toggler-icon {
+    border-top: 2px solid #ffffff;
+}
+
+.portal-header__toggle .navbar-toggler-icon::before,
+.portal-header__toggle .navbar-toggler-icon::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    width: 100%;
+}
+
+.portal-header__toggle .navbar-toggler-icon::before {
+    top: 6px;
+}
+
+.portal-header__toggle .navbar-toggler-icon::after {
+    top: 14px;
 }
 
 .portal-header .navbar-collapse {
@@ -2285,6 +2356,200 @@ body {
 
 .admin-leave-detail-actions {
     margin-top: 24px;
+}
+
+.admin-leave-toast {
+    position: fixed;
+    top: 96px;
+    right: 28px;
+    z-index: 1090;
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    max-width: min(420px, calc(100vw - 32px));
+    padding: 14px 16px;
+    border-radius: 16px;
+    font-weight: 700;
+    box-shadow: 0 18px 38px rgba(15, 31, 58, 0.14);
+    animation: adminLeaveToastIn 0.24s ease-out;
+}
+
+.admin-leave-toast--success {
+    border: 1px solid #b9dcca;
+    background: #eef8f1;
+    color: #1d7a46;
+}
+
+.admin-leave-toast--error {
+    border: 1px solid #efc2bc;
+    background: #fff4f2;
+    color: #b42318;
+}
+
+.admin-leave-toast button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.72);
+    color: currentColor;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.admin-leave-toast.is-hiding {
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.24s ease, transform 0.24s ease;
+}
+
+.admin-leave-confirm-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1080;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.admin-leave-confirm-modal[hidden] {
+    display: none;
+}
+
+.admin-leave-confirm-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(9, 18, 46, 0.52);
+    backdrop-filter: blur(4px);
+}
+
+.admin-leave-confirm-modal__dialog {
+    position: relative;
+    width: min(100%, 480px);
+    padding: 28px;
+    border: 1px solid var(--border-1);
+    border-radius: 28px;
+    background: #ffffff;
+    box-shadow: 0 28px 70px rgba(9, 18, 46, 0.24);
+}
+
+.admin-leave-confirm-modal__close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border-1);
+    border-radius: 999px;
+    background: #ffffff;
+    color: var(--text-2);
+    font-size: 1.1rem;
+}
+
+.admin-leave-confirm-modal__eyebrow {
+    display: inline-flex;
+    margin-bottom: 12px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--brand-1);
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.admin-leave-confirm-modal__dialog h2 {
+    margin: 0 42px 10px 0;
+    color: var(--text-1);
+    font-size: 1.45rem;
+    font-weight: 800;
+}
+
+.admin-leave-confirm-modal__dialog p {
+    margin: 0 0 22px;
+    color: var(--text-2);
+    line-height: 1.65;
+}
+
+.admin-leave-confirm-modal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.admin-leave-confirm-modal__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 0 18px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    font-weight: 800;
+}
+
+.admin-leave-confirm-modal__button--ghost {
+    border-color: var(--border-1);
+    background: #ffffff;
+    color: var(--brand-1);
+}
+
+.admin-leave-confirm-modal__button--approve {
+    border-color: #1d7a46;
+    background: #1d7a46;
+    color: #ffffff;
+}
+
+.admin-leave-confirm-modal__button--reject {
+    border-color: #b42318;
+    background: #b42318;
+    color: #ffffff;
+}
+
+body.admin-leave-confirm-open {
+    overflow: hidden;
+}
+
+@keyframes adminLeaveToastIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 640px) {
+    .admin-leave-toast {
+        top: 84px;
+        right: 16px;
+        left: 16px;
+        max-width: none;
+    }
+
+    .admin-leave-confirm-modal__dialog {
+        padding: 24px 18px 18px;
+        border-radius: 22px;
+    }
+
+    .admin-leave-confirm-modal__actions {
+        flex-direction: column-reverse;
+    }
+
+    .admin-leave-confirm-modal__button {
+        width: 100%;
+    }
 }
 
 .admin-leave-report-card {

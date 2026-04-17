@@ -5,6 +5,7 @@ using MEC.Application.Abstractions.Service.LeaveService;
 using MEC.Application.Abstractions.Service.LeaveService.Model;
 using MEC.Application.Abstractions.Service.SchoolService;
 using MEC.Application.Abstractions.Service.SchoolService.Model;
+using MEC.Domain.Common.Enum;
 using MEC.Portal.Models;
 using MEC.Portal.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -55,6 +56,7 @@ namespace MEC.Portal.Controllers
                 TodayAnnouncementCount = dashboard.TodayAnnouncementCount,
                 NegativeLeaveBalanceCount = dashboard.NegativeLeaveBalanceCount,
                 RecentLeaveRequests = dashboard.RecentLeaveRequests
+                    .Take(5)
                     .Select(x => new AdminRecentLeaveItemViewModel
                     {
                         EmployeeName = x.EmployeeName,
@@ -85,17 +87,21 @@ namespace MEC.Portal.Controllers
         }
 
         [HttpGet("/Admin/LeaveRequests")]
-        public async Task<IActionResult> LeaveRequests(int page = 1)
+        public async Task<IActionResult> LeaveRequests(int page = 1, int? status = null)
         {
+            var selectedStatus = NormalizeLeaveStatusFilter(status);
             var result = await _leaveService.GetAdminLeaveRequestsAsync(new AdminLeaveRequestListQueryModel
             {
                 Page = page,
-                PageSize = LeaveRequestsPageSize
+                PageSize = LeaveRequestsPageSize,
+                Status = selectedStatus
             });
 
             var model = new AdminLeaveRequestListViewModel
             {
                 Items = result.Items.Select(MapLeaveRequestItem).ToList(),
+                StatusOptions = CreateLeaveStatusOptions(),
+                SelectedStatus = selectedStatus,
                 CurrentPage = result.CurrentPage,
                 TotalPages = result.TotalPages,
                 TotalCount = result.TotalCount,
@@ -365,7 +371,7 @@ namespace MEC.Portal.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> UpdateLeaveStatus(int id, int status)
+        public async Task<IActionResult> UpdateLeaveStatus(int id, int status, string? returnUrl = null)
         {
             var result = await _leaveService.UpdateLeaveStatusWithLogAsync(new LeaveStatusUpdateRequestModel
             {
@@ -378,15 +384,47 @@ namespace MEC.Portal.Controllers
 
             if (result.IsSuccess)
             {
-                return RedirectToAction(nameof(LeaveRequests));
+                TempData["AdminLeaveStatusLevel"] = "success";
+                TempData["AdminLeaveStatusMessage"] = status == (int)LeaveStatus.Approved
+                    ? "İzin talebi onaylandı."
+                    : status == (int)LeaveStatus.Rejected
+                        ? "İzin talebi reddedildi."
+                        : result.Message;
+
+                return RedirectToLeaveReturnUrl(returnUrl);
             }
 
-            if (string.Equals(result.Level, "Error", StringComparison.OrdinalIgnoreCase))
+            TempData["AdminLeaveStatusLevel"] = "error";
+            TempData["AdminLeaveStatusMessage"] = string.IsNullOrWhiteSpace(result.Message)
+                ? "İşlem tamamlanamadı."
+                : result.Message;
+
+            return RedirectToLeaveReturnUrl(returnUrl);
+        }
+
+        private IActionResult RedirectToLeaveReturnUrl(string? returnUrl)
+        {
+            return !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)
+                ? LocalRedirect(returnUrl)
+                : RedirectToAction(nameof(LeaveRequests));
+        }
+
+        private static int? NormalizeLeaveStatusFilter(int? status)
+        {
+            return status.HasValue && Enum.IsDefined(typeof(LeaveStatus), status.Value)
+                ? status.Value
+                : null;
+        }
+
+        private static List<AdminLeaveStatusFilterOptionViewModel> CreateLeaveStatusOptions()
+        {
+            return new List<AdminLeaveStatusFilterOptionViewModel>
             {
-                return StatusCode(500, result.Message);
-            }
-
-            return BadRequest(result.Message);
+                new() { Value = (int)LeaveStatus.Pending, Label = "Onay Bekliyor" },
+                new() { Value = (int)LeaveStatus.Approved, Label = "Onaylandı" },
+                new() { Value = (int)LeaveStatus.Rejected, Label = "Reddedildi" },
+                new() { Value = (int)LeaveStatus.Cancelled, Label = "İptal" }
+            };
         }
 
         private static AdminLeaveRequestViewModel MapLeaveRequestItem(AdminLeaveRequestItemModel item)

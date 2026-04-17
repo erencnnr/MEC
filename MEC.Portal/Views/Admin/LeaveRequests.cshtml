@@ -4,6 +4,12 @@
 @{
     ViewData["Title"] = "İzin Talepleri";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+    var selectedStatusQuery = Model.SelectedStatus.HasValue ? $"&status={Model.SelectedStatus.Value}" : string.Empty;
+    var statusMessage = TempData["AdminLeaveStatusMessage"] as string;
+    var statusLevel = string.Equals(TempData["AdminLeaveStatusLevel"] as string, "success", StringComparison.OrdinalIgnoreCase)
+        ? "success"
+        : "error";
 
     string FormatLeaveDays(decimal value)
     {
@@ -20,6 +26,27 @@
                 <p>Personel izin taleplerini inceleyin, detaylarını görüntüleyin ve karar sürecini yönetin.</p>
             </div>
         </div>
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <div class="admin-leave-toast admin-leave-toast--@statusLevel" data-admin-leave-toast>
+                <span>@statusMessage</span>
+                <button type="button" data-admin-leave-toast-close aria-label="Bildirimi kapat">×</button>
+            </div>
+        }
+
+        <form class="leave-history-filters admin-leave-filters" method="get" asp-controller="Admin" asp-action="LeaveRequests">
+            <div class="leave-history-filter-inline leave-history-filter-inline--status">
+                <label for="status">Durum</label>
+                <select id="status" name="status" class="leave-history-select leave-history-select--status">
+                    <option value="">Tümü</option>
+                    @foreach (var statusOption in Model.StatusOptions)
+                    {
+                        <option value="@statusOption.Value" selected="@(Model.SelectedStatus == statusOption.Value ? "selected" : null)">@statusOption.Label</option>
+                    }
+                </select>
+            </div>
+        </form>
 
         @if (!Model.Items.Any())
         {
@@ -72,9 +99,14 @@
                                                 <form asp-controller="Admin" asp-action="UpdateLeaveStatus" method="post">
                                                     <input type="hidden" name="id" value="@item.Id" />
                                                     <input type="hidden" name="status" value="1" />
-                                                    <button type="submit"
+                                                    <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                                    <button type="button"
                                                             class="admin-leave-action admin-leave-action--approve"
-                                                            onclick="return confirm('Onaylamak istediğinize emin misiniz?');">
+                                                            data-admin-leave-confirm
+                                                            data-confirm-tone="approve"
+                                                            data-confirm-title="İzin talebini onayla"
+                                                            data-confirm-message="Bu izin talebini onaylamak istediğinize emin misiniz?"
+                                                            data-confirm-label="Onayla">
                                                         Onayla
                                                     </button>
                                                 </form>
@@ -82,9 +114,14 @@
                                                 <form asp-controller="Admin" asp-action="UpdateLeaveStatus" method="post">
                                                     <input type="hidden" name="id" value="@item.Id" />
                                                     <input type="hidden" name="status" value="2" />
-                                                    <button type="submit"
+                                                    <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                                    <button type="button"
                                                             class="admin-leave-action admin-leave-action--reject"
-                                                            onclick="return confirm('Reddetmek istediğinize emin misiniz?');">
+                                                            data-admin-leave-confirm
+                                                            data-confirm-tone="reject"
+                                                            data-confirm-title="İzin talebini reddet"
+                                                            data-confirm-message="Bu izin talebini reddetmek istediğinize emin misiniz?"
+                                                            data-confirm-label="Reddet">
                                                         Reddet
                                                     </button>
                                                 </form>
@@ -108,7 +145,7 @@
                     @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
                     {
                         <a class="leave-history-pagination__item @(pageNumber == Model.CurrentPage ? "is-active" : string.Empty)"
-                           href="/Admin/LeaveRequests?page=@pageNumber">
+                           href="/Admin/LeaveRequests?page=@pageNumber@selectedStatusQuery">
                             @pageNumber
                         </a>
                     }
@@ -117,6 +154,20 @@
         }
     </div>
 </section>
+
+<div class="admin-leave-confirm-modal" id="adminLeaveConfirmModal" hidden aria-hidden="true">
+    <div class="admin-leave-confirm-modal__backdrop" data-admin-leave-confirm-close></div>
+    <div class="admin-leave-confirm-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="adminLeaveConfirmTitle">
+        <button type="button" class="admin-leave-confirm-modal__close" data-admin-leave-confirm-close aria-label="Kapat">×</button>
+        <span class="admin-leave-confirm-modal__eyebrow">İzin işlemi</span>
+        <h2 id="adminLeaveConfirmTitle">İzin talebini güncelle</h2>
+        <p id="adminLeaveConfirmMessage">Bu işlemi gerçekleştirmek istediğinize emin misiniz?</p>
+        <div class="admin-leave-confirm-modal__actions">
+            <button type="button" class="admin-leave-confirm-modal__button admin-leave-confirm-modal__button--ghost" data-admin-leave-confirm-close>Vazgeç</button>
+            <button type="button" class="admin-leave-confirm-modal__button admin-leave-confirm-modal__button--approve" id="adminLeaveConfirmSubmit">Onayla</button>
+        </div>
+    </div>
+</div>
 
 @section Scripts {
     <script>
@@ -143,6 +194,88 @@
             element.addEventListener("click", function (event) {
                 event.stopPropagation();
             });
+        });
+
+        const adminLeaveStatusSelect = document.getElementById("status");
+        if (adminLeaveStatusSelect) {
+            adminLeaveStatusSelect.addEventListener("change", function () {
+                adminLeaveStatusSelect.form.submit();
+            });
+        }
+
+        const adminLeaveToast = document.querySelector("[data-admin-leave-toast]");
+        if (adminLeaveToast) {
+            const closeToast = function () {
+                adminLeaveToast.classList.add("is-hiding");
+                window.setTimeout(function () {
+                    adminLeaveToast.remove();
+                }, 260);
+            };
+
+            const toastCloseButton = adminLeaveToast.querySelector("[data-admin-leave-toast-close]");
+            if (toastCloseButton) {
+                toastCloseButton.addEventListener("click", closeToast);
+            }
+
+            window.setTimeout(closeToast, 4500);
+        }
+
+        const confirmModal = document.getElementById("adminLeaveConfirmModal");
+        const confirmTitle = document.getElementById("adminLeaveConfirmTitle");
+        const confirmMessage = document.getElementById("adminLeaveConfirmMessage");
+        const confirmSubmit = document.getElementById("adminLeaveConfirmSubmit");
+        let activeLeaveStatusForm = null;
+
+        function closeAdminLeaveConfirmModal() {
+            if (!confirmModal) {
+                return;
+            }
+
+            confirmModal.hidden = true;
+            confirmModal.setAttribute("aria-hidden", "true");
+            document.body.classList.remove("admin-leave-confirm-open");
+            activeLeaveStatusForm = null;
+        }
+
+        document.querySelectorAll("[data-admin-leave-confirm]").forEach(function (button) {
+            button.addEventListener("click", function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                activeLeaveStatusForm = button.closest("form");
+                if (!confirmModal || !activeLeaveStatusForm) {
+                    return;
+                }
+
+                const tone = button.dataset.confirmTone === "reject" ? "reject" : "approve";
+                confirmTitle.textContent = button.dataset.confirmTitle || "İzin talebini güncelle";
+                confirmMessage.textContent = button.dataset.confirmMessage || "Bu işlemi gerçekleştirmek istediğinize emin misiniz?";
+                confirmSubmit.textContent = button.dataset.confirmLabel || "Onayla";
+                confirmSubmit.className = "admin-leave-confirm-modal__button admin-leave-confirm-modal__button--" + tone;
+
+                confirmModal.hidden = false;
+                confirmModal.setAttribute("aria-hidden", "false");
+                document.body.classList.add("admin-leave-confirm-open");
+                confirmSubmit.focus();
+            });
+        });
+
+        document.querySelectorAll("[data-admin-leave-confirm-close]").forEach(function (element) {
+            element.addEventListener("click", closeAdminLeaveConfirmModal);
+        });
+
+        if (confirmSubmit) {
+            confirmSubmit.addEventListener("click", function () {
+                if (activeLeaveStatusForm) {
+                    activeLeaveStatusForm.submit();
+                }
+            });
+        }
+
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && confirmModal && !confirmModal.hidden) {
+                closeAdminLeaveConfirmModal();
+            }
         });
     </script>
 }
