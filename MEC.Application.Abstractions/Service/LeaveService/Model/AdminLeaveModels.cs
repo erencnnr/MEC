@@ -60,6 +60,7 @@ namespace MEC.Application.Abstractions.Service.LeaveService.Model
         public int LeaveId { get; set; }
         public int Status { get; set; }
         public string CurrentUser { get; set; } = string.Empty;
+        public string? DecisionBy { get; set; }
         public string IpAddress { get; set; } = string.Empty;
         public string MethodName { get; set; } = "UpdateLeaveStatus";
     }

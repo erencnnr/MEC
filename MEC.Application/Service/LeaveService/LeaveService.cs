@@ -480,7 +480,8 @@ public class LeaveService : ILeaveService
 
         try
         {
-            var result = await UpdateLeaveStatusAsync(request.LeaveId, request.Status, currentUser);
+            var decisionBy = string.IsNullOrWhiteSpace(request.DecisionBy) ? currentUser : request.DecisionBy;
+            var result = await UpdateLeaveStatusAsync(request.LeaveId, request.Status, decisionBy);
             if (result)
             {
                 await TryLogLeaveStatusChangeAsync(

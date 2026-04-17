@@ -378,6 +378,7 @@ namespace MEC.Portal.Controllers
                 LeaveId = id,
                 Status = status,
                 CurrentUser = User.Identity?.Name ?? "anonymous",
+                DecisionBy = GetCurrentUserDisplayName(),
                 IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 MethodName = UpdateLeaveStatusMethodName
             });
@@ -400,6 +401,19 @@ namespace MEC.Portal.Controllers
                 : result.Message;
 
             return RedirectToLeaveReturnUrl(returnUrl);
+        }
+
+        private string GetCurrentUserDisplayName()
+        {
+            var givenName = User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value;
+            var surname = User.FindFirst(System.Security.Claims.ClaimTypes.Surname)?.Value;
+            var fullName = string.Join(" ", new[] { givenName, surname }
+                .Where(x => !string.IsNullOrWhiteSpace(x)))
+                .Trim();
+
+            return string.IsNullOrWhiteSpace(fullName)
+                ? User.Identity?.Name ?? "anonymous"
+                : fullName;
         }
 
         private IActionResult RedirectToLeaveReturnUrl(string? returnUrl)
