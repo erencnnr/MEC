@@ -1,0 +1,71 @@
+@using System.Globalization
+@model MEC.Portal.Models.OvertimeHistoryDetailViewModel
+
+@{
+    ViewData["Title"] = "Mesai Talep Detayları";
+    var item = Model.Item;
+
+    string FormatHours(decimal value)
+    {
+        return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
+    }
+}
+
+<section class="leave-detail-page">
+    <div class="leave-detail-shell">
+        <div class="leave-detail-header">
+            <a class="leave-detail-back" asp-controller="Overtime" asp-action="History">Geçmişe geri dön</a>
+
+            <div class="leave-detail-title">
+                <span class="leave-detail-title__eyebrow">Mesai kaydı</span>
+                <h1>Mesai Talep Detayları</h1>
+            </div>
+        </div>
+
+        <div class="leave-detail-card">
+            <div class="leave-detail-grid">
+                <div class="leave-detail-field">
+                    <span>Oluşturma Tarihi</span>
+                    <strong>@(item.CreatedDate?.ToString("dd.MM.yyyy HH:mm") ?? "-")</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Durum</span>
+                    <strong>@item.StatusLabel</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Mesai Tarihi</span>
+                    <strong>@item.StartDate.ToString("dd.MM.yyyy")</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Onaylayan / Reddeden</span>
+                    <strong>@item.DecisionDisplay</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Başlangıç Saati</span>
+                    <strong>@item.StartDate.ToString("HH:mm")</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Bitiş Saati</span>
+                    <strong>@item.EndDate.ToString("HH:mm")</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Toplam Mesai Süresi</span>
+                    <strong>@FormatHours(item.RequestedHours) Saat</strong>
+                </div>
+            </div>
+
+            <div class="leave-detail-reason">
+                <span>Açıklama</span>
+                <div class="leave-detail-reason__box">
+                    @(string.IsNullOrWhiteSpace(item.Reason) ? "-" : item.Reason)
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

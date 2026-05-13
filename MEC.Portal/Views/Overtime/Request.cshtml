@@ -1,0 +1,173 @@
+@using System.Globalization
+@model MEC.Portal.Models.OvertimeRequestViewModel
+
+@{
+    ViewData["Title"] = "Mesai Talebi Oluştur";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    string FormatHours(decimal value)
+    {
+        return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
+    }
+
+    var requestedHoursDisplay = Model.RequestedHours > 0
+        ? FormatHours(Model.RequestedHours)
+        : "0";
+
+    var timeSlots = new List<string>();
+
+    for (var hour = 0; hour <= 23; hour++)
+    {
+        for (var minute = 0; minute < 60; minute += 30)
+        {
+            timeSlots.Add($"{hour:D2}:{minute:D2}");
+        }
+    }
+}
+
+<section class="leave-request-page">
+    <div class="leave-request-shell">
+        <div class="leave-request-header">
+            <div class="leave-request-header__copy">
+                <span class="leave-request-header__eyebrow">Mesai işlemleri</span>
+                <h1>Mesai Talebi Oluştur</h1>
+            </div>
+        </div>
+
+        <div class="leave-request-layout">
+            <div class="leave-request-card">
+                @if (TempData["OvertimeSuccess"] is string successMessage && !string.IsNullOrWhiteSpace(successMessage))
+                {
+                    <div class="leave-request-alert leave-request-alert--success">@successMessage</div>
+                }
+
+                <form asp-controller="Overtime" asp-action="Request" method="post" class="leave-request-form">
+                    <div asp-validation-summary="ModelOnly" class="leave-request-alert leave-request-alert--error"></div>
+
+                    <div class="leave-request-form__grid">
+                        <div class="leave-request-field leave-request-field--full">
+                            <label asp-for="Date">Mesai Tarihi</label>
+                            <input asp-for="Date" id="OvertimeDatePicker" class="leave-request-input" type="text" placeholder="Tarih seçiniz" autocomplete="off" required />
+                            <span class="leave-request-help">Mesai talebi yalnızca tek gün için oluşturulur.</span>
+                            <span asp-validation-for="Date" class="leave-request-validation"></span>
+                        </div>
+
+                        <div class="leave-request-field">
+                            <label asp-for="StartTime">Başlangıç Saati</label>
+                            <select asp-for="StartTime" class="leave-request-input" id="OvertimeStartTime" required>
+                                @foreach (var timeSlot in timeSlots)
+                                {
+                                    <option value="@timeSlot" selected="@(string.Equals(Model.StartTime, timeSlot, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">@timeSlot</option>
+                                }
+                            </select>
+                            <span asp-validation-for="StartTime" class="leave-request-validation"></span>
+                        </div>
+
+                        <div class="leave-request-field">
+                            <label asp-for="EndTime">Bitiş Saati</label>
+                            <select asp-for="EndTime" class="leave-request-input" id="OvertimeEndTime" required>
+                                @foreach (var timeSlot in timeSlots)
+                                {
+                                    <option value="@timeSlot" selected="@(string.Equals(Model.EndTime, timeSlot, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">@timeSlot</option>
+                                }
+                            </select>
+                            <span asp-validation-for="EndTime" class="leave-request-validation"></span>
+                        </div>
+
+                        <div class="leave-request-field leave-request-field--full">
+                            <label for="RequestedHoursDisplay">Hesaplanan Toplam Mesai Süresi</label>
+                            <input id="RequestedHoursDisplay" class="leave-request-input leave-request-input--readonly" type="text" value="@requestedHoursDisplay Saat" readonly />
+                            <span class="leave-request-help">Toplam süre başlangıç ve bitiş saatine göre otomatik hesaplanır.</span>
+                        </div>
+
+                        <div class="leave-request-field leave-request-field--full">
+                            <label asp-for="Reason">Açıklama</label>
+                            <textarea asp-for="Reason" class="leave-request-input leave-request-input--textarea" rows="6" placeholder="Mesai talebinizin kısa açıklamasını giriniz." required></textarea>
+                            <span asp-validation-for="Reason" class="leave-request-validation"></span>
+                        </div>
+                    </div>
+
+                    <div class="leave-request-actions">
+                        <a class="leave-request-actions__secondary" asp-controller="Overtime" asp-action="History">Mesai Geçmişim</a>
+                        <button type="submit" class="leave-request-actions__primary">Talebi Gönder</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/tr.js"></script>
+
+    <script>
+        (function () {
+            const requestedHoursDisplay = document.getElementById("RequestedHoursDisplay");
+            const startTimeInput = document.getElementById("OvertimeStartTime");
+            const endTimeInput = document.getElementById("OvertimeEndTime");
+            const dateInput = document.getElementById("OvertimeDatePicker");
+
+            function parseTimeToMinutes(value) {
+                if (!value || value.indexOf(":") === -1) {
+                    return null;
+                }
+
+                const parts = value.split(":");
+                const hours = parseInt(parts[0], 10);
+                const minutes = parseInt(parts[1], 10);
+
+                if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+                    return null;
+                }
+
+                return (hours * 60) + minutes;
+            }
+
+            function formatHours(value) {
+                const rounded = Math.round(value * 100) / 100;
+                const asText = Number.isInteger(rounded)
+                    ? rounded.toString()
+                    : rounded.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+
+                return asText.replace(".", ",");
+            }
+
+            function updateRequestedHours() {
+                if (!requestedHoursDisplay) {
+                    return;
+                }
+
+                const startMinutes = parseTimeToMinutes(startTimeInput ? startTimeInput.value : "");
+                const endMinutes = parseTimeToMinutes(endTimeInput ? endTimeInput.value : "");
+
+                if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+                    requestedHoursDisplay.value = "0 Saat";
+                    return;
+                }
+
+                const totalHours = (endMinutes - startMinutes) / 60;
+                requestedHoursDisplay.value = formatHours(totalHours) + " Saat";
+            }
+
+            if (dateInput && window.flatpickr) {
+                flatpickr(dateInput, {
+                    dateFormat: "d.m.Y",
+                    locale: "tr",
+                    allowInput: true
+                });
+            }
+
+            if (startTimeInput) {
+                startTimeInput.addEventListener("change", updateRequestedHours);
+            }
+
+            if (endTimeInput) {
+                endTimeInput.addEventListener("change", updateRequestedHours);
+            }
+
+            updateRequestedHours();
+        })();
+    </script>
+}

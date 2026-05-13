@@ -20,11 +20,11 @@ namespace MEC.Domain.Entity.Loan
         public int AssignedToId { get; set; }
 
         [ForeignKey("AssignedToId")]
-        public virtual Employee.Employee AssignedTo { get; set; }
+        public virtual Employee.EmployeePortal AssignedTo { get; set; }
         public int? AssignedById { get; set; } 
 
         [ForeignKey("AssignedById")]
-        public virtual Employee.Employee? AssignedBy { get; set; }
+        public virtual Employee.EmployeePortal? AssignedBy { get; set; }
         public int LoanStatusId { get; set; }
         public LoanStatus LoanStatus { get; set; }
     }

@@ -1,0 +1,279 @@
+@using System.Globalization
+@model MEC.Portal.Models.AdminOvertimeRequestListViewModel
+
+@{
+    ViewData["Title"] = "Mesai Talepleri";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+    var selectedStatusQuery = Model.SelectedStatus.HasValue ? $"&status={Model.SelectedStatus.Value}" : string.Empty;
+    var statusMessage = TempData["AdminOvertimeStatusMessage"] as string;
+    var statusLevel = string.Equals(TempData["AdminOvertimeStatusLevel"] as string, "success", StringComparison.OrdinalIgnoreCase)
+        ? "success"
+        : "error";
+
+    string FormatHours(decimal value)
+    {
+        return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
+    }
+}
+
+<section class="leave-history-page admin-leave-page">
+    <div class="leave-history-shell">
+        <div class="leave-history-topbar">
+            <div>
+                <span class="leave-history-topbar__eyebrow">Yönetici işlemleri</span>
+                <h1>Mesai Talepleri</h1>
+                <p>Personel mesai taleplerini inceleyin, detaylarını görüntüleyin ve karar sürecini yönetin.</p>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <div class="admin-leave-toast admin-leave-toast--@statusLevel" data-admin-overtime-toast>
+                <span>@statusMessage</span>
+                <button type="button" data-admin-overtime-toast-close aria-label="Bildirimi kapat">×</button>
+            </div>
+        }
+
+        <form class="leave-history-filters admin-leave-filters" method="get" action="/Admin/OvertimeRequests">
+            <div class="leave-history-filter-inline leave-history-filter-inline--status">
+                <label for="status">Durum</label>
+                <select id="status" name="status" class="leave-history-select leave-history-select--status">
+                    <option value="">Tümü</option>
+                    @foreach (var statusOption in Model.StatusOptions)
+                    {
+                        <option value="@statusOption.Value" selected="@(Model.SelectedStatus == statusOption.Value ? "selected" : null)">@statusOption.Label</option>
+                    }
+                </select>
+            </div>
+        </form>
+
+        @if (!Model.Items.Any())
+        {
+            <div class="leave-history-empty">
+                <h2>Kayıt bulunamadı</h2>
+                <p>Henüz görüntülenecek mesai talebi bulunmuyor.</p>
+            </div>
+        }
+        else
+        {
+            <div class="leave-history-table-card">
+                <div class="leave-history-table-card__meta">
+                    <span>@Model.TotalCount kayıt</span>
+                    <span>Sayfa @Model.CurrentPage / @Model.TotalPages</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table leave-history-table admin-leave-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Personel</th>
+                                <th>Toplam Mesai Süresi</th>
+                                <th>Mesai Tarihi</th>
+                                <th>Başlangıç</th>
+                                <th>Bitiş</th>
+                                <th>Durum</th>
+                                <th class="text-center">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr class="leave-history-table__row" data-href="/Admin/OvertimeRequests/@item.Id" tabindex="0">
+                                    <td>@item.EmployeeName</td>
+                                    <td>@FormatHours(item.RequestedHours) Saat</td>
+                                    <td>@item.StartDate.ToString("dd.MM.yyyy")</td>
+                                    <td>@item.StartDate.ToString("HH:mm")</td>
+                                    <td>@item.EndDate.ToString("HH:mm")</td>
+                                    <td>
+                                        <span class="leave-history-status leave-history-status--@item.StatusTone">@item.StatusLabel</span>
+                                    </td>
+                                    <td class="text-center">
+                                        @if (item.CanTakeAction)
+                                        {
+                                            <div class="admin-leave-actions">
+                                                <form asp-controller="OvertimeAdmin" asp-action="UpdateOvertimeStatus" method="post">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@item.Id" />
+                                                    <input type="hidden" name="status" value="1" />
+                                                    <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                                    <button type="button"
+                                                            class="admin-leave-action admin-leave-action--approve"
+                                                            data-admin-overtime-confirm
+                                                            data-confirm-tone="approve"
+                                                            data-confirm-title="Mesai talebini onayla"
+                                                            data-confirm-message="Bu mesai talebini onaylamak istediğinize emin misiniz?"
+                                                            data-confirm-label="Onayla">
+                                                        Onayla
+                                                    </button>
+                                                </form>
+
+                                                <form asp-controller="OvertimeAdmin" asp-action="UpdateOvertimeStatus" method="post">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@item.Id" />
+                                                    <input type="hidden" name="status" value="2" />
+                                                    <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                                    <button type="button"
+                                                            class="admin-leave-action admin-leave-action--reject"
+                                                            data-admin-overtime-confirm
+                                                            data-confirm-tone="reject"
+                                                            data-confirm-title="Mesai talebini reddet"
+                                                            data-confirm-message="Bu mesai talebini reddetmek istediğinize emin misiniz?"
+                                                            data-confirm-label="Reddet">
+                                                        Reddet
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="admin-leave-note">İşlem tamamlandı</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @if (Model.TotalPages > 1)
+            {
+                <nav class="leave-history-pagination" aria-label="Mesai talepleri sayfaları">
+                    @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                    {
+                        <a class="leave-history-pagination__item @(pageNumber == Model.CurrentPage ? "is-active" : string.Empty)"
+                           href="/Admin/OvertimeRequests?page=@pageNumber@selectedStatusQuery">
+                            @pageNumber
+                        </a>
+                    }
+                </nav>
+            }
+        }
+    </div>
+</section>
+
+<div class="admin-leave-confirm-modal" id="adminOvertimeConfirmModal" hidden aria-hidden="true">
+    <div class="admin-leave-confirm-modal__backdrop" data-admin-overtime-confirm-close></div>
+    <div class="admin-leave-confirm-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="adminOvertimeConfirmTitle">
+        <button type="button" class="admin-leave-confirm-modal__close" data-admin-overtime-confirm-close aria-label="Kapat">×</button>
+        <span class="admin-leave-confirm-modal__eyebrow">Mesai işlemi</span>
+        <h2 id="adminOvertimeConfirmTitle">Mesai talebini güncelle</h2>
+        <p id="adminOvertimeConfirmMessage">Bu işlemi gerçekleştirmek istediğinize emin misiniz?</p>
+        <div class="admin-leave-confirm-modal__actions">
+            <button type="button" class="admin-leave-confirm-modal__button admin-leave-confirm-modal__button--ghost" data-admin-overtime-confirm-close>Vazgeç</button>
+            <button type="button" class="admin-leave-confirm-modal__button admin-leave-confirm-modal__button--approve" id="adminOvertimeConfirmSubmit">Onayla</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll(".leave-history-table__row").forEach(function (row) {
+            row.addEventListener("click", function () {
+                const href = row.getAttribute("data-href");
+                if (href) {
+                    window.location.href = href;
+                }
+            });
+
+            row.addEventListener("keydown", function (event) {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    const href = row.getAttribute("data-href");
+                    if (href) {
+                        window.location.href = href;
+                    }
+                }
+            });
+        });
+
+        document.querySelectorAll(".admin-leave-actions form, .admin-leave-actions button").forEach(function (element) {
+            element.addEventListener("click", function (event) {
+                event.stopPropagation();
+            });
+        });
+
+        const adminOvertimeStatusSelect = document.getElementById("status");
+        if (adminOvertimeStatusSelect) {
+            adminOvertimeStatusSelect.addEventListener("change", function () {
+                adminOvertimeStatusSelect.form.submit();
+            });
+        }
+
+        const adminOvertimeToast = document.querySelector("[data-admin-overtime-toast]");
+        if (adminOvertimeToast) {
+            const closeToast = function () {
+                adminOvertimeToast.classList.add("is-hiding");
+                window.setTimeout(function () {
+                    adminOvertimeToast.remove();
+                }, 260);
+            };
+
+            const toastCloseButton = adminOvertimeToast.querySelector("[data-admin-overtime-toast-close]");
+            if (toastCloseButton) {
+                toastCloseButton.addEventListener("click", closeToast);
+            }
+
+            window.setTimeout(closeToast, 4500);
+        }
+
+        const confirmModal = document.getElementById("adminOvertimeConfirmModal");
+        const confirmTitle = document.getElementById("adminOvertimeConfirmTitle");
+        const confirmMessage = document.getElementById("adminOvertimeConfirmMessage");
+        const confirmSubmit = document.getElementById("adminOvertimeConfirmSubmit");
+        let activeOvertimeStatusForm = null;
+
+        function closeAdminOvertimeConfirmModal() {
+            if (!confirmModal) {
+                return;
+            }
+
+            confirmModal.hidden = true;
+            confirmModal.setAttribute("aria-hidden", "true");
+            document.body.classList.remove("admin-leave-confirm-open");
+            activeOvertimeStatusForm = null;
+        }
+
+        document.querySelectorAll("[data-admin-overtime-confirm]").forEach(function (button) {
+            button.addEventListener("click", function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                activeOvertimeStatusForm = button.closest("form");
+                if (!confirmModal || !activeOvertimeStatusForm) {
+                    return;
+                }
+
+                const tone = button.dataset.confirmTone === "reject" ? "reject" : "approve";
+                confirmTitle.textContent = button.dataset.confirmTitle || "Mesai talebini güncelle";
+                confirmMessage.textContent = button.dataset.confirmMessage || "Bu işlemi gerçekleştirmek istediğinize emin misiniz?";
+                confirmSubmit.textContent = button.dataset.confirmLabel || "Onayla";
+                confirmSubmit.className = "admin-leave-confirm-modal__button admin-leave-confirm-modal__button--" + tone;
+
+                confirmModal.hidden = false;
+                confirmModal.setAttribute("aria-hidden", "false");
+                document.body.classList.add("admin-leave-confirm-open");
+                confirmSubmit.focus();
+            });
+        });
+
+        document.querySelectorAll("[data-admin-overtime-confirm-close]").forEach(function (element) {
+            element.addEventListener("click", closeAdminOvertimeConfirmModal);
+        });
+
+        if (confirmSubmit) {
+            confirmSubmit.addEventListener("click", function () {
+                if (activeOvertimeStatusForm) {
+                    activeOvertimeStatusForm.submit();
+                }
+            });
+        }
+
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && confirmModal && !confirmModal.hidden) {
+                closeAdminOvertimeConfirmModal();
+            }
+        });
+    </script>
+}

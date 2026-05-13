@@ -28,6 +28,15 @@ namespace MEC.Application.Service.EmployeeService
             return results.FirstOrDefault();
         }
 
+        public async Task<List<EmployeePortal>> GetActivePortalUsersAsync()
+        {
+            return (await _repository.GetAllAsync(x => !x.IsDeleted))
+                .OrderBy(x => x.FirstName)
+                .ThenBy(x => x.LastName)
+                .ThenBy(x => x.Email)
+                .ToList();
+        }
+
         public async Task<EmployeePortal?> GetActivePortalUserByEmailAsync(string email)
         {
             if (string.IsNullOrWhiteSpace(email))

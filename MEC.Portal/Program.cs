@@ -1,12 +1,20 @@
-﻿using MEC.Application.Abstractions.Service.EmployeeService;
+using MEC.Application.Abstractions.Service.AssetService;
+using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.LeaveService;
+using MEC.Application.Abstractions.Service.LoanService;
 using MEC.Application.Abstractions.Service.LoggingService;
 using MEC.Application.Abstractions.Service.LoginService;
+using MEC.Application.Abstractions.Service.OvertimeService;
 using MEC.Application.Abstractions.Service.SchoolService;
+using MEC.Application.Abstractions.Service.ServiceHistoryService;
+using MEC.Application.Service.AssetService;
 using MEC.Application.Service.EmployeeService;
+using MEC.Application.Service.OvertimeService;
+using MEC.Application.Service.LoanService;
 using MEC.Application.Service.LoggingService;
 using MEC.Application.Service.LoginService;
 using MEC.Application.Service.SchoolService;
+using MEC.Application.Service.ServiceHistoryService;
 using MEC.DAL.Config.Abstractions.Common;
 using MEC.DAL.Config.Applicaiton.EntityFramework;
 using MEC.DAL.Config.Contexts;
@@ -15,6 +23,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.EntityFrameworkCore;
+using MySqlConnector;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
@@ -33,7 +42,8 @@ try
         .WriteTo.Console());
 
     var environment = builder.Configuration["AppSettings:Environment"];
-    var connectionString = builder.Configuration.GetConnectionString(environment == "Test" ? "DefaultConnection" : "ProdConnection");
+    var connectionString = EnsureMySqlConnectionString(
+        builder.Configuration.GetConnectionString(environment == "Test" ? "DefaultConnection" : "ProdConnection"));
 
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
@@ -56,74 +66,28 @@ try
     builder.Services.AddScoped<ISliderService, SliderService>();
     builder.Services.AddScoped<IEmailService, EmailService>();
     builder.Services.AddScoped<ILeaveService, LeaveService>();
+    builder.Services.AddScoped<IOvertimeService, OvertimeService>();
     builder.Services.AddScoped<IApiLogService, ApiLogService>();
     builder.Services.AddScoped<IUserActionLogService, UserActionLogService>();
+    builder.Services.AddScoped<IAssetService, AssetService>();
+    builder.Services.AddScoped<IAssetTypeService, AssetTypeService>();
+    builder.Services.AddScoped<IAssetStatusService, AssetStatusService>();
+    builder.Services.AddScoped<IAssetImageService, AssetImageService>();
+    builder.Services.AddScoped<IAssetAttachmentService, AssetAttachmentService>();
+    builder.Services.AddScoped<ILoanService, LoanService>();
+    builder.Services.AddScoped<ILoanStatusService, LoanStatusService>();
+    builder.Services.AddScoped<ISchoolService, SchoolService>();
+    builder.Services.AddScoped<ISchoolClassService, SchoolClassService>();
+    builder.Services.AddScoped<IServiceHistoryService, ServiceHistoryService>();
 
-    builder.Services.AddHttpClient<IAttachmentApiClient, AttachmentApiClient>((serviceProvider, client) =>
-    {
-        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-        var baseUrl = configuration["WebApi:BaseUrl"];
-
-        if (!string.IsNullOrWhiteSpace(baseUrl))
-        {
-            client.BaseAddress = new Uri(baseUrl);
-        }
-    });
-
-    builder.Services.AddHttpClient<IAnnouncementAttachmentApiClient, AnnouncementAttachmentApiClient>((serviceProvider, client) =>
-    {
-        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-        var baseUrl = configuration["WebApi:BaseUrl"];
-
-        if (!string.IsNullOrWhiteSpace(baseUrl))
-        {
-            client.BaseAddress = new Uri(baseUrl);
-        }
-    });
-
-    builder.Services.AddHttpClient<IAnnouncementImageApiClient, AnnouncementImageApiClient>((serviceProvider, client) =>
-    {
-        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-        var baseUrl = configuration["WebApi:BaseUrl"];
-
-        if (!string.IsNullOrWhiteSpace(baseUrl))
-        {
-            client.BaseAddress = new Uri(baseUrl);
-        }
-    });
-
-    builder.Services.AddHttpClient<ISliderImageApiClient, SliderImageApiClient>((serviceProvider, client) =>
-    {
-        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-        var baseUrl = configuration["WebApi:BaseUrl"];
-
-        if (!string.IsNullOrWhiteSpace(baseUrl))
-        {
-            client.BaseAddress = new Uri(baseUrl);
-        }
-    });
-
-    builder.Services.AddHttpClient<ILibraryAttachmentApiClient, LibraryAttachmentApiClient>((serviceProvider, client) =>
-    {
-        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-        var baseUrl = configuration["WebApi:BaseUrl"];
-
-        if (!string.IsNullOrWhiteSpace(baseUrl))
-        {
-            client.BaseAddress = new Uri(baseUrl);
-        }
-    });
-
-    builder.Services.AddHttpClient<IPortalUserSyncApiClient, PortalUserSyncApiClient>((serviceProvider, client) =>
-    {
-        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
-        var baseUrl = configuration["WebApi:BaseUrl"];
-
-        if (!string.IsNullOrWhiteSpace(baseUrl))
-        {
-            client.BaseAddress = new Uri(baseUrl);
-        }
-    });
+    builder.Services.AddHttpClient<IAttachmentApiClient, AttachmentApiClient>(ConfigureApiClient);
+    builder.Services.AddHttpClient<IAnnouncementAttachmentApiClient, AnnouncementAttachmentApiClient>(ConfigureApiClient);
+    builder.Services.AddHttpClient<IAnnouncementImageApiClient, AnnouncementImageApiClient>(ConfigureApiClient);
+    builder.Services.AddHttpClient<ISliderImageApiClient, SliderImageApiClient>(ConfigureApiClient);
+    builder.Services.AddHttpClient<ILibraryAttachmentApiClient, LibraryAttachmentApiClient>(ConfigureApiClient);
+    builder.Services.AddHttpClient<IPortalUserSyncApiClient, PortalUserSyncApiClient>(ConfigureApiClient);
+    builder.Services.AddHttpClient<IAssetImageApiClient, AssetImageApiClient>(ConfigureApiClient);
+    builder.Services.AddHttpClient<IAssetAttachmentApiClient, AssetAttachmentApiClient>(ConfigureApiClient);
 
     builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
         .AddCookie(options =>
@@ -162,4 +126,30 @@ catch (Exception ex)
 finally
 {
     Log.CloseAndFlush();
+}
+
+static void ConfigureApiClient(IServiceProvider serviceProvider, HttpClient client)
+{
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    var baseUrl = configuration["WebApi:BaseUrl"];
+
+    if (!string.IsNullOrWhiteSpace(baseUrl))
+    {
+        client.BaseAddress = new Uri(baseUrl);
+    }
+}
+
+static string EnsureMySqlConnectionString(string? connectionString)
+{
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+        throw new InvalidOperationException("Database connection string is not configured.");
+    }
+
+    var builder = new MySqlConnectionStringBuilder(connectionString)
+    {
+        ConvertZeroDateTime = true
+    };
+
+    return builder.ConnectionString;
 }

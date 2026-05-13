@@ -1,0 +1,136 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model MEC.Portal.Models.AssetCreateViewModel
+
+@{
+    ViewData["Title"] = "Yeni Envanter";
+    var classItems = ((IEnumerable<SelectListItem>)ViewBag.Classes).ToList();
+    var hasClasses = classItems.Any();
+}
+
+<section class="inventory-page">
+    <div class="inventory-page__header inventory-page__header--compact">
+        <div>
+            <span class="inventory-page__eyebrow">YÖNETİCİ İŞLEMLERİ</span>
+            <h1 class="inventory-page__title">Yeni Envanter</h1>
+        </div>
+        <a asp-action="Index" asp-controller="Assets" class="inventory-button inventory-button--ghost">Listeye Dön</a>
+    </div>
+
+    <div class="inventory-form-card">
+        <form asp-action="Create" asp-controller="Assets" method="post" class="inventory-form">
+            <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+
+            <div class="inventory-form__grid">
+                <div class="inventory-form__field">
+                    <label asp-for="Name" class="inventory-field-label"></label>
+                    <input asp-for="Name" class="inventory-input" placeholder="Örn: Dell Latitude 3520" />
+                    <span asp-validation-for="Name" class="text-danger small"></span>
+                </div>
+
+                <div class="inventory-form__field">
+                    <label asp-for="SerialNumber" class="inventory-field-label"></label>
+                    <input asp-for="SerialNumber" class="inventory-input" placeholder="Seri numarası" />
+                    <span asp-validation-for="SerialNumber" class="text-danger small"></span>
+                </div>
+
+                <div class="inventory-form__field">
+                    <label asp-for="AssetTypeId" class="inventory-field-label">Envanter Türü</label>
+                    <select asp-for="AssetTypeId" asp-items="ViewBag.Types" class="inventory-select">
+                        <option value="">Seçiniz</option>
+                    </select>
+                    <span asp-validation-for="AssetTypeId" class="text-danger small"></span>
+                </div>
+
+                <div class="inventory-form__field">
+                    <label asp-for="SchoolId" class="inventory-field-label">Konum / Okul</label>
+                    <select asp-for="SchoolId" asp-items="ViewBag.Schools" class="inventory-select" id="SchoolDropdown">
+                        <option value="">Seçiniz</option>
+                    </select>
+                    <span asp-validation-for="SchoolId" class="text-danger small"></span>
+                </div>
+
+                <div class="inventory-form__field">
+                    <label asp-for="SchoolClassId" class="inventory-field-label">Sınıf / Şube</label>
+                    <select asp-for="SchoolClassId" asp-items="classItems" class="inventory-select" id="ClassDropdown" disabled="@(!hasClasses ? "disabled" : null)">
+                        <option value="">@(hasClasses ? "Seçiniz (opsiyonel)" : "Önce okul seçiniz")</option>
+                    </select>
+                </div>
+
+                <div class="inventory-form__field">
+                    <label asp-for="InvoiceDate" class="inventory-field-label"></label>
+                    <input asp-for="InvoiceDate" class="inventory-input" type="date" id="InvoiceDate" />
+                    <span asp-validation-for="InvoiceDate" class="text-danger small"></span>
+                </div>
+
+                <div class="inventory-form__field" id="WarrantyArea" style="display:none;">
+                    <label asp-for="WarrantyEndDate" class="inventory-field-label"></label>
+                    <input asp-for="WarrantyEndDate" class="inventory-input" type="date" id="WarrantyEndDate" />
+                    <span asp-validation-for="WarrantyEndDate" class="text-danger small"></span>
+                </div>
+
+                <div class="inventory-form__field inventory-form__field--full">
+                    <label asp-for="Description" class="inventory-field-label"></label>
+                    <textarea asp-for="Description" class="inventory-textarea" rows="4" placeholder="Ek açıklama"></textarea>
+                </div>
+            </div>
+
+            <div class="inventory-form__actions">
+                <button type="submit" class="inventory-button inventory-button--primary">Kaydet</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        $(function () {
+            function toggleWarrantyVisibility(invoiceDateVal) {
+                const area = $('#WarrantyArea');
+                const warrantyInput = $('#WarrantyEndDate');
+
+                if (invoiceDateVal) {
+                    const date = new Date(invoiceDateVal);
+                    date.setFullYear(date.getFullYear() + 2);
+                    const day = ("0" + date.getDate()).slice(-2);
+                    const month = ("0" + (date.getMonth() + 1)).slice(-2);
+                    const year = date.getFullYear();
+                    warrantyInput.val(`${year}-${month}-${day}`);
+                    area.fadeIn();
+                } else {
+                    area.hide();
+                    warrantyInput.val('');
+                }
+            }
+
+            $('#SchoolDropdown').change(function () {
+                const schoolId = $(this).val();
+                const classDropdown = $('#ClassDropdown');
+
+                classDropdown.empty().append('<option value="">Yükleniyor...</option>').prop('disabled', true);
+
+                if (!schoolId) {
+                    classDropdown.empty().append('<option value="">Önce okul seçiniz</option>').prop('disabled', true);
+                    return;
+                }
+
+                $.get('@Url.Action("GetClassesBySchool", "Assets")', { schoolId: schoolId })
+                    .done(function (data) {
+                        classDropdown.empty().append('<option value="">Seçiniz (opsiyonel)</option>');
+                        $.each(data, function (_, item) {
+                            classDropdown.append($('<option>').text(item.name).val(item.id));
+                        });
+                        classDropdown.prop('disabled', false);
+                    })
+                    .fail(function () {
+                        classDropdown.empty().append('<option value="">Sınıflar yüklenemedi</option>').prop('disabled', true);
+                    });
+            });
+
+            toggleWarrantyVisibility($('#InvoiceDate').val());
+            $('#InvoiceDate').on('change', function () {
+                toggleWarrantyVisibility($(this).val());
+            });
+        });
+    </script>
+}

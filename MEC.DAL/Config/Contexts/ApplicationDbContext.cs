@@ -13,6 +13,7 @@ using MEC.Domain.Entity.Loan;
 using MEC.Domain.Entity.Employee;
 using MEC.Domain.Entity.Leave;
 using MEC.Domain.Entity.Logging;
+using MEC.Domain.Entity.Overtime;
 
 
 namespace MEC.DAL.Config.Contexts
@@ -48,6 +49,7 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<UserActionLog> UserActionLogs { get; set; }
         public DbSet<LeaveType> LeaveTypes { get; set; }
         public DbSet<Holiday> Holidays { get; set; }
+        public DbSet<OvertimeRequest> OvertimeRequests { get; set; }
 
         // Çakışmayı önlemek için sınıfı tam adıyla (MEC.Domain.Entity.Leave.Leave) belirtiyoruz
         public DbSet<MEC.Domain.Entity.Leave.Leave> Leaves { get; set; }
@@ -92,6 +94,26 @@ namespace MEC.DAL.Config.Contexts
                 .HasOne(x => x.LeaveType)
                 .WithMany(x => x.Leaves)
                 .HasForeignKey(x => x.LeaveTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<OvertimeRequest>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<OvertimeRequest>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<OvertimeRequest>()
+                .HasIndex(x => x.EmployeePortalId);
+
+            modelBuilder.Entity<OvertimeRequest>()
+                .HasIndex(x => x.Status);
+
+            modelBuilder.Entity<OvertimeRequest>()
+                .HasOne(x => x.EmployeePortal)
+                .WithMany()
+                .HasForeignKey(x => x.EmployeePortalId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<AnnouncementAttachment>()

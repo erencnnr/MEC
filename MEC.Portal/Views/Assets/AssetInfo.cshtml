@@ -1,0 +1,602 @@
+@model MEC.Portal.Models.AssetInfoViewModel
+
+@{
+    ViewData["Title"] = "Envanter Detayı";
+    var hasActiveLoan = Model.Loans != null && Model.Loans.Any(x => x.ReturnDate == null);
+    var activeTab = (ViewBag.ActiveTab as string) ?? "general";
+}
+
+<section class="inventory-page">
+    <div class="inventory-page__header inventory-page__header--compact">
+        <div>
+            <span class="inventory-page__eyebrow">YÖNETİCİ İŞLEMLERİ</span>
+            <h1 class="inventory-page__title">@Model.Name</h1>
+            <p class="inventory-page__subtitle">Envanter detaylarını güncelleyin, dosya yükleyin ve zimmet hareketlerini takip edin.</p>
+        </div>
+        <a asp-action="Index" asp-controller="Assets" class="inventory-button inventory-button--ghost">Listeye Dön</a>
+    </div>
+
+    @Html.AntiForgeryToken()
+
+    @if (TempData["Success"] is string successMessage)
+    {
+        <div class="inventory-inline-alert inventory-inline-alert--success">@successMessage</div>
+    }
+
+    @if (TempData["Error"] is string errorMessage)
+    {
+        <div class="inventory-inline-alert inventory-inline-alert--error">@errorMessage</div>
+    }
+
+    <div id="assetActionAlert" class="inventory-inline-alert d-none"></div>
+
+    <div class="inventory-tabs">
+        <button class="inventory-tabs__button @(activeTab == "general" ? "is-active" : string.Empty)" data-bs-toggle="tab" data-bs-target="#general" type="button">Genel Bilgiler</button>
+        <button class="inventory-tabs__button @(activeTab == "images" ? "is-active" : string.Empty)" data-bs-toggle="tab" data-bs-target="#images" type="button" onclick="loadAssetImages()">Resimler</button>
+        <button class="inventory-tabs__button @(activeTab == "attachments" ? "is-active" : string.Empty)" data-bs-toggle="tab" data-bs-target="#attachments" type="button" onclick="loadAttachments()">Dokümanlar</button>
+        <button class="inventory-tabs__button @(activeTab == "service" ? "is-active" : string.Empty)" data-bs-toggle="tab" data-bs-target="#service-history" type="button">Teknik Servis Geçmişi</button>
+        <button class="inventory-tabs__button @(activeTab == "loans" ? "is-active" : string.Empty)" data-bs-toggle="tab" data-bs-target="#loans" type="button">Zimmet Geçmişi</button>
+    </div>
+
+    <div class="tab-content">
+        <div class="tab-pane fade @(activeTab == "general" ? "show active" : string.Empty)" id="general">
+            <div class="inventory-form-card">
+                <form asp-action="AssetInfo" asp-controller="Assets" asp-route-id="@Model.Id" method="post" class="inventory-form">
+                    <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+                    <div class="inventory-form__grid">
+                        <div class="inventory-form__field">
+                            <label asp-for="Name" class="inventory-field-label"></label>
+                            <input asp-for="Name" class="inventory-input" />
+                        </div>
+                        <div class="inventory-form__field">
+                            <label asp-for="SerialNumber" class="inventory-field-label"></label>
+                            <input asp-for="SerialNumber" class="inventory-input" />
+                        </div>
+                        <div class="inventory-form__field">
+                            <label asp-for="AssetTypeId" class="inventory-field-label">Envanter Türü</label>
+                            <select asp-for="AssetTypeId" asp-items="ViewBag.Types" class="inventory-select"></select>
+                        </div>
+                        <div class="inventory-form__field">
+                            <label asp-for="SchoolId" class="inventory-field-label">Konum / Okul</label>
+                            <select asp-for="SchoolId" asp-items="ViewBag.Schools" class="inventory-select" id="SchoolDropdown"></select>
+                        </div>
+                        <div class="inventory-form__field">
+                            <label asp-for="SchoolClassId" class="inventory-field-label">Sınıf / Şube</label>
+                            <select asp-for="SchoolClassId" asp-items="ViewBag.Classes" class="inventory-select" id="ClassDropdown"></select>
+                        </div>
+                        <div class="inventory-form__field">
+                            <label asp-for="WarrantyEndDate" class="inventory-field-label"></label>
+                            <input asp-for="WarrantyEndDate" class="inventory-input" type="date" />
+                        </div>
+                        <div class="inventory-form__field">
+                            <label asp-for="InvoiceDate" class="inventory-field-label"></label>
+                            <input asp-for="InvoiceDate" class="inventory-input" type="date" />
+                        </div>
+                        <div class="inventory-form__field inventory-form__field--full">
+                            <label asp-for="Description" class="inventory-field-label"></label>
+                            <textarea asp-for="Description" class="inventory-textarea" rows="4"></textarea>
+                        </div>
+                    </div>
+                    <div class="inventory-form__actions">
+                        <button type="submit" class="inventory-button inventory-button--primary">Değişiklikleri Kaydet</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="tab-pane fade @(activeTab == "images" ? "show active" : string.Empty)" id="images">
+            <div class="inventory-panel">
+                <div class="inventory-panel__head">
+                    <div>
+                        <h3>Resimler</h3>
+                        <p>Envantere ait görselleri yükleyin ve yönetin.</p>
+                    </div>
+                    <div>
+                        <input type="file" id="imageInput" hidden accept="image/*" />
+                        <button type="button" class="inventory-button inventory-button--secondary" onclick="document.getElementById('imageInput').click()">Yeni Resim Yükle</button>
+                    </div>
+                </div>
+                <div id="imageGalleryContainer" class="inventory-gallery"></div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade @(activeTab == "attachments" ? "show active" : string.Empty)" id="attachments">
+            <div class="inventory-panel">
+                <div class="inventory-panel__head">
+                    <div>
+                        <h3>Dokümanlar</h3>
+                        <p>PDF, Word ve diğer dokümanları bu alanda saklayabilirsiniz.</p>
+                    </div>
+                </div>
+
+                <div class="inventory-upload-row">
+                    <input type="file" id="attachmentInput" class="inventory-input" />
+                    <button type="button" class="inventory-button inventory-button--primary" onclick="uploadAttachment()">Yükle</button>
+                </div>
+                <div id="attachmentUploadStatus" class="small"></div>
+
+                <div class="table-responsive">
+                    <table class="table inventory-subtable mb-0">
+                        <thead>
+                            <tr>
+                                <th>Dosya Adı</th>
+                                <th class="text-end">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attachmentTableBody">
+                            <tr><td colspan="2" class="inventory-table__empty">Yükleniyor...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade @(activeTab == "service" ? "show active" : string.Empty)" id="service-history">
+            <div class="inventory-panel">
+                <div class="inventory-panel__head">
+                    <div>
+                        <h3>Teknik Servis Geçmişi</h3>
+                        <p>Servis hareketlerini tarih bazında görüntüleyin.</p>
+                    </div>
+                    <div class="inventory-panel__actions">
+                        <form method="get" asp-action="AssetInfo" asp-controller="Assets" asp-route-id="@Model.Id" class="inventory-inline-form">
+                            <input type="hidden" name="activeTab" value="service" />
+                            <select name="serviceSort" class="inventory-select inventory-select--compact">
+                                <option value="">Sıralama Seç</option>
+                                <option value="SendDate_Desc" selected="@(ViewBag.ServiceSort == "SendDate_Desc" ? "selected" : null)">Gönderim Tarihi (Yeni - Eski)</option>
+                                <option value="SendDate_Asc" selected="@(ViewBag.ServiceSort == "SendDate_Asc" ? "selected" : null)">Gönderim Tarihi (Eski - Yeni)</option>
+                                <option value="ReturnDate_Desc" selected="@(ViewBag.ServiceSort == "ReturnDate_Desc" ? "selected" : null)">Dönüş Tarihi (Yeni - Eski)</option>
+                                <option value="ReturnDate_Asc" selected="@(ViewBag.ServiceSort == "ReturnDate_Asc" ? "selected" : null)">Dönüş Tarihi (Eski - Yeni)</option>
+                            </select>
+                            <button type="submit" class="inventory-button inventory-button--ghost">Uygula</button>
+                        </form>
+                        <a asp-action="CreateServiceHistory" asp-controller="Assets" asp-route-assetId="@Model.Id" class="inventory-button inventory-button--secondary">Yeni Servis Kaydı</a>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table inventory-subtable mb-0">
+                        <thead>
+                            <tr>
+                                <th>Gönderim</th>
+                                <th>Dönüş</th>
+                                <th>Servis Firması</th>
+                                <th>Garanti</th>
+                                <th>Maliyet</th>
+                                <th>Açıklama</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.ServiceHistories != null && Model.ServiceHistories.Any())
+                            {
+                                foreach (var item in Model.ServiceHistories)
+                                {
+                                    <tr>
+                                        <td>@item.SendDate.ToString("dd.MM.yyyy")</td>
+                                        <td>@(item.ReturnDate.HasValue ? item.ReturnDate.Value.ToString("dd.MM.yyyy") : "-")</td>
+                                        <td>@(string.IsNullOrWhiteSpace(item.ServiceCompany) ? "-" : item.ServiceCompany)</td>
+                                        <td>@(item.IsWarranty ? "Garanti" : "Garanti Dışı")</td>
+                                        <td>@(item.Cost.HasValue ? item.Cost.Value.ToString("N2") : "-")</td>
+                                        <td>@item.Description</td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="6" class="inventory-table__empty">Kayıt bulunamadı.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade @(activeTab == "loans" ? "show active" : string.Empty)" id="loans">
+            <div class="inventory-panel">
+                <div class="inventory-panel__head">
+                    <div>
+                        <h3>Zimmet Hareketleri</h3>
+                        <p>Aktif zimmetleri yönetin ve iade sürecini takip edin.</p>
+                    </div>
+                    @if (hasActiveLoan)
+                    {
+                        <button type="button" class="inventory-button inventory-button--ghost" disabled>Aktif Zimmet Var</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="inventory-button inventory-button--secondary" data-bs-toggle="modal" data-bs-target="#assignModal">Zimmetle</button>
+                    }
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table inventory-subtable mb-0">
+                        <thead>
+                            <tr>
+                                <th>Personel</th>
+                                <th>Veriliş</th>
+                                <th>İade</th>
+                                <th>Durum</th>
+                                <th>Notlar</th>
+                                <th class="text-end">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model.Loans != null && Model.Loans.Any())
+                            {
+                                foreach (var loan in Model.Loans)
+                                {
+                                    <tr>
+                                        <td>@(loan.AssignedTo != null ? $"{loan.AssignedTo.FirstName} {loan.AssignedTo.LastName}".Trim() : "-")</td>
+                                        <td>@loan.LoanDate.ToString("dd.MM.yyyy")</td>
+                                        <td>@(loan.ReturnDate?.ToString("dd.MM.yyyy") ?? "-")</td>
+                                        <td>@(loan.ReturnDate == null ? "Zimmetli" : "İade Alındı")</td>
+                                        <td>@(string.IsNullOrWhiteSpace(loan.Notes) ? "-" : loan.Notes)</td>
+                                        <td class="text-end">
+                                            @if (loan.ReturnDate == null)
+                                            {
+                                                <button type="button" class="inventory-button inventory-button--success inventory-button--small" data-bs-toggle="modal" data-bs-target="#returnModal" onclick="setReturnModal(@loan.Id)">İade Al</button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="6" class="inventory-table__empty">Kayıt bulunamadı.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="modal fade" id="imageViewerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Görsel Önizleme</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalFullImage" src="" class="img-fluid rounded" style="max-height: 70vh;" alt="Envanter görseli" />
+            </div>
+            <div class="modal-footer">
+                <a id="modalDownloadBtn" href="#" class="inventory-button inventory-button--secondary" download>İndir</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="assignModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form asp-action="AssignAsset" asp-controller="Assets" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">Zimmetle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="AssetId" value="@Model.Id" />
+                    <div class="inventory-form__field">
+                        <label class="inventory-field-label">Personel</label>
+                        <select name="AssignedToId" class="inventory-select" required asp-items="ViewBag.Employees">
+                            <option value="">Seçiniz</option>
+                        </select>
+                    </div>
+                    <div class="inventory-form__field">
+                        <label class="inventory-field-label">Zimmet Tarihi</label>
+                        <input type="date" name="LoanDate" class="inventory-input" value="@DateTime.Now.ToString("yyyy-MM-dd")" required />
+                    </div>
+                    <div class="inventory-form__field">
+                        <label class="inventory-field-label">Not</label>
+                        <textarea name="Notes" class="inventory-textarea" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="inventory-button inventory-button--ghost" data-bs-dismiss="modal">Vazgeç</button>
+                    <button type="submit" class="inventory-button inventory-button--primary">Kaydet</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="returnModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form asp-action="ReturnAsset" asp-controller="Assets" method="post">
+                @Html.AntiForgeryToken()
+                <div class="modal-header">
+                    <h5 class="modal-title">İade Al</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="AssetId" value="@Model.Id" />
+                    <input type="hidden" name="loanId" id="returnLoanId" />
+                    <div class="inventory-form__field">
+                        <label class="inventory-field-label">İade Tarihi</label>
+                        <input type="date" name="returnDate" class="inventory-input" value="@DateTime.Now.ToString("yyyy-MM-dd")" required />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="inventory-button inventory-button--ghost" data-bs-dismiss="modal">Vazgeç</button>
+                    <button type="submit" class="inventory-button inventory-button--success">Onayla</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="assetConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">İşlemi Onayla</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="assetConfirmMessage">Bu işlemi gerçekleştirmek istediğinize emin misiniz?</div>
+            <div class="modal-footer">
+                <button type="button" class="inventory-button inventory-button--ghost" data-bs-dismiss="modal">Vazgeç</button>
+                <button type="button" class="inventory-button inventory-button--danger" id="assetConfirmActionButton">Sil</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        let assetConfirmCallback = null;
+        const assetId = '@Model.Id';
+
+        function getAntiForgeryToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]').value;
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function showActionAlert(message, level) {
+            const alert = document.getElementById('assetActionAlert');
+            alert.className = 'inventory-inline-alert inventory-inline-alert--' + level;
+            alert.textContent = message;
+            alert.classList.remove('d-none');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function openConfirmModal(message, buttonText, buttonClass, callback) {
+            document.getElementById('assetConfirmMessage').textContent = message;
+            const button = document.getElementById('assetConfirmActionButton');
+            button.textContent = buttonText;
+            button.className = 'inventory-button ' + buttonClass;
+            assetConfirmCallback = callback;
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('assetConfirmModal')).show();
+        }
+
+        document.getElementById('assetConfirmActionButton').addEventListener('click', function () {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('assetConfirmModal'));
+            if (assetConfirmCallback) {
+                assetConfirmCallback();
+            }
+            assetConfirmCallback = null;
+            modal.hide();
+        });
+
+        function setReturnModal(id) {
+            document.getElementById('returnLoanId').value = id;
+        }
+
+        function showImageModal(url, fileName) {
+            document.getElementById('modalFullImage').src = url;
+            const downloadButton = document.getElementById('modalDownloadBtn');
+            downloadButton.href = url;
+            downloadButton.setAttribute('download', fileName);
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('imageViewerModal')).show();
+        }
+
+        async function uploadAttachment() {
+            const fileInput = document.getElementById('attachmentInput');
+            const file = fileInput.files[0];
+            const statusDiv = document.getElementById('attachmentUploadStatus');
+
+            if (!file) {
+                showActionAlert('Lütfen yüklenecek dosyayı seçin.', 'warning');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('assetId', assetId);
+            formData.append('__RequestVerificationToken', getAntiForgeryToken());
+
+            statusDiv.textContent = 'Yükleniyor...';
+
+            const response = await fetch('@Url.Action("UploadAttachment", "Assets")', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
+
+            const result = await response.json();
+            if (response.ok && result.success) {
+                statusDiv.textContent = '';
+                fileInput.value = '';
+                showActionAlert(result.message, 'success');
+                loadAttachments();
+            } else {
+                statusDiv.textContent = '';
+                showActionAlert(result.message || 'Doküman yüklenemedi.', 'error');
+            }
+        }
+
+        async function loadAttachments() {
+            const tableBody = document.getElementById('attachmentTableBody');
+            tableBody.innerHTML = '<tr><td colspan="2" class="inventory-table__empty">Yükleniyor...</td></tr>';
+
+            const response = await fetch('@Url.Action("ListAssetAttachments", "Assets")?assetId=' + assetId, { credentials: 'same-origin' });
+            const payload = await response.json();
+
+            if (!payload.success || !payload.files || payload.files.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="2" class="inventory-table__empty">Henüz dosya yüklenmemiş.</td></tr>';
+                return;
+            }
+
+            tableBody.innerHTML = payload.files.map(file => `
+                <tr>
+                    <td><a href="${escapeHtml(file.url)}" target="_blank" rel="noopener">${escapeHtml(file.fileName)}</a></td>
+                    <td class="text-end">
+                        <a class="inventory-button inventory-button--ghost inventory-button--small" href="${escapeHtml(file.url)}" target="_blank" rel="noopener">Aç</a>
+                        <button type="button" class="inventory-button inventory-button--danger inventory-button--small" onclick="deleteAttachment('${escapeHtml(file.fileName)}')">Sil</button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        function deleteAttachment(fileName) {
+            openConfirmModal('Bu dokümanı silmek istediğinize emin misiniz?', 'Sil', 'inventory-button--danger', async function () {
+                const formData = new URLSearchParams();
+                formData.append('assetId', assetId);
+                formData.append('fileName', fileName);
+                formData.append('__RequestVerificationToken', getAntiForgeryToken());
+
+                const response = await fetch('@Url.Action("DeleteAttachment", "Assets")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                    body: formData.toString(),
+                    credentials: 'same-origin'
+                });
+
+                const result = await response.json();
+                showActionAlert(result.message || 'İşlem tamamlandı.', result.success ? 'success' : 'error');
+                if (result.success) {
+                    loadAttachments();
+                }
+            });
+        }
+
+        async function loadAssetImages() {
+            const container = document.getElementById('imageGalleryContainer');
+            container.innerHTML = '<div class="inventory-table__empty">Yükleniyor...</div>';
+
+            const response = await fetch('@Url.Action("ListAssetImages", "Assets")?assetId=' + assetId, { credentials: 'same-origin' });
+            const payload = await response.json();
+
+            if (!payload.success || !payload.files || payload.files.length === 0) {
+                container.innerHTML = '<div class="inventory-table__empty">Henüz resim yüklenmemiş.</div>';
+                return;
+            }
+
+            container.innerHTML = payload.files.map(file => `
+                <div class="inventory-image-card">
+                    <button type="button" class="inventory-image-card__preview" onclick="showImageModal('${escapeHtml(file.url)}', '${escapeHtml(file.fileName)}')">
+                        <img src="${escapeHtml(file.url)}" alt="${escapeHtml(file.fileName)}" />
+                    </button>
+                    <div class="inventory-image-card__footer">
+                        <span>${escapeHtml(file.fileName)}</span>
+                        <button type="button" class="inventory-button inventory-button--danger inventory-button--small" onclick="deleteAssetImage('${escapeHtml(file.fileName)}')">Sil</button>
+                    </div>
+                </div>`).join('');
+        }
+
+        function deleteAssetImage(fileName) {
+            openConfirmModal('Bu resmi silmek istediğinize emin misiniz?', 'Sil', 'inventory-button--danger', async function () {
+                const formData = new URLSearchParams();
+                formData.append('assetId', assetId);
+                formData.append('fileName', fileName);
+                formData.append('__RequestVerificationToken', getAntiForgeryToken());
+
+                const response = await fetch('@Url.Action("DeleteImage", "Assets")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                    body: formData.toString(),
+                    credentials: 'same-origin'
+                });
+
+                const result = await response.json();
+                showActionAlert(result.message || 'İşlem tamamlandı.', result.success ? 'success' : 'error');
+                if (result.success) {
+                    loadAssetImages();
+                }
+            });
+        }
+
+        document.getElementById('imageInput').addEventListener('change', async function () {
+            const file = this.files[0];
+            if (!file) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('assetId', assetId);
+            formData.append('__RequestVerificationToken', getAntiForgeryToken());
+
+            const response = await fetch('@Url.Action("UploadImage", "Assets")', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
+
+            const result = await response.json();
+            if (response.ok && result.success) {
+                this.value = '';
+                showActionAlert(result.message, 'success');
+                loadAssetImages();
+            } else {
+                showActionAlert(result.message || 'Resim yüklenemedi.', 'error');
+            }
+        });
+
+        $(function () {
+            const activeTab = '@activeTab';
+            if (activeTab === 'images') {
+                loadAssetImages();
+            }
+            if (activeTab === 'attachments') {
+                loadAttachments();
+            }
+
+            $('#SchoolDropdown').change(function () {
+                const schoolId = $(this).val();
+                const classDropdown = $('#ClassDropdown');
+                const selectedClassId = '@(Model.SchoolClassId?.ToString() ?? string.Empty)';
+
+                classDropdown.empty().append('<option value="">Yükleniyor...</option>');
+                classDropdown.prop('disabled', true);
+
+                if (!schoolId) {
+                    classDropdown.empty().append('<option value="">Önce okul seçiniz</option>');
+                    return;
+                }
+
+                $.get('@Url.Action("GetClassesBySchool", "Assets")', { schoolId: schoolId })
+                    .done(function (data) {
+                        classDropdown.empty().append('<option value="">Seçiniz (opsiyonel)</option>');
+                        $.each(data, function (_, item) {
+                            const option = $('<option>').text(item.name).val(item.id);
+                            if (selectedClassId && selectedClassId === String(item.id)) {
+                                option.attr('selected', 'selected');
+                            }
+                            classDropdown.append(option);
+                        });
+                        classDropdown.prop('disabled', false);
+                    })
+                    .fail(function () {
+                        classDropdown.empty().append('<option value="">Sınıflar yüklenemedi</option>');
+                    });
+            });
+
+            if ($('#SchoolDropdown').val()) {
+                $('#SchoolDropdown').trigger('change');
+            }
+        });
+    </script>
+}

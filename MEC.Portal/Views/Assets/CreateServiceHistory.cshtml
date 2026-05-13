@@ -1,0 +1,74 @@
+@model MEC.Portal.Models.ServiceHistoryCreateViewModel
+
+@{
+    ViewData["Title"] = "Servis Kaydı";
+}
+
+<section class="inventory-page">
+    <div class="inventory-page__header inventory-page__header--compact">
+        <div>
+            <span class="inventory-page__eyebrow">YÖNETİCİ İŞLEMLERİ</span>
+            <h1 class="inventory-page__title">Yeni Servis Kaydı</h1>
+        </div>
+        <a asp-action="AssetInfo" asp-controller="Assets" asp-route-id="@Model.AssetId" asp-route-activeTab="service" class="inventory-button inventory-button--ghost">Detaya Dön</a>
+    </div>
+
+    <div class="inventory-form-card">
+        <form asp-action="CreateServiceHistory" asp-controller="Assets" asp-route-assetId="@Model.AssetId" method="post" class="inventory-form">
+            <input type="hidden" asp-for="AssetId" />
+            <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+
+            <div class="inventory-form__grid">
+                <div class="inventory-form__field">
+                    <label class="inventory-field-label">Envanter</label>
+                    <input class="inventory-input" value="@(ViewBag.AssetName ?? "-")" disabled />
+                </div>
+
+                <div class="inventory-form__field">
+                    <label asp-for="ServiceCompany" class="inventory-field-label">Servis Firması</label>
+                    <input asp-for="ServiceCompany" class="inventory-input" />
+                    <span asp-validation-for="ServiceCompany" class="text-danger small"></span>
+                </div>
+
+                <div class="inventory-form__field">
+                    <label asp-for="SendDate" class="inventory-field-label">Gönderim Tarihi</label>
+                    <input asp-for="SendDate" class="inventory-input" type="date" />
+                    <span asp-validation-for="SendDate" class="text-danger small"></span>
+                </div>
+
+                <div class="inventory-form__field">
+                    <label asp-for="ReturnDate" class="inventory-field-label">Dönüş Tarihi</label>
+                    <input asp-for="ReturnDate" class="inventory-input" type="date" />
+                    <span asp-validation-for="ReturnDate" class="text-danger small"></span>
+                </div>
+
+                <div class="inventory-form__field">
+                    <label asp-for="Cost" class="inventory-field-label">Maliyet</label>
+                    <input asp-for="Cost" class="inventory-input" type="number" step="0.01" />
+                    <span asp-validation-for="Cost" class="text-danger small"></span>
+                </div>
+
+                <div class="inventory-form__field inventory-form__field--checkbox">
+                    <label class="inventory-checkbox-inline">
+                        <input asp-for="IsWarranty" />
+                        <span>Garanti Kapsamında</span>
+                    </label>
+                </div>
+
+                <div class="inventory-form__field inventory-form__field--full">
+                    <label asp-for="Description" class="inventory-field-label">Açıklama</label>
+                    <textarea asp-for="Description" class="inventory-textarea" rows="4"></textarea>
+                    <span asp-validation-for="Description" class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="inventory-form__actions">
+                <button type="submit" class="inventory-button inventory-button--primary">Kaydet</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

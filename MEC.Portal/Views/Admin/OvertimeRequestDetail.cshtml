@@ -1,0 +1,223 @@
+@using System.Globalization
+@model MEC.Portal.Models.AdminOvertimeRequestDetailViewModel
+
+@{
+    ViewData["Title"] = "Mesai Talep Detayları";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    var item = Model.Item;
+    var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+    var statusMessage = TempData["AdminOvertimeStatusMessage"] as string;
+    var statusLevel = string.Equals(TempData["AdminOvertimeStatusLevel"] as string, "success", StringComparison.OrdinalIgnoreCase)
+        ? "success"
+        : "error";
+
+    string FormatHours(decimal value)
+    {
+        return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
+    }
+}
+
+<section class="leave-detail-page admin-leave-detail-page">
+    <div class="leave-detail-shell">
+        <div class="leave-detail-header">
+            <a class="leave-detail-back" href="/Admin/OvertimeRequests">Mesai taleplerine geri dön</a>
+
+            <div class="leave-detail-title">
+                <span class="leave-detail-title__eyebrow">Yönetici işlemleri</span>
+                <h1>Mesai Talep Detayları</h1>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <div class="admin-leave-toast admin-leave-toast--@statusLevel" data-admin-overtime-toast>
+                <span>@statusMessage</span>
+                <button type="button" data-admin-overtime-toast-close aria-label="Bildirimi kapat">×</button>
+            </div>
+        }
+
+        <div class="leave-detail-card">
+            <div class="leave-detail-grid">
+                <div class="leave-detail-field">
+                    <span>Çalışan</span>
+                    <strong>@item.EmployeeName</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Durum</span>
+                    <strong>@item.StatusLabel</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Onaylayan / Reddeden</span>
+                    <strong>@item.DecisionDisplay</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Oluşturma Tarihi</span>
+                    <strong>@(item.CreatedDate?.ToString("dd.MM.yyyy HH:mm") ?? "-")</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Mesai Tarihi</span>
+                    <strong>@item.StartDate.ToString("dd.MM.yyyy")</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Başlangıç Saati</span>
+                    <strong>@item.StartDate.ToString("HH:mm")</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Bitiş Saati</span>
+                    <strong>@item.EndDate.ToString("HH:mm")</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Toplam Mesai Süresi</span>
+                    <strong>@FormatHours(item.RequestedHours) Saat</strong>
+                </div>
+            </div>
+
+            <div class="leave-detail-reason">
+                <span>Açıklama</span>
+                <div class="leave-detail-reason__box">
+                    @(string.IsNullOrWhiteSpace(item.Reason) ? "-" : item.Reason)
+                </div>
+            </div>
+
+            <div class="admin-leave-detail-actions">
+                @if (item.CanTakeAction)
+                {
+                    <form asp-controller="OvertimeAdmin" asp-action="UpdateOvertimeStatus" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@item.Id" />
+                        <input type="hidden" name="status" value="1" />
+                        <input type="hidden" name="returnUrl" value="@currentUrl" />
+                        <button type="button"
+                                class="admin-leave-action admin-leave-action--approve"
+                                data-admin-overtime-confirm
+                                data-confirm-tone="approve"
+                                data-confirm-title="Mesai talebini onayla"
+                                data-confirm-message="Bu mesai talebini onaylamak istediğinize emin misiniz?"
+                                data-confirm-label="Onayla">
+                            Onayla
+                        </button>
+                    </form>
+
+                    <form asp-controller="OvertimeAdmin" asp-action="UpdateOvertimeStatus" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@item.Id" />
+                        <input type="hidden" name="status" value="2" />
+                        <input type="hidden" name="returnUrl" value="@currentUrl" />
+                        <button type="button"
+                                class="admin-leave-action admin-leave-action--reject"
+                                data-admin-overtime-confirm
+                                data-confirm-tone="reject"
+                                data-confirm-title="Mesai talebini reddet"
+                                data-confirm-message="Bu mesai talebini reddetmek istediğinize emin misiniz?"
+                                data-confirm-label="Reddet">
+                            Reddet
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <div class="admin-leave-note">Bu talep için işlem tamamlandı.</div>
+                }
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="admin-leave-confirm-modal" id="adminOvertimeConfirmModal" hidden aria-hidden="true">
+    <div class="admin-leave-confirm-modal__backdrop" data-admin-overtime-confirm-close></div>
+    <div class="admin-leave-confirm-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="adminOvertimeConfirmTitle">
+        <button type="button" class="admin-leave-confirm-modal__close" data-admin-overtime-confirm-close aria-label="Kapat">×</button>
+        <span class="admin-leave-confirm-modal__eyebrow">Mesai işlemi</span>
+        <h2 id="adminOvertimeConfirmTitle">Mesai talebini güncelle</h2>
+        <p id="adminOvertimeConfirmMessage">Bu işlemi gerçekleştirmek istediğinize emin misiniz?</p>
+        <div class="admin-leave-confirm-modal__actions">
+            <button type="button" class="admin-leave-confirm-modal__button admin-leave-confirm-modal__button--ghost" data-admin-overtime-confirm-close>Vazgeç</button>
+            <button type="button" class="admin-leave-confirm-modal__button admin-leave-confirm-modal__button--approve" id="adminOvertimeConfirmSubmit">Onayla</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const adminOvertimeToast = document.querySelector("[data-admin-overtime-toast]");
+        if (adminOvertimeToast) {
+            const closeToast = function () {
+                adminOvertimeToast.classList.add("is-hiding");
+                window.setTimeout(function () {
+                    adminOvertimeToast.remove();
+                }, 260);
+            };
+
+            const toastCloseButton = adminOvertimeToast.querySelector("[data-admin-overtime-toast-close]");
+            if (toastCloseButton) {
+                toastCloseButton.addEventListener("click", closeToast);
+            }
+
+            window.setTimeout(closeToast, 4500);
+        }
+
+        const confirmModal = document.getElementById("adminOvertimeConfirmModal");
+        const confirmTitle = document.getElementById("adminOvertimeConfirmTitle");
+        const confirmMessage = document.getElementById("adminOvertimeConfirmMessage");
+        const confirmSubmit = document.getElementById("adminOvertimeConfirmSubmit");
+        let activeOvertimeStatusForm = null;
+
+        function closeAdminOvertimeConfirmModal() {
+            if (!confirmModal) {
+                return;
+            }
+
+            confirmModal.hidden = true;
+            confirmModal.setAttribute("aria-hidden", "true");
+            document.body.classList.remove("admin-leave-confirm-open");
+            activeOvertimeStatusForm = null;
+        }
+
+        document.querySelectorAll("[data-admin-overtime-confirm]").forEach(function (button) {
+            button.addEventListener("click", function (event) {
+                event.preventDefault();
+
+                activeOvertimeStatusForm = button.closest("form");
+                if (!confirmModal || !activeOvertimeStatusForm) {
+                    return;
+                }
+
+                const tone = button.dataset.confirmTone === "reject" ? "reject" : "approve";
+                confirmTitle.textContent = button.dataset.confirmTitle || "Mesai talebini güncelle";
+                confirmMessage.textContent = button.dataset.confirmMessage || "Bu işlemi gerçekleştirmek istediğinize emin misiniz?";
+                confirmSubmit.textContent = button.dataset.confirmLabel || "Onayla";
+                confirmSubmit.className = "admin-leave-confirm-modal__button admin-leave-confirm-modal__button--" + tone;
+
+                confirmModal.hidden = false;
+                confirmModal.setAttribute("aria-hidden", "false");
+                document.body.classList.add("admin-leave-confirm-open");
+                confirmSubmit.focus();
+            });
+        });
+
+        document.querySelectorAll("[data-admin-overtime-confirm-close]").forEach(function (element) {
+            element.addEventListener("click", closeAdminOvertimeConfirmModal);
+        });
+
+        if (confirmSubmit) {
+            confirmSubmit.addEventListener("click", function () {
+                if (activeOvertimeStatusForm) {
+                    activeOvertimeStatusForm.submit();
+                }
+            });
+        }
+
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && confirmModal && !confirmModal.hidden) {
+                closeAdminOvertimeConfirmModal();
+            }
+        });
+    </script>
+}

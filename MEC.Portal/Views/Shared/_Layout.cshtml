@@ -15,7 +15,7 @@
         var givenName = User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value;
         var surname = User.FindFirst(System.Security.Claims.ClaimTypes.Surname)?.Value;
         var fullName = string.Join(" ", new[] { givenName, surname }.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
-        var welcomeName = !string.IsNullOrWhiteSpace(fullName) ? fullName : (User.Identity?.Name ?? "Kullanici");
+        var welcomeName = !string.IsNullOrWhiteSpace(fullName) ? fullName : (User.Identity?.Name ?? "Kullanıcı");
 
         var isAdminAnnouncementPage = currentPath.StartsWith("/Admin/Announcements", StringComparison.OrdinalIgnoreCase);
         var isAdminLeaveRequestsPage = currentPath.Equals("/Admin/LeaveRequests", StringComparison.OrdinalIgnoreCase) ||
@@ -26,11 +26,20 @@
         var isAdminSliderPage = currentPath.Equals("/Admin/Slider", StringComparison.OrdinalIgnoreCase);
         var isAdminContentPage = currentPath.Equals("/Admin/Content", StringComparison.OrdinalIgnoreCase) ||
                                  currentPath.StartsWith("/Admin/Content/", StringComparison.OrdinalIgnoreCase);
+        var isAdminAssetsPage = currentPath.Equals("/Admin/Assets", StringComparison.OrdinalIgnoreCase) ||
+                                currentPath.StartsWith("/Admin/Assets/", StringComparison.OrdinalIgnoreCase);
+        var isAdminLoansPage = currentPath.Equals("/Admin/Loans", StringComparison.OrdinalIgnoreCase) ||
+                               currentPath.StartsWith("/Admin/Loans/", StringComparison.OrdinalIgnoreCase);
+        var isAdminOvertimeRequestsPage = currentPath.Equals("/Admin/OvertimeRequests", StringComparison.OrdinalIgnoreCase) ||
+                                          currentPath.StartsWith("/Admin/OvertimeRequests/", StringComparison.OrdinalIgnoreCase);
+        var isOvertimePage = string.Equals(currentController, "Overtime", StringComparison.OrdinalIgnoreCase);
         var isLibraryPage = currentPath.Equals("/Library", StringComparison.OrdinalIgnoreCase) ||
                             currentPath.StartsWith("/Library/", StringComparison.OrdinalIgnoreCase);
 
         var isAdminLeavePage = isAdminLeaveRequestsPage || isAdminLeaveReportPage;
         var isAdminSettingsPage = isAdminPortalUsersPage || isAdminSliderPage;
+        var isAdminInventoryPage = isAdminAssetsPage || isAdminLoansPage;
+        var isAdminOvertimePage = isAdminOvertimeRequestsPage;
         var isAnnouncementPage =
             currentPath.Equals("/Announcements", StringComparison.OrdinalIgnoreCase) ||
             currentPath.StartsWith("/Announcement/", StringComparison.OrdinalIgnoreCase) ||
@@ -41,7 +50,9 @@
                           isAdminAnnouncementPage ||
                           isAdminLeavePage ||
                           isAdminSettingsPage ||
-                          isAdminContentPage;
+                          isAdminContentPage ||
+                          isAdminInventoryPage ||
+                          isAdminOvertimePage;
         var isLeavePage = string.Equals(currentController, "Leave", StringComparison.OrdinalIgnoreCase);
         var isAdminUser = User.Identity?.IsAuthenticated == true && User.IsInRole("Admin");
 
@@ -103,6 +114,16 @@
                                 </div>
                             </div>
 
+                            <div class="dropdown portal-header__nav-dropdown @(isOvertimePage ? "is-active" : string.Empty)">
+                                <button class="portal-header__nav-link portal-header__nav-dropdown-toggle dropdown-toggle portal-header__nav-link--action @(isOvertimePage ? "is-active" : string.Empty)" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    Mesai İşlemleri
+                                </button>
+                                <div class="dropdown-menu portal-header__nav-dropdown-menu">
+                                    <a class="portal-header__nav-dropdown-item @(HeaderRouteMatch("Overtime", "Request") ? "is-active" : string.Empty)" asp-controller="Overtime" asp-action="Request">Mesai Talebi Oluştur</a>
+                                    <a class="portal-header__nav-dropdown-item @(HeaderRouteMatch("Overtime", "History", "HistoryDetail") ? "is-active" : string.Empty)" asp-controller="Overtime" asp-action="History">Mesai Geçmişim</a>
+                                </div>
+                            </div>
+
                             <a class="@(isLibraryPage ? "portal-header__nav-link is-active" : "portal-header__nav-link")" asp-controller="Library" asp-action="Index">Kütüphane</a>
                             <a class="@HeaderNavState("Profile", "Index")" asp-controller="Profile" asp-action="Index">Profilim</a>
 
@@ -119,11 +140,30 @@
 
                                         <div class="portal-header__nav-submenu">
                                             <button class="portal-header__nav-dropdown-item portal-header__nav-submenu-toggle" type="button">
+                                                Zimmet Yönetimi
+                                            </button>
+                                            <div class="portal-header__nav-submenu-menu">
+                                                <a class="portal-header__nav-submenu-item" asp-controller="Assets" asp-action="Index">Envanter</a>
+                                                <a class="portal-header__nav-submenu-item" asp-controller="Loans" asp-action="Index">Zimmetler</a>
+                                            </div>
+                                        </div>
+
+                                        <div class="portal-header__nav-submenu">
+                                            <button class="portal-header__nav-dropdown-item portal-header__nav-submenu-toggle" type="button">
                                                 İzinler
                                             </button>
                                             <div class="portal-header__nav-submenu-menu">
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveRequests">İzin Talepleri</a>
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveReport">İzin Raporu</a>
+                                            </div>
+                                        </div>
+
+                                        <div class="portal-header__nav-submenu">
+                                            <button class="portal-header__nav-dropdown-item portal-header__nav-submenu-toggle" type="button">
+                                                Mesailer
+                                            </button>
+                                            <div class="portal-header__nav-submenu-menu">
+                                                <a class="portal-header__nav-submenu-item" href="/Admin/OvertimeRequests">Mesai Talepleri</a>
                                             </div>
                                         </div>
 
@@ -142,7 +182,7 @@
                         </div>
 
                         <div class="portal-header__actions">
-                            <span class="portal-header__welcome">Ho&#351; geldiniz, @welcomeName</span>
+                            <span class="portal-header__welcome">Hoş geldiniz, @welcomeName</span>
                             <a class="portal-header__button portal-header__button--ghost" asp-controller="Account" asp-action="Logout">Çıkış Yap</a>
                         </div>
                     </div>
@@ -163,5 +203,3 @@
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
-
-

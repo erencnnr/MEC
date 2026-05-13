@@ -28,7 +28,7 @@ namespace MEC.AssetManagementUI.Controllers
         private readonly IAssetStatusService _assetStatusService;
         private readonly ILoanService _loanService;
         private ILoanStatusService _loanStatusService;
-        private readonly IEmployeeService _employeeService;
+        private readonly IEmployeePortalService _employeePortalService;
         private readonly ISchoolClassService _schoolClassService;
         private readonly IAssetImageService _assetImageService;
         private readonly IAssetAttachmentService _assetAttachmentService;
@@ -38,7 +38,7 @@ namespace MEC.AssetManagementUI.Controllers
         
 
         public AssetController(IAssetService assetService, ISchoolService schoolService, IAssetTypeService assetTypeService, IAssetStatusService assetStatusService,
-            ILoanService loanService, IEmployeeService employeeService, ILoanStatusService loanStatusService, ISchoolClassService schoolClassService,
+            ILoanService loanService, IEmployeePortalService employeePortalService, ILoanStatusService loanStatusService, ISchoolClassService schoolClassService,
             IAssetImageService assetImageService, IAssetAttachmentService assetAttachmentService, IAssetImageApiClient assetImageApiClient,
             IAssetAttachmentApiClient assetAttachmentApiClient, IServiceHistoryService serviceHistoryService)
         {
@@ -47,7 +47,7 @@ namespace MEC.AssetManagementUI.Controllers
             _assetTypeService = assetTypeService;
             _assetStatusService = assetStatusService;
             _loanService = loanService;
-            _employeeService = employeeService;
+            _employeePortalService = employeePortalService;
             _loanStatusService = loanStatusService;
             _schoolClassService = schoolClassService;
             _assetImageService = assetImageService;
@@ -139,7 +139,7 @@ namespace MEC.AssetManagementUI.Controllers
             var assetImages = await _assetImageService.GetImagesByAssetIdAsync(id);
             var assetLoans = await _loanService.GetLoansByAssetIdAsync(id);
             var serviceHistories = await _serviceHistoryService.GetServiceHistoriesByAssetIdAsync(id, serviceSort);
-            var employees = await _employeeService.GetAllEmployeesAsync();
+            var employees = await _employeePortalService.GetActivePortalUsersAsync();
             // 3. ViewModel'i Doldur
             var model = new AssetInfoViewModel
             {
@@ -161,10 +161,9 @@ namespace MEC.AssetManagementUI.Controllers
             // 4. Dropdownları Hazırla
             ViewBag.Schools = new SelectList(await _schoolService.GetSchoolListAsync(), "Id", "Name", asset.SchoolId);
             ViewBag.Types = new SelectList(await _assetTypeService.GetAssetTypeListAsync(), "Id", "Name", asset.AssetTypeId);
-            ViewBag.Employees = new SelectList(employees.Where(x => !x.IsDeleted)
-                                            .Select(x => new {
+            ViewBag.Employees = new SelectList(employees.Select(x => new {
                                                 Id = x.Id,
-                                                FullName = $"{x.FirstName} {x.LastName}"
+                                                FullName = $"{x.FirstName} {x.LastName}".Trim()
                                             })
                                             .OrderBy(x => x.FullName),
                                     "Id", "FullName");
@@ -233,7 +232,7 @@ namespace MEC.AssetManagementUI.Controllers
             {
                 AssetId = model.AssetId,
                 AssignedToId = model.AssignedToId,
-                AssignedById = 1, 
+                AssignedById = (await _employeePortalService.GetActivePortalUserByEmailAsync(User.Identity?.Name ?? string.Empty))?.Id,
                 LoanDate = model.LoanDate,
                 Notes = model.Notes,
                 LoanStatusId = statusId,

@@ -1,0 +1,453 @@
+@using MEC.Application.Abstractions.Service.LoanService.Model
+@model MEC.Portal.Models.LoanIndexViewModel
+
+@{
+    ViewData["Title"] = "Zimmetler";
+    var activeTab = Model.ActiveTab;
+    var returnUrl = $"{ViewContext.HttpContext.Request.Path}{ViewContext.HttpContext.Request.QueryString}";
+}
+
+<section class="inventory-page">
+    <div class="inventory-page__header">
+        <div>
+            <span class="inventory-page__eyebrow">YONETICI ISLEMLERI</span>
+            <h1 class="inventory-page__title">Zimmetler</h1>
+            <p class="inventory-page__subtitle">Aktif zimmetleri ve iade gecmisini tek ekranda filtreleyin, yonetin ve disa aktarın.</p>
+        </div>
+        <div class="inventory-page__actions">
+            @if (activeTab == "active")
+            {
+                <button type="button" class="inventory-button inventory-button--danger" onclick="confirmBulkReturn()">Secilenleri Iade Al</button>
+            }
+            <button type="button" class="inventory-button inventory-button--secondary" onclick="exportLoans()">Excel'e Aktar</button>
+        </div>
+    </div>
+
+    @if (TempData["Success"] is string successMessage)
+    {
+        <div class="inventory-inline-alert inventory-inline-alert--success" id="loanResultAlert">@successMessage</div>
+    }
+
+    @if (TempData["Error"] is string errorMessage)
+    {
+        <div class="inventory-inline-alert inventory-inline-alert--error" id="loanResultAlert">@errorMessage</div>
+    }
+
+    <div class="inventory-inline-alert inventory-inline-alert--warning d-none" id="loanPageAlert"></div>
+
+    <form id="loanFilterForm" method="get" asp-action="Index" asp-controller="Loans">
+        <input type="hidden" name="Page" id="loanPageInput" value="@Model.Loans.CurrentPage" />
+        <input type="hidden" name="PageSize" value="@Model.Loans.PageSize" />
+        <input type="hidden" name="ActiveTab" id="loanActiveTabInput" value="@activeTab" />
+        <input type="hidden" name="SortOrder" id="loanSortOrderInput" value="@Model.CurrentSort" />
+
+        <div class="inventory-tabs">
+            <button class="inventory-tabs__button @(activeTab == "active" ? "is-active" : string.Empty)" type="button" onclick="changeLoanTab('active')">Aktif Zimmetler</button>
+            <button class="inventory-tabs__button @(activeTab == "history" ? "is-active" : string.Empty)" type="button" onclick="changeLoanTab('history')">Zimmet Gecmisi</button>
+        </div>
+
+        <div class="inventory-table-card">
+            <div class="inventory-table-card__meta">
+                <span>@Model.Loans.RowCount kayit</span>
+                <div class="inventory-table-card__meta-actions">
+                    <div class="inventory-search inventory-search--compact">
+                        <input id="SearchText"
+                               name="SearchText"
+                               class="inventory-search__input"
+                               value="@Model.Filters.SearchText"
+                               placeholder="Envanter, seri no veya personel arayin..." />
+                        <button type="submit"
+                                class="inventory-search__button inventory-search__button--icon"
+                                onclick="resetLoanPage()"
+                                aria-label="Ara">
+                            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M10.5 4.5C7.18629 4.5 4.5 7.18629 4.5 10.5C4.5 13.8137 7.18629 16.5 10.5 16.5C13.8137 16.5 16.5 13.8137 16.5 10.5C16.5 7.18629 13.8137 4.5 10.5 4.5Z" stroke="currentColor" stroke-width="2" />
+                                <path d="M15.25 15.25L19.5 19.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                        </button>
+                    </div>
+                    <span>Sayfa @Model.Loans.CurrentPage / @Math.Max(Model.Loans.PageCount, 1)</span>
+                    @if (Model.HasActiveFilters)
+                    {
+                        <a asp-action="Index"
+                           asp-controller="Loans"
+                           asp-route-ActiveTab="@activeTab"
+                           asp-route-PageSize="@Model.Loans.PageSize"
+                           class="inventory-button inventory-button--ghost inventory-button--small">Temizle</a>
+                    }
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table inventory-table mb-0">
+                    <thead>
+                        <tr>
+                            @if (activeTab == "active")
+                            {
+                                <th class="text-center" style="width: 52px;">
+                                    <input type="checkbox" id="selectAllLoans" />
+                                </th>
+                            }
+                            <th>Envanter</th>
+                            <th>Seri No</th>
+                            <th>
+                                <div class="inventory-table__header-filter">
+                                    <span>Zimmet Alan</span>
+                                    <div class="dropdown" data-bs-auto-close="outside">
+                                        <button class="inventory-table__filter-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span class="inventory-table__filter-icon @(Model.Filters.AssignedToIds?.Any() == true ? "is-active" : string.Empty)" aria-hidden="true">
+                                                <svg viewBox="0 0 16 16" fill="none">
+                                                    <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                                </svg>
+                                            </span>
+                                        </button>
+                                        <div class="dropdown-menu inventory-table__filter-menu">
+                                            <span class="inventory-table__filter-label">Zimmet alan filtresi</span>
+                                            <div class="inventory-checkbox-list">
+                                                @foreach (var employee in Model.EmployeeOptions)
+                                                {
+                                                    var isChecked = Model.Filters.AssignedToIds?.Contains(int.Parse(employee.Value)) == true;
+                                                    <div class="inventory-checkbox-chip inventory-checkbox-chip--interactive" data-filter-item tabindex="0">
+                                                        <input type="checkbox" name="AssignedToIds" value="@employee.Value" @(isChecked ? "checked" : null) />
+                                                        <span>@employee.Text</span>
+                                                    </div>
+                                                }
+                                            </div>
+                                            <button type="submit" class="inventory-button inventory-button--primary inventory-button--small" onclick="resetLoanPage()">Uygula</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </th>
+                            <th>
+                                <div class="inventory-table__header-filter">
+                                    <span>Zimmet Veren</span>
+                                    <div class="dropdown" data-bs-auto-close="outside">
+                                        <button class="inventory-table__filter-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span class="inventory-table__filter-icon @(Model.Filters.AssignedByIds?.Any() == true ? "is-active" : string.Empty)" aria-hidden="true">
+                                                <svg viewBox="0 0 16 16" fill="none">
+                                                    <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                                </svg>
+                                            </span>
+                                        </button>
+                                        <div class="dropdown-menu inventory-table__filter-menu">
+                                            <span class="inventory-table__filter-label">Zimmet veren filtresi</span>
+                                            <div class="inventory-checkbox-list">
+                                                @foreach (var employee in Model.AssignedByOptions)
+                                                {
+                                                    var isChecked = Model.Filters.AssignedByIds?.Contains(int.Parse(employee.Value)) == true;
+                                                    <div class="inventory-checkbox-chip inventory-checkbox-chip--interactive" data-filter-item tabindex="0">
+                                                        <input type="checkbox" name="AssignedByIds" value="@employee.Value" @(isChecked ? "checked" : null) />
+                                                        <span>@employee.Text</span>
+                                                    </div>
+                                                }
+                                            </div>
+                                            <button type="submit" class="inventory-button inventory-button--primary inventory-button--small" onclick="resetLoanPage()">Uygula</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </th>
+                            <th>
+                                <div class="inventory-table__header-filter">
+                                    <span>Verilis Tarihi</span>
+                                    <div class="dropdown" data-bs-auto-close="outside">
+                                        <button class="inventory-table__filter-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span class="inventory-table__filter-icon @((Model.CurrentSort == "LoanDate_Asc" || Model.CurrentSort == "LoanDate_Desc") ? "is-active" : string.Empty)" aria-hidden="true">
+                                                <svg viewBox="0 0 16 16" fill="none">
+                                                    <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                                </svg>
+                                            </span>
+                                        </button>
+                                        <div class="dropdown-menu inventory-table__filter-menu inventory-table__filter-menu--compact">
+                                            <button type="button" class="inventory-dropdown-action @(Model.CurrentSort == "LoanDate_Desc" ? "is-active" : string.Empty)" onclick="changeLoanSort('LoanDate_Desc')">Yeniden Eskiye</button>
+                                            <button type="button" class="inventory-dropdown-action @(Model.CurrentSort == "LoanDate_Asc" ? "is-active" : string.Empty)" onclick="changeLoanSort('LoanDate_Asc')">Eskiden Yeniye</button>
+                                            <button type="button" class="inventory-dropdown-action @((Model.CurrentSort != "LoanDate_Asc" && Model.CurrentSort != "LoanDate_Desc") ? "is-active" : string.Empty)" onclick="changeLoanSort('LoanDate_Desc')">Varsayilan</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </th>
+                            @if (activeTab == "history")
+                            {
+                                <th>
+                                    <div class="inventory-table__header-filter">
+                                        <span>Iade Tarihi</span>
+                                        <div class="dropdown" data-bs-auto-close="outside">
+                                            <button class="inventory-table__filter-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <span class="inventory-table__filter-icon @((Model.CurrentSort == "ReturnDate_Asc" || Model.CurrentSort == "ReturnDate_Desc") ? "is-active" : string.Empty)" aria-hidden="true">
+                                                    <svg viewBox="0 0 16 16" fill="none">
+                                                        <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                                    </svg>
+                                                </span>
+                                            </button>
+                                            <div class="dropdown-menu inventory-table__filter-menu inventory-table__filter-menu--compact">
+                                                <button type="button" class="inventory-dropdown-action @(Model.CurrentSort == "ReturnDate_Desc" ? "is-active" : string.Empty)" onclick="changeLoanSort('ReturnDate_Desc')">Yeniden Eskiye</button>
+                                                <button type="button" class="inventory-dropdown-action @(Model.CurrentSort == "ReturnDate_Asc" ? "is-active" : string.Empty)" onclick="changeLoanSort('ReturnDate_Asc')">Eskiden Yeniye</button>
+                                                <button type="button" class="inventory-dropdown-action @((Model.CurrentSort != "ReturnDate_Asc" && Model.CurrentSort != "ReturnDate_Desc") ? "is-active" : string.Empty)" onclick="changeLoanSort('ReturnDate_Desc')">Varsayilan</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </th>
+                            }
+                            <th>Durum</th>
+                            @if (activeTab == "active")
+                            {
+                                <th class="text-end">Islemler</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model.Loans.Results != null && Model.Loans.Results.Any())
+                        {
+                            foreach (var loan in Model.Loans.Results)
+                            {
+                                <tr>
+                                    @if (activeTab == "active")
+                                    {
+                                        <td class="text-center">
+                                            <input type="checkbox" class="loan-row-checkbox" value="@loan.Id" />
+                                        </td>
+                                    }
+                                    <td>
+                                        <a class="inventory-link" asp-controller="Assets" asp-action="AssetInfo" asp-route-id="@loan.AssetId">@loan.AssetName</a>
+                                    </td>
+                                    <td>@loan.SerialNumber</td>
+                                    <td>@loan.AssignedToName</td>
+                                    <td>@loan.AssignedByName</td>
+                                    <td>@loan.LoanDate</td>
+                                    @if (activeTab == "history")
+                                    {
+                                        <td>@(loan.ReturnDate ?? "-")</td>
+                                    }
+                                    <td>
+                                        @if (loan.IsActive)
+                                        {
+                                            <span class="inventory-status inventory-status--warning">Zimmetli</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="inventory-status inventory-status--success">Iade Alindi</span>
+                                        }
+                                    </td>
+                                    @if (activeTab == "active")
+                                    {
+                                        <td class="text-end">
+                                            <button type="button"
+                                                    class="inventory-button inventory-button--success inventory-button--small"
+                                                    data-loan-id="@loan.Id"
+                                                    data-asset-name="@loan.AssetName"
+                                                    data-assigned-to="@loan.AssignedToName"
+                                                    onclick="confirmSingleReturn(this)">
+                                                Iade Al
+                                            </button>
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="@(activeTab == "active" ? 8 : 8)" class="inventory-table__empty">Kayit bulunamadi.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (Model.Loans.PageCount > 1)
+            {
+                <div class="inventory-pagination">
+                    <button type="button" class="inventory-pagination__button" disabled="@(Model.Loans.CurrentPage == 1 ? "disabled" : null)" onclick="changeLoanPage(@(Model.Loans.CurrentPage - 1))">Onceki</button>
+                    @for (var page = 1; page <= Model.Loans.PageCount; page++)
+                    {
+                        <button type="button" class="inventory-pagination__button @(page == Model.Loans.CurrentPage ? "is-active" : string.Empty)" onclick="changeLoanPage(@(page))">@(page)</button>
+                    }
+                    <button type="button" class="inventory-pagination__button" disabled="@(Model.Loans.CurrentPage == Model.Loans.PageCount ? "disabled" : null)" onclick="changeLoanPage(@(Model.Loans.CurrentPage + 1))">Sonraki</button>
+                </div>
+            }
+        </div>
+    </form>
+</section>
+
+<form id="bulkReturnForm" method="post" asp-action="BulkReturn" asp-controller="Loans">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="returnUrl" value="@returnUrl" />
+    <div id="selectedLoanInputs"></div>
+</form>
+
+<div class="modal fade" id="loanReturnModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Iade Islemini Onayla</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="loanReturnModalMessage">
+                Secilen zimmet kayitlarini iade almak istediginize emin misiniz?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="inventory-button inventory-button--ghost" data-bs-dismiss="modal">Vazgec</button>
+                <button type="button" class="inventory-button inventory-button--success" id="loanReturnConfirmButton">Iade Al</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let selectedLoanIdsForReturn = [];
+
+        function resetLoanPage() {
+            document.getElementById('loanPageInput').value = 1;
+        }
+
+        function changeLoanPage(page) {
+            document.getElementById('loanPageInput').value = page;
+            document.getElementById('loanFilterForm').submit();
+        }
+
+        function changeLoanTab(tabName) {
+            document.getElementById('loanActiveTabInput').value = tabName;
+            document.getElementById('loanPageInput').value = 1;
+            document.getElementById('loanFilterForm').submit();
+        }
+
+        function changeLoanSort(sortOrder) {
+            document.getElementById('loanSortOrderInput').value = sortOrder;
+            resetLoanPage();
+            document.getElementById('loanFilterForm').submit();
+        }
+
+        function resetLoanSearchPage() {
+            document.getElementById('loanPageInput').value = 1;
+        }
+
+        function exportLoans() {
+            const form = document.getElementById('loanFilterForm');
+            const params = new URLSearchParams(new FormData(form));
+            window.location.href = '@Url.Action("Export", "Loans")' + '?' + params.toString();
+        }
+
+        function openLoanReturnModal(message, loanIds) {
+            selectedLoanIdsForReturn = loanIds;
+            document.getElementById('loanReturnModalMessage').textContent = message;
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('loanReturnModal')).show();
+        }
+
+        function showLoanPageAlert(message) {
+            const alert = document.getElementById('loanPageAlert');
+            alert.textContent = message;
+            alert.classList.remove('d-none');
+            alert.style.opacity = '1';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            window.setTimeout(function () {
+                alert.style.transition = 'opacity 0.3s ease';
+                alert.style.opacity = '0';
+                window.setTimeout(function () {
+                    alert.classList.add('d-none');
+                    alert.style.transition = '';
+                }, 300);
+            }, 3500);
+        }
+
+        function confirmBulkReturn() {
+            const selected = Array.from(document.querySelectorAll('.loan-row-checkbox:checked')).map(x => x.value);
+            if (selected.length === 0) {
+                showLoanPageAlert('Lutfen iade alinacak en az bir zimmet secin.');
+                return;
+            }
+
+            const message = selected.length === 1
+                ? 'Secilen zimmet kaydini iade almak istediginize emin misiniz?'
+                : `${selected.length} zimmet kaydini iade almak istediginize emin misiniz?`;
+
+            openLoanReturnModal(message, selected);
+        }
+
+        function confirmSingleReturn(button) {
+            const loanId = button.getAttribute('data-loan-id');
+            const assetName = button.getAttribute('data-asset-name');
+            const assignedTo = button.getAttribute('data-assigned-to');
+            openLoanReturnModal(`"${assetName}" envanterini ${assignedTo} uzerinden iade almak istediginize emin misiniz?`, [loanId]);
+        }
+
+        document.getElementById('loanReturnConfirmButton').addEventListener('click', function () {
+            const container = document.getElementById('selectedLoanInputs');
+            container.innerHTML = '';
+
+            selectedLoanIdsForReturn.forEach(function (loanId) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'selectedLoanIds';
+                input.value = loanId;
+                container.appendChild(input);
+            });
+
+            document.getElementById('bulkReturnForm').submit();
+        });
+
+        document.getElementById('selectAllLoans')?.addEventListener('change', function () {
+            document.querySelectorAll('.loan-row-checkbox').forEach(function (checkbox) {
+                checkbox.checked = document.getElementById('selectAllLoans').checked;
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.inventory-table__filter-menu').forEach(function (menu) {
+                ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(function (eventName) {
+                    menu.addEventListener(eventName, function (event) {
+                        event.stopPropagation();
+                    });
+                });
+
+                menu.querySelectorAll('input[type="checkbox"]').forEach(function (checkbox) {
+                    ['pointerdown', 'mousedown', 'mouseup', 'click'].forEach(function (eventName) {
+                        checkbox.addEventListener(eventName, function (event) {
+                            event.stopPropagation();
+                        });
+                    });
+                });
+
+                menu.querySelectorAll('[data-filter-item]').forEach(function (item) {
+                    item.addEventListener('click', function (event) {
+                        event.stopPropagation();
+
+                        const checkbox = item.querySelector('input[type="checkbox"]');
+                        if (!checkbox || event.target === checkbox) {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        checkbox.checked = !checkbox.checked;
+                        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+
+                    item.addEventListener('keydown', function (event) {
+                        if (event.key !== 'Enter' && event.key !== ' ') {
+                            return;
+                        }
+
+                        const checkbox = item.querySelector('input[type="checkbox"]');
+                        if (!checkbox) {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        event.stopPropagation();
+                        checkbox.checked = !checkbox.checked;
+                        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    });
+                });
+            });
+        });
+
+        window.setTimeout(function () {
+            const alert = document.getElementById('loanResultAlert');
+            if (alert) {
+                alert.style.transition = 'opacity 0.3s ease';
+                alert.style.opacity = '0';
+                window.setTimeout(function () { alert.remove(); }, 300);
+            }
+        }, 4000);
+    </script>
+}

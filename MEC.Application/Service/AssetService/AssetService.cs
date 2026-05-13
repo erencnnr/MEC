@@ -68,7 +68,6 @@ namespace MEC.Application.Service.AssetService
 
             // Bellekte Sayfalama (Pagination)
             var pagedData = query
-                .OrderByDescending(x => x.Id) // Yeniden eskiye sıralama
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .ToList();

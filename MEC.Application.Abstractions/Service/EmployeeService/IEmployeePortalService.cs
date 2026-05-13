@@ -6,6 +6,7 @@ namespace MEC.Application.Abstractions.Service.EmployeeService
 {
     public interface IEmployeePortalService
     {
+        Task<List<EmployeePortal>> GetActivePortalUsersAsync();
         Task<EmployeePortal> GetProfileByEmailAsync(string email);
         Task<ProfileSummaryModel> GetProfileSummaryByEmailAsync(string email);
         Task<PortalUserListResultModel> GetPortalUsersAsync(PortalUserListQueryModel query);
