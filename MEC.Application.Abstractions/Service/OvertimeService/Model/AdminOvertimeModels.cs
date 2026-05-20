@@ -20,6 +20,9 @@ namespace MEC.Application.Abstractions.Service.OvertimeService.Model
         public string? DecisionBy { get; set; }
         public string IpAddress { get; set; } = string.Empty;
         public string MethodName { get; set; } = "UpdateOvertimeStatus";
+        public DateTime? UpdatedStartDate { get; set; }
+        public DateTime? UpdatedEndDate { get; set; }
+        public string? TimeChangeNote { get; set; }
     }
 
     public class AdminOvertimeReportQueryModel

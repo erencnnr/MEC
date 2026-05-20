@@ -18,6 +18,7 @@ namespace MEC.Portal.Controllers
     {
         private const string UpdateLeaveStatusMethodName = "UpdateLeaveStatus";
         private const int LeaveRequestsPageSize = 10;
+        private const int LeaveAgreementsPageSize = 10;
         private const int PortalUsersPageSize = 10;
 
         private readonly ILeaveService _leaveService;
@@ -140,6 +141,49 @@ namespace MEC.Portal.Controllers
             });
 
             return View(MapLeaveReport(result));
+        }
+
+        [HttpGet("/Admin/LeaveAgreement")]
+        public async Task<IActionResult> LeaveAgreement(string? searchText = null, bool? isSigned = null, string? sortOrder = null, int page = 1)
+        {
+            var result = await _leaveService.GetAdminLeaveAgreementsAsync(new AdminLeaveAgreementListQueryModel
+            {
+                SearchText = searchText,
+                IsSigned = isSigned,
+                SortOrder = sortOrder,
+                Page = page,
+                PageSize = LeaveAgreementsPageSize
+            });
+
+            return View(MapLeaveAgreementList(result, searchText, isSigned, sortOrder));
+        }
+
+        [HttpPost("/Admin/LeaveAgreement/Sync")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SyncLeaveAgreement(string? returnUrl = null)
+        {
+            var result = await _leaveService.SyncLeaveAgreementsAsync();
+            TempData["LeaveAgreementLevel"] = result.IsSuccess ? "success" : "error";
+            TempData["LeaveAgreementMessage"] = result.Message;
+
+            return RedirectToLeaveAgreementReturnUrl(returnUrl);
+        }
+
+        [HttpPost("/Admin/LeaveAgreement/Update/{id:int}")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateLeaveAgreement(int id, decimal agreedLeaveDays, bool isSigned, string? returnUrl = null)
+        {
+            var result = await _leaveService.UpdateLeaveAgreementAsync(new AdminLeaveAgreementUpdateModel
+            {
+                Id = id,
+                AgreedLeaveDays = agreedLeaveDays,
+                IsSigned = isSigned
+            });
+
+            TempData["LeaveAgreementLevel"] = result.IsSuccess ? "success" : "error";
+            TempData["LeaveAgreementMessage"] = result.Message;
+
+            return RedirectToLeaveAgreementReturnUrl(returnUrl);
         }
 
         [HttpGet("/Admin/PortalUsers")]
@@ -423,6 +467,13 @@ namespace MEC.Portal.Controllers
                 : RedirectToAction(nameof(LeaveRequests));
         }
 
+        private IActionResult RedirectToLeaveAgreementReturnUrl(string? returnUrl)
+        {
+            return !string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl)
+                ? LocalRedirect(returnUrl)
+                : RedirectToAction(nameof(LeaveAgreement));
+        }
+
         private static int? NormalizeLeaveStatusFilter(int? status)
         {
             return status.HasValue && Enum.IsDefined(typeof(LeaveStatus), status.Value)
@@ -495,6 +546,37 @@ namespace MEC.Portal.Controllers
                 StartDate = result.StartDate,
                 EndDate = result.EndDate,
                 TotalCount = result.TotalCount
+            };
+        }
+
+        private static AdminLeaveAgreementListViewModel MapLeaveAgreementList(
+            PagedResultModel<AdminLeaveAgreementItemModel> result,
+            string? searchText,
+            bool? isSigned,
+            string? sortOrder)
+        {
+            return new AdminLeaveAgreementListViewModel
+            {
+                Items = result.Items.Select(x => new AdminLeaveAgreementViewModel
+                {
+                    Id = x.Id,
+                    EmployeePortalId = x.EmployeePortalId,
+                    EmployeeName = x.EmployeeName,
+                    Email = x.Email,
+                    PhoneNumber = x.PhoneNumber,
+                    AgreedLeaveDays = x.AgreedLeaveDays,
+                    IsSigned = x.IsSigned,
+                    CreatedDate = x.CreatedDate
+                }).ToList(),
+                SearchText = searchText ?? string.Empty,
+                SelectedIsSigned = isSigned,
+                SortOrder = string.Equals(sortOrder, "CreatedDate_Asc", StringComparison.OrdinalIgnoreCase)
+                    ? "CreatedDate_Asc"
+                    : "CreatedDate_Desc",
+                CurrentPage = result.CurrentPage,
+                TotalPages = result.TotalPages,
+                TotalCount = result.TotalCount,
+                PageSize = result.PageSize
             };
         }
 

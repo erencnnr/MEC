@@ -1,0 +1,206 @@
+@using System.Globalization
+@model MEC.Portal.Models.AdminLeaveAgreementListViewModel
+
+@{
+    ViewData["Title"] = "İzin Mutabakat";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+    var resultMessage = TempData["LeaveAgreementMessage"] as string;
+    var resultLevel = string.Equals(TempData["LeaveAgreementLevel"] as string, "success", StringComparison.OrdinalIgnoreCase)
+        ? "success"
+        : "error";
+}
+
+<section class="inventory-page">
+    <div class="inventory-page__header">
+        <div>
+            <span class="inventory-page__eyebrow">YÖNETİCİ İŞLEMLERİ</span>
+            <h1 class="inventory-page__title">İzin Mutabakat</h1>
+            <p class="inventory-page__subtitle">Personel mutabakat kayıtlarını arayın, imza durumunu filtreleyin ve satır bazlı güncelleyin.</p>
+        </div>
+        <div class="inventory-page__actions">
+            <form method="post" asp-controller="Admin" asp-action="SyncLeaveAgreement">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@currentUrl" />
+                <button type="submit" class="inventory-button inventory-button--secondary">Eksik Kayıtları Oluştur</button>
+            </form>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(resultMessage))
+    {
+        <div class="inventory-inline-alert inventory-inline-alert--@(resultLevel == "success" ? "success" : "error")" id="leaveAgreementResultAlert">@resultMessage</div>
+    }
+
+    <div class="inventory-table-card">
+        <form method="get" asp-controller="Admin" asp-action="LeaveAgreement" id="leaveAgreementFilterForm">
+            <input type="hidden" name="page" id="leaveAgreementPageInput" value="@Model.CurrentPage" />
+            <input type="hidden" name="sortOrder" id="leaveAgreementSortOrderInput" value="@Model.SortOrder" />
+            <input type="hidden" name="isSigned" id="leaveAgreementIsSignedInput" value="@(Model.SelectedIsSigned.HasValue ? Model.SelectedIsSigned.Value.ToString().ToLowerInvariant() : string.Empty)" />
+
+            <div class="inventory-table-card__meta">
+                <span>@Model.TotalCount kayıt</span>
+                <div class="inventory-table-card__meta-actions">
+                    <div class="inventory-search inventory-search--compact">
+                        <input type="text" name="searchText" value="@Model.SearchText" class="inventory-search__input" placeholder="Ad, soyad, telefon veya e-posta..." />
+                        <button type="submit" class="inventory-search__button inventory-search__button--icon" onclick="resetLeaveAgreementPage()" aria-label="Ara">
+                            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M10.5 4.5C7.18629 4.5 4.5 7.18629 4.5 10.5C4.5 13.8137 7.18629 16.5 10.5 16.5C13.8137 16.5 16.5 13.8137 16.5 10.5C16.5 7.18629 13.8137 4.5 10.5 4.5Z" stroke="currentColor" stroke-width="2" />
+                                <path d="M15.25 15.25L19.5 19.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            </svg>
+                        </button>
+                    </div>
+                    <span>Sayfa @Model.CurrentPage / @Math.Max(Model.TotalPages, 1)</span>
+                    @if (Model.HasActiveFilters)
+                    {
+                        <a asp-controller="Admin" asp-action="LeaveAgreement" class="inventory-button inventory-button--ghost inventory-button--small">Temizle</a>
+                    }
+                </div>
+            </div>
+        </form>
+
+        <div class="table-responsive">
+            <table class="table inventory-table mb-0">
+                <thead>
+                    <tr>
+                        <th>Personel</th>
+                        <th>E-posta</th>
+                        <th>Telefon</th>
+                        <th>Mutabık Kalınan İzin Gün</th>
+                        <th>
+                            <div class="inventory-table__header-filter">
+                                <span>Mutabakat İmzalandı</span>
+                                <div class="dropdown" data-bs-auto-close="outside">
+                                    <button class="inventory-table__filter-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="inventory-table__filter-icon @(Model.SelectedIsSigned.HasValue ? "is-active" : string.Empty)" aria-hidden="true">
+                                            <svg viewBox="0 0 16 16" fill="none">
+                                                <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        </span>
+                                    </button>
+                                    <div class="dropdown-menu inventory-table__filter-menu inventory-table__filter-menu--compact">
+                                        <button type="button" class="inventory-dropdown-action @(!Model.SelectedIsSigned.HasValue ? "is-active" : string.Empty)" onclick="changeLeaveAgreementSignedFilter('')">Tümü</button>
+                                        <button type="button" class="inventory-dropdown-action @(Model.SelectedIsSigned == true ? "is-active" : string.Empty)" onclick="changeLeaveAgreementSignedFilter('true')">Evet</button>
+                                        <button type="button" class="inventory-dropdown-action @(Model.SelectedIsSigned == false ? "is-active" : string.Empty)" onclick="changeLeaveAgreementSignedFilter('false')">Hayır</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </th>
+                        <th>
+                            <div class="inventory-table__header-filter">
+                                <span>Oluşturma Tarihi</span>
+                                <div class="dropdown" data-bs-auto-close="outside">
+                                    <button class="inventory-table__filter-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="inventory-table__filter-icon @(!string.IsNullOrWhiteSpace(Model.SortOrder) ? "is-active" : string.Empty)" aria-hidden="true">
+                                            <svg viewBox="0 0 16 16" fill="none">
+                                                <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        </span>
+                                    </button>
+                                    <div class="dropdown-menu inventory-table__filter-menu inventory-table__filter-menu--compact">
+                                        <button type="button" class="inventory-dropdown-action @(Model.SortOrder == "CreatedDate_Desc" ? "is-active" : string.Empty)" onclick="changeLeaveAgreementSort('CreatedDate_Desc')">Yeniden Eskiye</button>
+                                        <button type="button" class="inventory-dropdown-action @(Model.SortOrder == "CreatedDate_Asc" ? "is-active" : string.Empty)" onclick="changeLeaveAgreementSort('CreatedDate_Asc')">Eskiden Yeniye</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </th>
+                        <th class="text-end">İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Items.Any())
+                    {
+                        @foreach (var item in Model.Items)
+                        {
+                            var formId = $"leaveAgreementForm-{item.Id}";
+                            <tr>
+                                <td>@item.EmployeeName</td>
+                                <td>@item.Email</td>
+                                <td>@item.PhoneNumber</td>
+                                <td>
+                                    <input type="number"
+                                           step="0.01"
+                                           min="0"
+                                           name="agreedLeaveDays"
+                                           value="@item.AgreedLeaveDaysInput"
+                                           class="inventory-input"
+                                           form="@formId" />
+                                </td>
+                                <td>
+                                    <select name="isSigned" class="inventory-select" form="@formId">
+                                        <option value="false" selected="@(!item.IsSigned ? "selected" : null)">Hayır</option>
+                                        <option value="true" selected="@(item.IsSigned ? "selected" : null)">Evet</option>
+                                    </select>
+                                </td>
+                                <td>@(item.CreatedDate?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-")</td>
+                                <td class="text-end">
+                                    <form id="@formId" method="post" asp-controller="Admin" asp-action="UpdateLeaveAgreement" asp-route-id="@item.Id">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                        <button type="submit" class="inventory-button inventory-button--primary inventory-button--small">Kaydet</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="inventory-table__empty">Kayıt bulunamadı.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (Model.TotalPages > 1)
+    {
+        <div class="inventory-pagination" aria-label="İzin mutabakat sayfalama">
+            <button type="button" class="inventory-pagination__button" onclick="changeLeaveAgreementPage(@(Model.CurrentPage - 1))" disabled="@(Model.CurrentPage == 1 ? "disabled" : null)">Önceki</button>
+            @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+            {
+                <button type="button" class="inventory-pagination__button @(pageNumber == Model.CurrentPage ? "is-active" : string.Empty)" onclick="changeLeaveAgreementPage(@pageNumber)">@pageNumber</button>
+            }
+            <button type="button" class="inventory-pagination__button" onclick="changeLeaveAgreementPage(@(Model.CurrentPage + 1))" disabled="@(Model.CurrentPage == Model.TotalPages ? "disabled" : null)">Sonraki</button>
+        </div>
+    }
+</section>
+
+@section Scripts {
+    <script>
+        function resetLeaveAgreementPage() {
+            document.getElementById('leaveAgreementPageInput').value = 1;
+        }
+
+        function changeLeaveAgreementPage(page) {
+            if (page < 1) {
+                return;
+            }
+
+            document.getElementById('leaveAgreementPageInput').value = page;
+            document.getElementById('leaveAgreementFilterForm').submit();
+        }
+
+        function changeLeaveAgreementSignedFilter(value) {
+            document.getElementById('leaveAgreementIsSignedInput').value = value;
+            resetLeaveAgreementPage();
+            document.getElementById('leaveAgreementFilterForm').submit();
+        }
+
+        function changeLeaveAgreementSort(sortOrder) {
+            document.getElementById('leaveAgreementSortOrderInput').value = sortOrder;
+            resetLeaveAgreementPage();
+            document.getElementById('leaveAgreementFilterForm').submit();
+        }
+
+        window.setTimeout(function () {
+            const alert = document.getElementById('leaveAgreementResultAlert');
+            if (alert) {
+                alert.style.transition = 'opacity 0.3s ease';
+                alert.style.opacity = '0';
+                window.setTimeout(function () { alert.remove(); }, 300);
+            }
+        }, 4000);
+    </script>
+}

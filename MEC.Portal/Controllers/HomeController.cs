@@ -1,3 +1,4 @@
+using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.SchoolService;
 using MEC.Domain.Common.Enum;
 using MEC.Portal.Models;
@@ -12,17 +13,20 @@ namespace MEC.Portal.Controllers
     {
         private readonly ILogger<HomeController> _logger;
         private readonly IAnnouncementService _announcementService;
+        private readonly IEmployeePortalService _employeePortalService;
         private readonly ISliderService _sliderService;
         private readonly ISliderImageApiClient _sliderImageApiClient;
 
         public HomeController(
             ILogger<HomeController> logger,
             IAnnouncementService announcementService,
+            IEmployeePortalService employeePortalService,
             ISliderService sliderService,
             ISliderImageApiClient sliderImageApiClient)
         {
             _logger = logger;
             _announcementService = announcementService;
+            _employeePortalService = employeePortalService;
             _sliderService = sliderService;
             _sliderImageApiClient = sliderImageApiClient;
         }
@@ -31,6 +35,21 @@ namespace MEC.Portal.Controllers
         {
             var activeAnnouncements = (await _announcementService.GetActiveAnnouncementsAsync(AnnouncementContentType.Announcement))
                 .OrderByDescending(x => x.CreatedDate)
+                .ToList();
+            var activeNews = (await _announcementService.GetActiveAnnouncementsAsync(AnnouncementContentType.News))
+                .OrderByDescending(x => x.CreatedDate)
+                .ToList();
+            var employees = (await _employeePortalService.GetActivePortalUsersAsync())
+                .Select(x => new HomeEmployeeDirectoryItemViewModel
+                {
+                    Id = x.Id,
+                    FullName = string.Join(" ", new[] { x.FirstName, x.LastName }.Where(value => !string.IsNullOrWhiteSpace(value))).Trim(),
+                    Email = x.Email ?? string.Empty,
+                    PhoneNumber = x.PhoneNumber ?? string.Empty,
+                    HireDate = x.HireDate
+                })
+                .OrderBy(x => x.FullName)
+                .ThenBy(x => x.Email)
                 .ToList();
 
             var sliderItems = (await _sliderService.GetSliderImagesAsync())
@@ -45,6 +64,8 @@ namespace MEC.Portal.Controllers
             return View(new HomeIndexViewModel
             {
                 Announcements = activeAnnouncements,
+                News = activeNews,
+                Employees = employees,
                 SliderItems = sliderItems
             });
         }

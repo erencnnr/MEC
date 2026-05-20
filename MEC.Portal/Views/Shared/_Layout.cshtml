@@ -22,6 +22,8 @@
         var isAdminLeaveRequestsPage = currentPath.Equals("/Admin/LeaveRequests", StringComparison.OrdinalIgnoreCase) ||
                                        currentPath.StartsWith("/Admin/LeaveRequests/", StringComparison.OrdinalIgnoreCase);
         var isAdminLeaveReportPage = currentPath.Equals("/Admin/LeaveReport", StringComparison.OrdinalIgnoreCase);
+        var isAdminLeaveAgreementPage = currentPath.Equals("/Admin/LeaveAgreement", StringComparison.OrdinalIgnoreCase) ||
+                                        currentPath.StartsWith("/Admin/LeaveAgreement/", StringComparison.OrdinalIgnoreCase);
         var isAdminOvertimeReportPage = currentPath.Equals("/Admin/OvertimeReport", StringComparison.OrdinalIgnoreCase);
         var isAdminPortalUsersPage = currentPath.Equals("/Admin/PortalUsers", StringComparison.OrdinalIgnoreCase) ||
                                      currentPath.StartsWith("/Admin/PortalUsers/", StringComparison.OrdinalIgnoreCase);
@@ -38,7 +40,7 @@
         var isLibraryPage = currentPath.Equals("/Library", StringComparison.OrdinalIgnoreCase) ||
                             currentPath.StartsWith("/Library/", StringComparison.OrdinalIgnoreCase);
 
-        var isAdminLeavePage = isAdminLeaveRequestsPage || isAdminLeaveReportPage;
+        var isAdminLeavePage = isAdminLeaveRequestsPage || isAdminLeaveReportPage || isAdminLeaveAgreementPage;
         var isAdminSettingsPage = isAdminPortalUsersPage || isAdminSliderPage;
         var isAdminInventoryPage = isAdminAssetsPage || isAdminLoansPage;
         var isAdminOvertimePage = isAdminOvertimeRequestsPage || isAdminOvertimeReportPage;
@@ -164,6 +166,7 @@
                                             <div class="portal-header__nav-submenu-menu">
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveRequests">İzin Talepleri</a>
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveReport">İzin Raporu</a>
+                                                <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveAgreement">İzin Mutabakat</a>
                                             </div>
                                         </div>
 

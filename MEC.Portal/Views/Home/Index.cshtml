@@ -1,5 +1,6 @@
 @using System.Collections.Generic
 @using System.Linq
+@using System.Text.RegularExpressions
 @model MEC.Portal.Models.HomeIndexViewModel
 
 @{
@@ -7,11 +8,27 @@
 
     var announcements = Model?.Announcements?.OrderByDescending(x => x.CreatedDate).ToList()
         ?? new List<MEC.Domain.Entity.School.Announcement>();
-    var latestAnnouncement = announcements.FirstOrDefault();
+    var news = Model?.News?.OrderByDescending(x => x.CreatedDate).ToList()
+        ?? new List<MEC.Domain.Entity.School.Announcement>();
+    var employees = Model?.Employees?.OrderBy(x => x.FullName).ThenBy(x => x.Email).ToList()
+        ?? new List<MEC.Portal.Models.HomeEmployeeDirectoryItemViewModel>();
     var sliderItems = Model?.SliderItems ?? new List<MEC.Portal.Models.HomeSliderItemViewModel>();
 
     string GetDay(DateTime? value) => value?.ToString("dd") ?? "--";
     string GetMonth(DateTime? value) => value?.ToString("MMM").ToUpperInvariant() ?? "---";
+    string BuildEmployeeSearchText(MEC.Portal.Models.HomeEmployeeDirectoryItemViewModel employee)
+        => $"{employee.FullName} {employee.PhoneNumber} {employee.Email}".ToLowerInvariant();
+    string GetContentPreview(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            return string.Empty;
+        }
+
+        var plainText = Regex.Replace(html, "<.*?>", " ");
+        plainText = Regex.Replace(plainText, @"\s+", " ").Trim();
+        return plainText.Length > 140 ? $"{plainText[..140]}..." : plainText;
+    }
 }
 
 <section class="home-page">
@@ -69,26 +86,38 @@
 
         <aside class="home-hero__aside">
             <div class="home-summary-card">
-                <span class="home-summary-card__label">Son duyuru</span>
-                @if (latestAnnouncement != null)
-                {
-                    <div class="home-announcement-card__head">
-                        <span class="announcement-board-card__date-badge" aria-hidden="true">
-                            <strong>@GetDay(latestAnnouncement.CreatedDate)</strong>
-                            <small>@GetMonth(latestAnnouncement.CreatedDate)</small>
+                <span class="home-summary-card__label">Hızlı erişim</span>
+                <div class="home-quick-links">
+                    <a class="home-quick-link" asp-controller="Leave" asp-action="RequestLeave">
+                        <span class="home-quick-link__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M8 3.75h6.5l4.75 4.75V20a1.25 1.25 0 0 1-1.25 1.25h-10.5A1.25 1.25 0 0 1 6.25 20V5A1.25 1.25 0 0 1 7.5 3.75h.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                                <path d="M14.5 3.75V8.5h4.75" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                                <path d="M9 12h6M9 15.5h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                            </svg>
                         </span>
-                        <div>
-                            <h2>@latestAnnouncement.Title</h2>
-                            <p>@(latestAnnouncement.CreatedDate?.ToString("dd.MM.yyyy HH:mm") ?? "-")</p>
-                        </div>
-                    </div>
-                    <a asp-controller="Announcement" asp-action="Detail" asp-route-id="@latestAnnouncement.Id" class="home-text-link">Duyuruya git</a>
-                }
-                else
-                {
-                    <h2>Aktif duyuru bulunmuyor</h2>
-                    <p>Yeni duyurular yayınlandığında burada görünecek.</p>
-                }
+                        <span>İzin Talebi Oluştur</span>
+                    </a>
+                    <a class="home-quick-link" asp-controller="Overtime" asp-action="Request">
+                        <span class="home-quick-link__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="8.25" stroke="currentColor" stroke-width="1.7" />
+                                <path d="M12 7.75V12l3 2.25" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </span>
+                        <span>Mesai Girişi</span>
+                    </a>
+                    <a class="home-quick-link" asp-controller="Library" asp-action="Index">
+                        <span class="home-quick-link__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M4.25 6.5A2.25 2.25 0 0 1 6.5 4.25h11.25v14.5H6.5A2.25 2.25 0 0 0 4.25 21V6.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                                <path d="M17.75 4.25V18.75" stroke="currentColor" stroke-width="1.7" />
+                                <path d="M6.75 7.75h7.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                            </svg>
+                        </span>
+                        <span>Kütüphane</span>
+                    </a>
+                </div>
             </div>
         </aside>
     </section>
@@ -96,41 +125,180 @@
     <section class="home-announcements">
         <div class="home-section-head home-section-head--spaced">
             <div>
-                <span class="home-section-head__eyebrow">Duyurular</span>
-                <h2>Okuldan son paylaşımlar</h2>
+                <span class="home-section-head__eyebrow">Duyurular & Haberler</span>
             </div>
-            <a class="home-link-pill" asp-controller="Home" asp-action="Announcements">Tümünü gör</a>
         </div>
 
-        @if (announcements.Any())
-        {
-            <div class="home-announcement-grid">
-                @foreach (var item in announcements.Take(4))
+        <div class="home-dual-feed">
+            <section class="home-feed-column">
+                <div class="home-feed-column__head">
+                    <span class="home-feed-column__label">Son duyurular</span>
+                    <a class="home-link-pill" asp-controller="Home" asp-action="Announcements">Tümünü gör</a>
+                </div>
+
+                @if (announcements.Any())
                 {
-                    <a asp-controller="Announcement" asp-action="Detail" asp-route-id="@item.Id" class="home-announcement-card-link">
-                        <article class="home-announcement-card">
-                            <div class="home-announcement-card__head">
-                                <span class="announcement-board-card__date-badge" aria-hidden="true">
-                                    <strong>@GetDay(item.CreatedDate)</strong>
-                                    <small>@GetMonth(item.CreatedDate)</small>
-                                </span>
-                                <div class="home-announcement-card__title-wrap">
-                                    <h3 class="home-announcement-card__title">@item.Title</h3>
-                                    <span class="home-announcement-card__date">@(item.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</span>
-                                </div>
-                            </div>
-                            <div class="home-announcement-card__content">@Html.Raw(item.Content)</div>
-                        </article>
-                    </a>
+                    <div class="home-feed-list">
+                        @foreach (var item in announcements.Take(2))
+                        {
+                            <a asp-controller="Announcement" asp-action="Detail" asp-route-id="@item.Id" class="home-announcement-card-link">
+                                <article class="home-announcement-card home-announcement-card--compact">
+                                    <div class="home-announcement-card__head">
+                                        <span class="announcement-board-card__date-badge" aria-hidden="true">
+                                            <strong>@GetDay(item.CreatedDate)</strong>
+                                            <small>@GetMonth(item.CreatedDate)</small>
+                                        </span>
+                                        <div class="home-announcement-card__title-wrap">
+                                            <span class="home-announcement-card__type-badge">Duyuru</span>
+                                            <h3 class="home-announcement-card__title">@item.Title</h3>
+                                            <div class="home-announcement-card__content">@GetContentPreview(item.Content)</div>
+                                        </div>
+                                    </div>
+                                </article>
+                            </a>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="home-empty-state home-empty-state--compact">
+                        <h3>Henüz duyuru yok.</h3>
+                        <p>Yeni duyurular yayımlandığında burada listelenecek.</p>
+                    </div>
+                }
+            </section>
+
+            <section class="home-feed-column">
+                <div class="home-feed-column__head">
+                    <span class="home-feed-column__label">Son haberler</span>
+                    <a class="home-link-pill" asp-controller="Home" asp-action="News">Tümünü gör</a>
+                </div>
+
+                @if (news.Any())
+                {
+                    <div class="home-feed-list">
+                        @foreach (var item in news.Take(2))
+                        {
+                            <a asp-controller="News" asp-action="Detail" asp-route-id="@item.Id" class="home-announcement-card-link">
+                                <article class="home-announcement-card home-announcement-card--compact">
+                                    <div class="home-announcement-card__head">
+                                        <span class="announcement-board-card__date-badge" aria-hidden="true">
+                                            <strong>@GetDay(item.CreatedDate)</strong>
+                                            <small>@GetMonth(item.CreatedDate)</small>
+                                        </span>
+                                        <div class="home-announcement-card__title-wrap">
+                                            <span class="home-announcement-card__type-badge home-announcement-card__type-badge--news">Haber</span>
+                                            <h3 class="home-announcement-card__title">@item.Title</h3>
+                                            <div class="home-announcement-card__content">@GetContentPreview(item.Content)</div>
+                                        </div>
+                                    </div>
+                                </article>
+                            </a>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="home-empty-state home-empty-state--compact">
+                        <h3>Henüz haber yok.</h3>
+                        <p>Yeni haberler yayımlandığında burada listelenecek.</p>
+                    </div>
+                }
+            </section>
+        </div>
+    </section>
+
+    <section class="home-directory">
+        <div class="home-section-head home-section-head--spaced">
+            <div>
+                <span class="home-section-head__eyebrow">Çalışan dizini</span>
+                <h2>Çalışanları Ara</h2>
+            </div>
+        </div>
+
+        <div class="home-directory-card">
+            <div class="home-directory__search-row">
+                <div class="inventory-search home-directory__search">
+                    <input type="search"
+                           id="homeEmployeeSearchInput"
+                           class="inventory-search__input"
+                           placeholder="Ad, soyad, email, telefon..."
+                           autocomplete="off" />
+                    <button type="button" id="homeEmployeeSearchButton" class="inventory-search__button inventory-search__button--icon" aria-label="Çalışan ara">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle cx="11" cy="11" r="6.75" stroke="currentColor" stroke-width="1.8"></circle>
+                            <path d="M16 16L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <p class="home-directory__count"><span id="homeEmployeeDirectoryCount">0</span> çalışan listeleniyor</p>
+
+            <div id="homeEmployeeDirectoryGrid" class="home-directory__grid">
+                @foreach (var employee in employees)
+                {
+                    var displayName = string.IsNullOrWhiteSpace(employee.FullName) ? employee.Email : employee.FullName;
+                    <article class="home-directory-card__item"
+                             data-employee-card="true"
+                             data-search="@BuildEmployeeSearchText(employee)">
+                        <h3>@displayName</h3>
+                        <p>@(string.IsNullOrWhiteSpace(employee.PhoneNumber) ? "-" : employee.PhoneNumber)</p>
+                        <p>@(string.IsNullOrWhiteSpace(employee.Email) ? "-" : employee.Email)</p>
+                    </article>
                 }
             </div>
-        }
-        else
-        {
-            <div class="home-empty-state">
-                <h3>Şu an aktif duyuru bulunmuyor.</h3>
-                <p>Yeni duyurular yayınlandığında bu alanda listelenecek.</p>
+
+            <div id="homeEmployeeDirectoryEmpty" class="home-empty-state home-empty-state--compact home-directory__empty" hidden>
+                <h3>Eşleşen çalışan bulunamadı.</h3>
+                <p>Arama ifadesini değiştirerek tekrar deneyin.</p>
             </div>
-        }
+        </div>
     </section>
 </section>
+
+@section Scripts
+{
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const searchInput = document.getElementById("homeEmployeeSearchInput");
+            const searchButton = document.getElementById("homeEmployeeSearchButton");
+            const cards = Array.from(document.querySelectorAll("[data-employee-card='true']"));
+            const count = document.getElementById("homeEmployeeDirectoryCount");
+            const emptyState = document.getElementById("homeEmployeeDirectoryEmpty");
+
+            if (!searchInput || !searchButton || !count || !emptyState) {
+                return;
+            }
+
+            const filterEmployees = () => {
+                const searchTerm = searchInput.value.trim().toLowerCase();
+                let visibleCount = 0;
+                const hasSearch = searchTerm.length > 0;
+
+                cards.forEach(card => {
+                    const haystack = card.dataset.search || "";
+                    const isVisible = hasSearch && haystack.includes(searchTerm);
+                    card.hidden = !isVisible;
+
+                    if (isVisible) {
+                        visibleCount += 1;
+                    }
+                });
+
+                count.textContent = visibleCount.toString();
+                emptyState.hidden = !hasSearch || visibleCount !== 0;
+            };
+
+            searchInput.addEventListener("input", filterEmployees);
+            searchInput.addEventListener("keydown", function (event) {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    filterEmployees();
+                }
+            });
+            searchButton.addEventListener("click", filterEmployees);
+            filterEmployees();
+        });
+    </script>
+}

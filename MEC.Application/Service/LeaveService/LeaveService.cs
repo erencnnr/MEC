@@ -21,6 +21,7 @@ public class LeaveService : ILeaveService
     private readonly IGenericRepository<EmployeePortal> _employeePortalRepository;
     private readonly IGenericRepository<LeaveType> _leaveTypeRepository;
     private readonly IGenericRepository<Holiday> _holidayRepository;
+    private readonly IGenericRepository<LeaveAgreement> _leaveAgreementRepository;
     private readonly IAnnouncementService _announcementService;
     private readonly IUserActionLogService _userActionLogService;
     private readonly IWorkflowNotificationService _workflowNotificationService;
@@ -30,6 +31,7 @@ public class LeaveService : ILeaveService
         IGenericRepository<EmployeePortal> employeePortalRepository,
         IGenericRepository<LeaveType> leaveTypeRepository,
         IGenericRepository<Holiday> holidayRepository,
+        IGenericRepository<LeaveAgreement> leaveAgreementRepository,
         IAnnouncementService announcementService,
         IUserActionLogService userActionLogService,
         IWorkflowNotificationService workflowNotificationService)
@@ -38,6 +40,7 @@ public class LeaveService : ILeaveService
         _employeePortalRepository = employeePortalRepository;
         _leaveTypeRepository = leaveTypeRepository;
         _holidayRepository = holidayRepository;
+        _leaveAgreementRepository = leaveAgreementRepository;
         _announcementService = announcementService;
         _userActionLogService = userActionLogService;
         _workflowNotificationService = workflowNotificationService;
@@ -489,6 +492,107 @@ public class LeaveService : ILeaveService
             new Dictionary<int, string> { [leave.EmployeeId] = BuildPortalName(employeePortal, leave.EmployeeId) });
     }
 
+    public async Task<PagedResultModel<AdminLeaveAgreementItemModel>> GetAdminLeaveAgreementsAsync(AdminLeaveAgreementListQueryModel query)
+    {
+        var currentPage = query.Page < 1 ? 1 : query.Page;
+        var pageSize = query.PageSize <= 0 ? 10 : query.PageSize;
+        var selectedSort = string.Equals(query.SortOrder, "CreatedDate_Asc", StringComparison.OrdinalIgnoreCase)
+            ? "CreatedDate_Asc"
+            : "CreatedDate_Desc";
+        var normalizedSearch = query.SearchText?.Trim();
+
+        var agreements = (await _leaveAgreementRepository.GetAllAsync(null, x => x.EmployeePortal))
+            .Where(x => x.EmployeePortal != null && !x.EmployeePortal.IsDeleted)
+            .AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(normalizedSearch))
+        {
+            agreements = agreements.Where(x => LeaveAgreementMatchesSearch(x, normalizedSearch));
+        }
+
+        if (query.IsSigned.HasValue)
+        {
+            agreements = agreements.Where(x => x.IsSigned == query.IsSigned.Value);
+        }
+
+        agreements = selectedSort == "CreatedDate_Asc"
+            ? agreements.OrderBy(x => x.CreatedDate ?? DateTime.MinValue).ThenBy(x => BuildPortalName(x.EmployeePortal!, x.EmployeePortalId))
+            : agreements.OrderByDescending(x => x.CreatedDate ?? DateTime.MinValue).ThenBy(x => BuildPortalName(x.EmployeePortal!, x.EmployeePortalId));
+
+        var items = agreements
+            .Select(MapAdminLeaveAgreementItem)
+            .ToList();
+
+        var totalCount = items.Count;
+        var totalPages = totalCount == 0 ? 1 : (int)Math.Ceiling(totalCount / (double)pageSize);
+        currentPage = Math.Min(currentPage, totalPages);
+
+        return new PagedResultModel<AdminLeaveAgreementItemModel>
+        {
+            Items = items.Skip((currentPage - 1) * pageSize).Take(pageSize).ToList(),
+            CurrentPage = currentPage,
+            TotalPages = totalPages,
+            TotalCount = totalCount,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<OperationResultModel> SyncLeaveAgreementsAsync()
+    {
+        var activePortalUsers = (await _employeePortalRepository.GetAllAsync(x => !x.IsDeleted)).ToList();
+        var existingAgreements = (await _leaveAgreementRepository.GetAllAsync()).ToList();
+        var existingEmployeeIds = existingAgreements
+            .Select(x => x.EmployeePortalId)
+            .ToHashSet();
+        var createdCount = 0;
+
+        foreach (var portalUser in activePortalUsers)
+        {
+            if (existingEmployeeIds.Contains(portalUser.Id))
+            {
+                continue;
+            }
+
+            await _leaveAgreementRepository.AddAsync(new LeaveAgreement
+            {
+                EmployeePortalId = portalUser.Id,
+                AgreedLeaveDays = 0,
+                IsSigned = false,
+                CreatedDate = DateTime.Now,
+                UpdateDate = DateTime.Now
+            });
+
+            existingEmployeeIds.Add(portalUser.Id);
+            createdCount++;
+        }
+
+        return createdCount > 0
+            ? OperationResultModel.Success($"{createdCount} mutabakat kaydı oluşturuldu.")
+            : OperationResultModel.Success("Eksik mutabakat kaydı bulunamadı.");
+    }
+
+    public async Task<OperationResultModel> UpdateLeaveAgreementAsync(AdminLeaveAgreementUpdateModel model)
+    {
+        if (model.AgreedLeaveDays < 0)
+        {
+            return OperationResultModel.Fail("Mutabık kalınan izin gün değeri negatif olamaz.");
+        }
+
+        var agreement = (await _leaveAgreementRepository.GetAllAsync(x => x.Id == model.Id, x => x.EmployeePortal)).FirstOrDefault();
+        if (agreement == null)
+        {
+            return OperationResultModel.Fail("Mutabakat kaydı bulunamadı.");
+        }
+
+        agreement.AgreedLeaveDays = model.AgreedLeaveDays;
+        agreement.IsSigned = model.IsSigned;
+        agreement.UpdateDate = DateTime.Now;
+
+        _leaveAgreementRepository.Update(agreement);
+
+        return OperationResultModel.Success($"{BuildPortalName(agreement.EmployeePortal, agreement.EmployeePortalId)} için izin mutabakat kaydı güncellendi.");
+    }
+
     public async Task<AdminLeaveReportResultModel> GetAdminLeaveReportAsync(AdminLeaveReportQueryModel query)
     {
         var leaves = await GetAllLeavesAsync();
@@ -925,6 +1029,44 @@ public class LeaveService : ILeaveService
             DecisionDisplay = GetDecisionDisplay(leave),
             CanTakeAction = leave.Status == (int)LeaveStatus.Pending
         };
+    }
+
+    private static AdminLeaveAgreementItemModel MapAdminLeaveAgreementItem(LeaveAgreement agreement)
+    {
+        return new AdminLeaveAgreementItemModel
+        {
+            Id = agreement.Id,
+            EmployeePortalId = agreement.EmployeePortalId,
+            EmployeeName = BuildPortalName(agreement.EmployeePortal, agreement.EmployeePortalId),
+            Email = agreement.EmployeePortal?.Email ?? string.Empty,
+            PhoneNumber = agreement.EmployeePortal?.PhoneNumber ?? string.Empty,
+            AgreedLeaveDays = agreement.AgreedLeaveDays,
+            IsSigned = agreement.IsSigned,
+            CreatedDate = agreement.CreatedDate
+        };
+    }
+
+    private static bool LeaveAgreementMatchesSearch(LeaveAgreement agreement, string searchText)
+    {
+        var employee = agreement.EmployeePortal;
+        if (employee == null)
+        {
+            return false;
+        }
+
+        var normalizedSearch = searchText.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedSearch))
+        {
+            return true;
+        }
+
+        var fullName = BuildPortalName(employee);
+
+        return (!string.IsNullOrWhiteSpace(employee.FirstName) && employee.FirstName.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)) ||
+               (!string.IsNullOrWhiteSpace(employee.LastName) && employee.LastName.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)) ||
+               (!string.IsNullOrWhiteSpace(fullName) && fullName.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)) ||
+               (!string.IsNullOrWhiteSpace(employee.PhoneNumber) && employee.PhoneNumber.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)) ||
+               (!string.IsNullOrWhiteSpace(employee.Email) && employee.Email.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task<Dictionary<int, string>> GetPortalUserNamesAsync()

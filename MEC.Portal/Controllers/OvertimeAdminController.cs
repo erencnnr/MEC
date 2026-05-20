@@ -95,7 +95,13 @@ namespace MEC.Portal.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateOvertimeStatus(int id, int status, string? returnUrl = null)
+        public async Task<IActionResult> UpdateOvertimeStatus(
+            int id,
+            int status,
+            string? returnUrl = null,
+            DateTime? updatedStartDate = null,
+            DateTime? updatedEndDate = null,
+            string? timeChangeNote = null)
         {
             var result = await _overtimeService.UpdateOvertimeStatusAsync(new OvertimeStatusUpdateRequestModel
             {
@@ -104,7 +110,10 @@ namespace MEC.Portal.Controllers
                 CurrentUser = User.Identity?.Name ?? "anonymous",
                 DecisionBy = GetCurrentUserDisplayName(),
                 IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                MethodName = UpdateOvertimeStatusMethodName
+                MethodName = UpdateOvertimeStatusMethodName,
+                UpdatedStartDate = updatedStartDate,
+                UpdatedEndDate = updatedEndDate,
+                TimeChangeNote = timeChangeNote
             });
 
             if (result.IsSuccess)

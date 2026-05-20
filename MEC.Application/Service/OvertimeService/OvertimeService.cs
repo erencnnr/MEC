@@ -464,6 +464,51 @@ namespace MEC.Application.Service.OvertimeService
                 return OperationResultModel.Fail("Mesai talebi bulunamadı.");
             }
 
+            if (request.Status == (int)OvertimeStatus.Approved)
+            {
+                var hasTimeEditRequest =
+                    request.UpdatedStartDate.HasValue ||
+                    request.UpdatedEndDate.HasValue ||
+                    !string.IsNullOrWhiteSpace(request.TimeChangeNote);
+
+                if (hasTimeEditRequest)
+                {
+                    if (!request.UpdatedStartDate.HasValue || !request.UpdatedEndDate.HasValue)
+                    {
+                        return OperationResultModel.Fail("Saat gÃ¼ncellemesi iÃ§in baÅŸlangÄ±Ã§ ve bitiÅŸ saati birlikte girilmelidir.");
+                    }
+
+                    if (string.IsNullOrWhiteSpace(request.TimeChangeNote))
+                    {
+                        return OperationResultModel.Fail("Saat gÃ¼ncellemesi yapÄ±lÄ±yorsa aÃ§Ä±klama zorunludur.");
+                    }
+
+                    var updatedStartDate = request.UpdatedStartDate.Value;
+                    var updatedEndDate = request.UpdatedEndDate.Value;
+
+                    if (updatedStartDate.Date != updatedEndDate.Date)
+                    {
+                        return OperationResultModel.Fail("Mesai tarihi aynÄ± gÃ¼n iÃ§inde kalmalÄ±dÄ±r.");
+                    }
+
+                    if (updatedEndDate <= updatedStartDate)
+                    {
+                        return OperationResultModel.Fail("BitiÅŸ saati baÅŸlangÄ±Ã§ saatinden sonra olmalÄ±dÄ±r.");
+                    }
+
+                    var updatedRequestedHours = CalculateRequestedHours(updatedStartDate, updatedEndDate);
+                    if (updatedRequestedHours <= 0)
+                    {
+                        return OperationResultModel.Fail("GeÃ§erli bir mesai sÃ¼resi hesaplanamadÄ±.");
+                    }
+
+                    overtimeRequest.StartDate = updatedStartDate;
+                    overtimeRequest.EndDate = updatedEndDate;
+                    overtimeRequest.RequestedHours = updatedRequestedHours;
+                    overtimeRequest.Reason = AppendTimeChangeNote(overtimeRequest.Reason, request.TimeChangeNote);
+                }
+            }
+
             overtimeRequest.Status = request.Status;
             overtimeRequest.UpdateDate = DateTime.Now;
 
@@ -543,6 +588,23 @@ namespace MEC.Application.Service.OvertimeService
             }
 
             return Math.Round((decimal)(endDate - startDate).TotalMinutes / 60m, 2, MidpointRounding.AwayFromZero);
+        }
+
+        private static string AppendTimeChangeNote(string? currentReason, string? timeChangeNote)
+        {
+            var trimmedNote = string.IsNullOrWhiteSpace(timeChangeNote)
+                ? string.Empty
+                : timeChangeNote.Trim();
+
+            if (string.IsNullOrWhiteSpace(trimmedNote))
+            {
+                return currentReason ?? string.Empty;
+            }
+
+            var noteLine = $"Saat DeÄŸiÅŸikliÄŸi AÃ§Ä±klamasÄ±: {trimmedNote}";
+            return string.IsNullOrWhiteSpace(currentReason)
+                ? noteLine
+                : $"{currentReason.TrimEnd()}{Environment.NewLine}{noteLine}";
         }
 
         private static void AddFieldError(OvertimeRequestValidationModel result, string fieldName, string errorMessage)

@@ -15,6 +15,16 @@
     {
         return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
     }
+
+    string FormatDateInputValue(DateTime value)
+    {
+        return value.ToString("yyyy-MM-dd");
+    }
+
+    string FormatTimeInputValue(DateTime value)
+    {
+        return value.ToString("HH:mm");
+    }
 }
 
 <section class="leave-detail-page admin-leave-detail-page">
@@ -100,7 +110,10 @@
                                 data-confirm-tone="approve"
                                 data-confirm-title="Mesai talebini onayla"
                                 data-confirm-message="Bu mesai talebini onaylamak istediğinize emin misiniz?"
-                                data-confirm-label="Onayla">
+                                data-confirm-label="Onayla"
+                                data-request-date="@FormatDateInputValue(item.StartDate)"
+                                data-start-time="@FormatTimeInputValue(item.StartDate)"
+                                data-end-time="@FormatTimeInputValue(item.EndDate)">
                             Onayla
                         </button>
                     </form>
@@ -137,7 +150,29 @@
         <span class="admin-leave-confirm-modal__eyebrow">Mesai işlemi</span>
         <h2 id="adminOvertimeConfirmTitle">Mesai talebini güncelle</h2>
         <p id="adminOvertimeConfirmMessage">Bu işlemi gerçekleştirmek istediğinize emin misiniz?</p>
+        <div class="admin-overtime-approval-panel" id="adminOvertimeApprovalPanel" hidden>
+            <div class="admin-overtime-approval-panel__grid">
+                <div class="admin-overtime-approval-panel__field">
+                    <label for="adminOvertimeRequestDate">Mesai Tarihi</label>
+                    <input id="adminOvertimeRequestDate" type="date" class="admin-overtime-approval-panel__input" readonly />
+                </div>
+                <div class="admin-overtime-approval-panel__field">
+                    <label for="adminOvertimeStartTime">Başlangıç Saati</label>
+                    <input id="adminOvertimeStartTime" type="time" class="admin-overtime-approval-panel__input" readonly />
+                </div>
+                <div class="admin-overtime-approval-panel__field">
+                    <label for="adminOvertimeEndTime">Bitiş Saati</label>
+                    <input id="adminOvertimeEndTime" type="time" class="admin-overtime-approval-panel__input" readonly />
+                </div>
+            </div>
+            <div class="admin-overtime-approval-panel__note" id="adminOvertimeNoteWrap" hidden>
+                <label for="adminOvertimeTimeChangeNote">Saat Değişikliği Açıklaması</label>
+                <textarea id="adminOvertimeTimeChangeNote" class="admin-overtime-approval-panel__textarea" rows="4" placeholder="Saat değişikliği açıklamasını giriniz."></textarea>
+                <div class="admin-overtime-approval-panel__validation" id="adminOvertimeTimeChangeValidation" hidden>Açıklama girmeden onaylayamazsınız.</div>
+            </div>
+        </div>
         <div class="admin-leave-confirm-modal__actions">
+            <button type="button" class="admin-leave-confirm-modal__button admin-leave-confirm-modal__button--ghost" id="adminOvertimeEditTimesButton" hidden>Saatleri Düzenle</button>
             <button type="button" class="admin-leave-confirm-modal__button admin-leave-confirm-modal__button--ghost" data-admin-overtime-confirm-close>Vazgeç</button>
             <button type="button" class="admin-leave-confirm-modal__button admin-leave-confirm-modal__button--approve" id="adminOvertimeConfirmSubmit">Onayla</button>
         </div>
@@ -167,7 +202,71 @@
         const confirmTitle = document.getElementById("adminOvertimeConfirmTitle");
         const confirmMessage = document.getElementById("adminOvertimeConfirmMessage");
         const confirmSubmit = document.getElementById("adminOvertimeConfirmSubmit");
+        const approvalPanel = document.getElementById("adminOvertimeApprovalPanel");
+        const requestDateInput = document.getElementById("adminOvertimeRequestDate");
+        const startTimeInput = document.getElementById("adminOvertimeStartTime");
+        const endTimeInput = document.getElementById("adminOvertimeEndTime");
+        const editTimesButton = document.getElementById("adminOvertimeEditTimesButton");
+        const noteWrap = document.getElementById("adminOvertimeNoteWrap");
+        const noteInput = document.getElementById("adminOvertimeTimeChangeNote");
+        const noteValidation = document.getElementById("adminOvertimeTimeChangeValidation");
         let activeOvertimeStatusForm = null;
+        let activeConfirmButton = null;
+        let isEditMode = false;
+
+        function setHiddenInput(form, name, value) {
+            if (!form) {
+                return;
+            }
+
+            let input = form.querySelector('input[name="' + name + '"]');
+            if (!input) {
+                input = document.createElement("input");
+                input.type = "hidden";
+                input.name = name;
+                form.appendChild(input);
+            }
+
+            input.value = value || "";
+        }
+
+        function resetApprovalEditor() {
+            isEditMode = false;
+
+            if (approvalPanel) {
+                approvalPanel.hidden = true;
+            }
+
+            if (editTimesButton) {
+                editTimesButton.hidden = true;
+            }
+
+            if (requestDateInput) {
+                requestDateInput.value = "";
+            }
+
+            if (startTimeInput) {
+                startTimeInput.value = "";
+                startTimeInput.readOnly = true;
+            }
+
+            if (endTimeInput) {
+                endTimeInput.value = "";
+                endTimeInput.readOnly = true;
+            }
+
+            if (noteWrap) {
+                noteWrap.hidden = true;
+            }
+
+            if (noteInput) {
+                noteInput.value = "";
+            }
+
+            if (noteValidation) {
+                noteValidation.hidden = true;
+            }
+        }
 
         function closeAdminOvertimeConfirmModal() {
             if (!confirmModal) {
@@ -178,6 +277,8 @@
             confirmModal.setAttribute("aria-hidden", "true");
             document.body.classList.remove("admin-leave-confirm-open");
             activeOvertimeStatusForm = null;
+            activeConfirmButton = null;
+            resetApprovalEditor();
         }
 
         document.querySelectorAll("[data-admin-overtime-confirm]").forEach(function (button) {
@@ -185,6 +286,7 @@
                 event.preventDefault();
 
                 activeOvertimeStatusForm = button.closest("form");
+                activeConfirmButton = button;
                 if (!confirmModal || !activeOvertimeStatusForm) {
                     return;
                 }
@@ -195,6 +297,30 @@
                 confirmSubmit.textContent = button.dataset.confirmLabel || "Onayla";
                 confirmSubmit.className = "admin-leave-confirm-modal__button admin-leave-confirm-modal__button--" + tone;
 
+                resetApprovalEditor();
+
+                if (tone === "approve") {
+                    if (approvalPanel) {
+                        approvalPanel.hidden = false;
+                    }
+
+                    if (editTimesButton) {
+                        editTimesButton.hidden = false;
+                    }
+
+                    if (requestDateInput) {
+                        requestDateInput.value = button.dataset.requestDate || "";
+                    }
+
+                    if (startTimeInput) {
+                        startTimeInput.value = button.dataset.startTime || "";
+                    }
+
+                    if (endTimeInput) {
+                        endTimeInput.value = button.dataset.endTime || "";
+                    }
+                }
+
                 confirmModal.hidden = false;
                 confirmModal.setAttribute("aria-hidden", "false");
                 document.body.classList.add("admin-leave-confirm-open");
@@ -202,15 +328,68 @@
             });
         });
 
+        if (editTimesButton) {
+            editTimesButton.addEventListener("click", function () {
+                isEditMode = true;
+
+                if (startTimeInput) {
+                    startTimeInput.readOnly = false;
+                    startTimeInput.focus();
+                }
+
+                if (endTimeInput) {
+                    endTimeInput.readOnly = false;
+                }
+
+                if (noteWrap) {
+                    noteWrap.hidden = false;
+                }
+            });
+        }
+
         document.querySelectorAll("[data-admin-overtime-confirm-close]").forEach(function (element) {
             element.addEventListener("click", closeAdminOvertimeConfirmModal);
         });
 
         if (confirmSubmit) {
             confirmSubmit.addEventListener("click", function () {
-                if (activeOvertimeStatusForm) {
-                    activeOvertimeStatusForm.submit();
+                if (!activeOvertimeStatusForm) {
+                    return;
                 }
+
+                if (activeConfirmButton && activeConfirmButton.dataset.confirmTone === "approve") {
+                    if (isEditMode) {
+                        if (!noteInput || !noteInput.value.trim()) {
+                            if (noteValidation) {
+                                noteValidation.hidden = false;
+                            }
+
+                            if (noteInput) {
+                                noteInput.focus();
+                            }
+
+                            return;
+                        }
+
+                        if (noteValidation) {
+                            noteValidation.hidden = true;
+                        }
+
+                        const requestDate = requestDateInput ? requestDateInput.value : "";
+                        const startTime = startTimeInput ? startTimeInput.value : "";
+                        const endTime = endTimeInput ? endTimeInput.value : "";
+
+                        setHiddenInput(activeOvertimeStatusForm, "updatedStartDate", requestDate && startTime ? requestDate + "T" + startTime : "");
+                        setHiddenInput(activeOvertimeStatusForm, "updatedEndDate", requestDate && endTime ? requestDate + "T" + endTime : "");
+                        setHiddenInput(activeOvertimeStatusForm, "timeChangeNote", noteInput.value.trim());
+                    } else {
+                        setHiddenInput(activeOvertimeStatusForm, "updatedStartDate", "");
+                        setHiddenInput(activeOvertimeStatusForm, "updatedEndDate", "");
+                        setHiddenInput(activeOvertimeStatusForm, "timeChangeNote", "");
+                    }
+                }
+
+                activeOvertimeStatusForm.submit();
             });
         }
 

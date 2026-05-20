@@ -593,6 +593,48 @@ body {
     padding: 28px;
 }
 
+.home-quick-links {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.home-quick-link {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid #dfe6f0;
+    border-radius: 16px;
+    background: #fbfcff;
+    color: #1f2b38;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.home-quick-link:hover {
+    color: #18285c;
+    border-color: #cddbf5;
+    box-shadow: 0 12px 24px rgba(24, 40, 92, 0.08);
+    text-decoration: none;
+    transform: translateY(-1px);
+}
+
+.home-quick-link__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    color: #5c4ff3;
+}
+
+.home-quick-link__icon svg {
+    width: 22px;
+    height: 22px;
+}
+
 .home-summary-card h2 {
     margin: 0 0 10px;
     color: #1f2b38;
@@ -616,18 +658,56 @@ body {
     display: inline-flex;
     align-items: center;
     margin-top: 18px;
-    color: #2d5b8f;
+    padding: 9px 14px;
+    border-radius: 999px;
+    background: #eaf8ff;
+    color: #18357c;
     font-weight: 700;
     text-decoration: none;
+    white-space: nowrap;
 }
 
 .home-text-link:hover,
 .home-link-pill:hover {
-    color: #244a74;
+    background: #d8f2ff;
+    color: #123966;
 }
 
 .home-section-head .home-link-pill {
     margin-top: 0;
+}
+
+.home-dual-feed {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.home-feed-column {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.home-feed-column__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.home-feed-column__label {
+    color: #18357c;
+    font-size: 0.92rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.3;
+}
+
+.home-feed-list {
+    display: grid;
+    gap: 18px;
 }
 
 .home-stats {
@@ -748,10 +828,38 @@ body {
     gap: 8px;
 }
 
+.home-announcement-card__type-badge {
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #e7f0ff;
+    color: #1d4aa8;
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
+.home-announcement-card__type-badge--news {
+    background: #e5f8ff;
+    color: #0d7ea0;
+}
+
 .home-announcement-card__date {
     color: var(--text-3);
     font-size: 0.86rem;
     font-weight: 600;
+}
+
+.home-announcement-card--compact {
+    padding: 22px;
+}
+
+.home-announcement-card--compact .home-announcement-card__content {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
 }
 
 .home-announcement-card__content img {
@@ -768,6 +876,75 @@ body {
 
 .home-announcement-card-link:hover .home-announcement-card__title {
     color: #dc3545;
+}
+
+.home-empty-state--compact {
+    min-height: 100%;
+    padding: 22px;
+}
+
+.home-directory {
+    width: 100%;
+}
+
+.home-directory-card {
+    padding: 26px;
+    border: 1px solid #e4e8ee;
+    border-radius: 24px;
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(19, 31, 45, 0.05);
+}
+
+.home-directory__search-row {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.home-directory__search {
+    width: min(100%, 560px);
+}
+
+.home-directory__count {
+    margin: 18px 0 0;
+    color: #748396;
+    font-weight: 600;
+}
+
+.home-directory__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 18px;
+}
+
+.home-directory-card__item {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 160px;
+    padding: 22px;
+    border: 1px solid #e1e8f1;
+    border-radius: 20px;
+    background: #ffffff;
+    box-shadow: 0 10px 24px rgba(24, 40, 92, 0.05);
+}
+
+.home-directory-card__item h3 {
+    margin: 0;
+    color: #18285c;
+    font-size: 1.08rem;
+    letter-spacing: -0.02em;
+}
+
+.home-directory-card__item p {
+    margin: 0;
+    color: #607089;
+    line-height: 1.7;
+    word-break: break-word;
+}
+
+.home-directory__empty {
+    margin-top: 18px;
 }
 
 .announcement-detail-page {
@@ -932,12 +1109,19 @@ body {
     .home-stats,
     .home-feature-grid,
     .home-announcement-grid,
+    .home-dual-feed,
+    .home-directory__grid,
     .admin-shell {
         grid-template-columns: 1fr;
     }
 
     .home-section-head {
         align-items: start;
+        flex-direction: column;
+    }
+
+    .home-feed-column__head {
+        align-items: flex-start;
         flex-direction: column;
     }
 }
@@ -974,6 +1158,7 @@ body {
     .home-hero,
     .home-hero__content,
     .home-summary-card,
+    .home-directory-card,
     .home-stat-card,
     .home-feature-card,
     .home-announcement-card,
@@ -981,6 +1166,10 @@ body {
     .announcement-detail-card {
         padding: 18px;
         border-radius: 22px;
+    }
+
+    .home-quick-link {
+        padding: 13px 14px;
     }
 
     .home-hero__content h1 {
@@ -2575,6 +2764,65 @@ body {
     gap: 10px;
 }
 
+.admin-overtime-approval-panel {
+    margin: 0 0 22px;
+    padding: 18px;
+    border: 1px solid var(--border-1);
+    border-radius: 18px;
+    background: #f8fbff;
+}
+
+.admin-overtime-approval-panel__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.admin-overtime-approval-panel__field label,
+.admin-overtime-approval-panel__note label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-2);
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.admin-overtime-approval-panel__input,
+.admin-overtime-approval-panel__textarea {
+    width: 100%;
+    border: 1px solid var(--border-1);
+    border-radius: 12px;
+    background: #ffffff;
+    color: var(--text-1);
+}
+
+.admin-overtime-approval-panel__input {
+    min-height: 42px;
+    padding: 0 14px;
+}
+
+.admin-overtime-approval-panel__input[readonly] {
+    background: #edf3fb;
+    color: var(--text-2);
+}
+
+.admin-overtime-approval-panel__textarea {
+    min-height: 108px;
+    padding: 12px 14px;
+    resize: vertical;
+}
+
+.admin-overtime-approval-panel__note {
+    margin-top: 16px;
+}
+
+.admin-overtime-approval-panel__validation {
+    margin-top: 8px;
+    color: #b42318;
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
 .admin-leave-confirm-modal__button {
     display: inline-flex;
     align-items: center;
@@ -2631,6 +2879,10 @@ body.admin-leave-confirm-open {
     .admin-leave-confirm-modal__dialog {
         padding: 24px 18px 18px;
         border-radius: 22px;
+    }
+
+    .admin-overtime-approval-panel__grid {
+        grid-template-columns: 1fr;
     }
 
     .admin-leave-confirm-modal__actions {
