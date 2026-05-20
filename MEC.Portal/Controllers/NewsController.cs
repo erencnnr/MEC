@@ -9,8 +9,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace MEC.Portal.Controllers
 {
-    [Route("Admin/Announcements")]
-    public class AnnouncementController : Controller
+    [Route("Admin/News")]
+    public class NewsController : Controller
     {
         private const int PageSize = 6;
         private static readonly HashSet<string> AllowedAttachmentExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -26,7 +26,7 @@ namespace MEC.Portal.Controllers
         private readonly IAnnouncementAttachmentApiClient _announcementAttachmentApiClient;
         private readonly IAnnouncementImageApiClient _announcementImageApiClient;
 
-        public AnnouncementController(
+        public NewsController(
             IAnnouncementService announcementService,
             IAnnouncementAttachmentApiClient announcementAttachmentApiClient,
             IAnnouncementImageApiClient announcementImageApiClient)
@@ -45,17 +45,17 @@ namespace MEC.Portal.Controllers
                 Status = status,
                 Page = page,
                 PageSize = PageSize,
-                ContentType = AnnouncementContentType.Announcement
+                ContentType = AnnouncementContentType.News
             });
 
-            return View(BuildAnnouncementListModel(result));
+            return View("~/Views/Announcement/Index.cshtml", BuildNewsListModel(result));
         }
 
         [Authorize(Roles = "Admin")]
         [HttpGet("Create")]
         public IActionResult Create()
         {
-            return View(BuildAnnouncementCreateModel());
+            return View("~/Views/Announcement/Create.cshtml", BuildNewsCreateModel());
         }
 
         [Authorize(Roles = "Admin")]
@@ -63,58 +63,58 @@ namespace MEC.Portal.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(AnnouncementFormViewModel model, CancellationToken cancellationToken)
         {
-            ApplyAnnouncementCreateLabels(model);
-            ValidateAnnouncementFiles(model);
+            ApplyNewsCreateLabels(model);
+            ValidateFiles(model);
 
             if (!ModelState.IsValid)
             {
-                return View(model);
+                return View("~/Views/Announcement/Create.cshtml", model);
             }
 
-            var announcement = new Announcement
+            var news = new Announcement
             {
                 Title = model.Title,
                 Content = model.Content,
                 IsActive = model.IsActive,
-                ContentType = AnnouncementContentType.Announcement
+                ContentType = AnnouncementContentType.News
             };
 
-            await _announcementService.AddAnnouncementAsync(announcement);
+            await _announcementService.AddAnnouncementAsync(news);
 
             try
             {
-                var uploadResult = await UploadAnnouncementAssetsAsync(announcement.Id, model, cancellationToken);
+                var uploadResult = await UploadAssetsAsync(news.Id, model, cancellationToken);
                 if (!uploadResult.IsSuccess)
                 {
-                    await CleanupUploadedAssetsAsync(announcement.Id, uploadResult.UploadedAttachments, uploadResult.UploadedImages, cancellationToken);
-                    await _announcementService.DeleteAnnouncementAsync(announcement.Id);
+                    await CleanupUploadedAssetsAsync(news.Id, uploadResult.UploadedAttachments, uploadResult.UploadedImages, cancellationToken);
+                    await _announcementService.DeleteAnnouncementAsync(news.Id);
                     ModelState.AddModelError(string.Empty, uploadResult.Message);
-                    return View(model);
+                    return View("~/Views/Announcement/Create.cshtml", model);
                 }
 
-                await PersistUploadedAssetsAsync(announcement.Id, uploadResult.UploadedAttachments, uploadResult.UploadedImages);
+                await PersistUploadedAssetsAsync(news.Id, uploadResult.UploadedAttachments, uploadResult.UploadedImages);
             }
             catch
             {
-                await _announcementService.DeleteAnnouncementAsync(announcement.Id);
+                await _announcementService.DeleteAnnouncementAsync(news.Id);
                 throw;
             }
 
-            TempData["AnnouncementSuccess"] = "Duyuru kaydedildi.";
-            return RedirectToAction(nameof(Index), new { status = announcement.IsActive ? "active" : "passive" });
+            TempData["AnnouncementSuccess"] = "Haber kaydedildi.";
+            return RedirectToAction(nameof(Index), new { status = news.IsActive ? "active" : "passive" });
         }
 
         [Authorize(Roles = "Admin")]
         [HttpGet("Edit/{id:int}")]
         public async Task<IActionResult> Edit(int id)
         {
-            var announcement = await _announcementService.GetAnnouncementByIdAsync(id, AnnouncementContentType.Announcement);
-            if (announcement == null)
+            var news = await _announcementService.GetAnnouncementByIdAsync(id, AnnouncementContentType.News);
+            if (news == null)
             {
                 return NotFound();
             }
 
-            return View(await BuildAnnouncementEditModelAsync(announcement));
+            return View("~/Views/Announcement/Edit.cshtml", await BuildNewsEditModelAsync(news));
         }
 
         [Authorize(Roles = "Admin")]
@@ -127,11 +127,11 @@ namespace MEC.Portal.Controllers
                 model.Id = id;
             }
 
-            ApplyAnnouncementEditLabels(model);
-            ValidateAnnouncementFiles(model);
+            ApplyNewsEditLabels(model);
+            ValidateFiles(model);
 
-            var currentAnnouncement = await _announcementService.GetAnnouncementByIdAsync(id, AnnouncementContentType.Announcement);
-            if (currentAnnouncement == null)
+            var currentNews = await _announcementService.GetAnnouncementByIdAsync(id, AnnouncementContentType.News);
+            if (currentNews == null)
             {
                 return NotFound();
             }
@@ -139,25 +139,25 @@ namespace MEC.Portal.Controllers
             if (!ModelState.IsValid)
             {
                 await PopulateExistingAssetsAsync(model, id);
-                return View(model);
+                return View("~/Views/Announcement/Edit.cshtml", model);
             }
 
-            var uploadResult = await UploadAnnouncementAssetsAsync(id, model, cancellationToken);
+            var uploadResult = await UploadAssetsAsync(id, model, cancellationToken);
             if (!uploadResult.IsSuccess)
             {
                 await CleanupUploadedAssetsAsync(id, uploadResult.UploadedAttachments, uploadResult.UploadedImages, cancellationToken);
                 ModelState.AddModelError(string.Empty, uploadResult.Message);
                 await PopulateExistingAssetsAsync(model, id);
-                return View(model);
+                return View("~/Views/Announcement/Edit.cshtml", model);
             }
 
-            currentAnnouncement.Title = model.Title;
-            currentAnnouncement.Content = model.Content;
-            currentAnnouncement.IsActive = model.IsActive;
-            await _announcementService.UpdateAnnouncementAsync(currentAnnouncement);
+            currentNews.Title = model.Title;
+            currentNews.Content = model.Content;
+            currentNews.IsActive = model.IsActive;
+            await _announcementService.UpdateAnnouncementAsync(currentNews);
             await PersistUploadedAssetsAsync(id, uploadResult.UploadedAttachments, uploadResult.UploadedImages);
 
-            TempData["AnnouncementSuccess"] = "Duyuru güncellendi.";
+            TempData["AnnouncementSuccess"] = "Haber güncellendi.";
             return RedirectToAction(nameof(Edit), new { id });
         }
 
@@ -166,8 +166,8 @@ namespace MEC.Portal.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteAttachment(int id, int attachmentId, CancellationToken cancellationToken)
         {
-            var announcement = await _announcementService.GetAnnouncementByIdAsync(id, AnnouncementContentType.Announcement);
-            if (announcement == null)
+            var news = await _announcementService.GetAnnouncementByIdAsync(id, AnnouncementContentType.News);
+            if (news == null)
             {
                 return NotFound();
             }
@@ -186,7 +186,7 @@ namespace MEC.Portal.Controllers
             }
 
             await _announcementService.DeleteAnnouncementAttachmentMetadataAsync(attachmentId);
-            TempData["AnnouncementSuccess"] = "Duyuru eki silindi.";
+            TempData["AnnouncementSuccess"] = "Haber eki silindi.";
             return RedirectToAction(nameof(Edit), new { id });
         }
 
@@ -195,8 +195,8 @@ namespace MEC.Portal.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteImage(int id, int imageId, CancellationToken cancellationToken)
         {
-            var announcement = await _announcementService.GetAnnouncementByIdAsync(id, AnnouncementContentType.Announcement);
-            if (announcement == null)
+            var news = await _announcementService.GetAnnouncementByIdAsync(id, AnnouncementContentType.News);
+            if (news == null)
             {
                 return NotFound();
             }
@@ -219,17 +219,17 @@ namespace MEC.Portal.Controllers
             return RedirectToAction(nameof(Edit), new { id });
         }
 
-        [HttpGet("/Announcements/{id:int}", Name = "AnnouncementDetail")]
+        [HttpGet("/News/{id:int}", Name = "NewsDetail")]
         [Authorize]
         public async Task<IActionResult> Detail(int id)
         {
-            var detail = await _announcementService.GetAnnouncementDetailDataAsync(id, AnnouncementContentType.Announcement);
+            var detail = await _announcementService.GetAnnouncementDetailDataAsync(id, AnnouncementContentType.News);
             if (detail == null)
             {
                 return NotFound();
             }
 
-            return View("~/Views/Announcement/Detail.cshtml", BuildAnnouncementDetailModel(detail));
+            return View("~/Views/Announcement/Detail.cshtml", BuildNewsDetailModel(detail));
         }
 
         [Authorize(Roles = "Admin")]
@@ -237,13 +237,13 @@ namespace MEC.Portal.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
         {
-            var announcement = await _announcementService.GetAnnouncementByIdAsync(id, AnnouncementContentType.Announcement);
-            if (announcement == null)
+            var news = await _announcementService.GetAnnouncementByIdAsync(id, AnnouncementContentType.News);
+            if (news == null)
             {
                 return NotFound();
             }
 
-            var deletePrepare = await _announcementService.PrepareAnnouncementDeleteAsync(id, AnnouncementContentType.Announcement);
+            var deletePrepare = await _announcementService.PrepareAnnouncementDeleteAsync(id, AnnouncementContentType.News);
 
             foreach (var attachment in deletePrepare.Attachments)
             {
@@ -256,10 +256,10 @@ namespace MEC.Portal.Controllers
             }
 
             await _announcementService.DeleteAnnouncementAsync(id);
-            return RedirectToAction(nameof(Index), new { status = announcement.IsActive ? "active" : "passive" });
+            return RedirectToAction(nameof(Index), new { status = news.IsActive ? "active" : "passive" });
         }
 
-        private static AnnouncementListViewModel BuildAnnouncementListModel(AnnouncementListResultModel result)
+        private static AnnouncementListViewModel BuildNewsListModel(AnnouncementListResultModel result)
         {
             return new AnnouncementListViewModel
             {
@@ -268,83 +268,89 @@ namespace MEC.Portal.Controllers
                 CurrentPage = result.CurrentPage,
                 TotalPages = result.TotalPages,
                 TotalCount = result.TotalCount,
-                PageSize = result.PageSize
+                PageSize = result.PageSize,
+                Eyebrow = "Haber yönetimi",
+                Title = "Haberler",
+                Description = "Aktif ve pasif haberleri tarih sırasıyla görüntüleyin, kartlardan seçerek güncelleme ekranına geçin.",
+                CreateButtonText = "Yeni Haber",
+                EmptyTitle = "Listelenecek haber bulunmuyor.",
+                EmptyDescription = "Seçili filtre için henüz bir haber kaydı yok. Yeni bir haber oluşturabilirsiniz."
             };
         }
 
-        private static AnnouncementFormViewModel BuildAnnouncementCreateModel()
+        private static AnnouncementFormViewModel BuildNewsCreateModel()
         {
             var model = new AnnouncementFormViewModel { IsActive = true };
-            ApplyAnnouncementCreateLabels(model);
+            ApplyNewsCreateLabels(model);
             return model;
         }
 
-        private async Task<AnnouncementFormViewModel> BuildAnnouncementEditModelAsync(Announcement announcement)
+        private async Task<AnnouncementFormViewModel> BuildNewsEditModelAsync(Announcement news)
         {
             var model = new AnnouncementFormViewModel
             {
-                Id = announcement.Id,
-                Title = announcement.Title,
-                Content = announcement.Content,
-                IsActive = announcement.IsActive
+                Id = news.Id,
+                Title = news.Title,
+                Content = news.Content,
+                IsActive = news.IsActive
             };
 
-            ApplyAnnouncementEditLabels(model);
-            await PopulateExistingAssetsAsync(model, announcement.Id);
+            ApplyNewsEditLabels(model);
+            await PopulateExistingAssetsAsync(model, news.Id);
             return model;
         }
 
-        private static void ApplyAnnouncementCreateLabels(AnnouncementFormViewModel model)
+        private static void ApplyNewsCreateLabels(AnnouncementFormViewModel model)
         {
-            model.ControllerName = "Announcement";
+            model.ControllerName = "News";
             model.IndexAction = nameof(Index);
             model.EditAction = nameof(Edit);
             model.DeleteAttachmentAction = nameof(DeleteAttachment);
             model.DeleteImageAction = nameof(DeleteImage);
-            model.Eyebrow = "Duyuru yönetimi";
-            model.PageTitle = "Yeni Duyuru Ekle";
-            model.Description = "Çalışan portalında yayınlanacak duyuruyu başlık, içerik ve yayın durumu ile birlikte hazırlayın.";
-            model.TitleLabel = "Duyuru Başlığı";
-            model.TitlePlaceholder = "Duyuru başlığını giriniz";
-            model.ContentLabel = "Duyuru İçeriği";
-            model.EditorPlaceholder = "Duyuru detaylarını yazın, link veya görsel ekleyin...";
-            model.AttachmentLabel = "Duyuru Ekleri";
-            model.AttachmentHelpText = "İsterseniz duyuruya belge, doküman veya indirilebilir dosya ekleyebilirsiniz.";
-            model.GalleryLabel = "Duyuru Galerisi";
+            model.Eyebrow = "Haber yönetimi";
+            model.PageTitle = "Yeni Haber Ekle";
+            model.Description = "Portalda yayınlanacak haberi başlık, içerik ve yayın durumu ile birlikte hazırlayın.";
+            model.TitleLabel = "Haber Başlığı";
+            model.TitlePlaceholder = "Haber başlığını giriniz";
+            model.ContentLabel = "Haber İçeriği";
+            model.EditorPlaceholder = "Haber detaylarını yazın, link veya görsel ekleyin...";
+            model.AttachmentLabel = "Haber Ekleri";
+            model.AttachmentHelpText = "İsterseniz habere belge, doküman veya indirilebilir dosya ekleyebilirsiniz.";
+            model.GalleryLabel = "Haber Galerisi";
             model.GalleryHelpText = "Detay sayfasında galeri alanında gösterilecek fotoğrafları buradan ekleyebilirsiniz.";
             model.SaveButtonText = "Kaydet";
             model.CancelButtonText = "İptal";
         }
 
-        private static void ApplyAnnouncementEditLabels(AnnouncementFormViewModel model)
+        private static void ApplyNewsEditLabels(AnnouncementFormViewModel model)
         {
-            ApplyAnnouncementCreateLabels(model);
-            model.PageTitle = "Duyuru Düzenle";
-            model.Description = "Başlık, içerik ve yayın durumunu güncelleyerek duyuruyu portal akışına uygun hale getirin.";
+            ApplyNewsCreateLabels(model);
+            model.PageTitle = "Haber Düzenle";
+            model.Description = "Başlık, içerik ve yayın durumunu güncelleyerek haberi portal akışına uygun hale getirin.";
             model.AttachmentHelpText = "Yeni dosyalar eklenir; mevcut ekler korunur.";
             model.GalleryHelpText = "Yeni fotoğraflar eklenir; mevcut galeri korunur.";
         }
 
-        private AnnouncementDetailViewModel BuildAnnouncementDetailModel(AnnouncementDetailDataModel detail)
+        private AnnouncementDetailViewModel BuildNewsDetailModel(AnnouncementDetailDataModel detail)
         {
-            var announcement = detail.Announcement;
+            var news = detail.Announcement;
             return new AnnouncementDetailViewModel
             {
-                Id = announcement.Id,
-                Title = announcement.Title,
-                Content = announcement.Content ?? string.Empty,
-                CreatedDate = announcement.CreatedDate,
-                UpdatedDate = announcement.UpdateDate,
+                Id = news.Id,
+                Title = news.Title,
+                Content = news.Content ?? string.Empty,
+                CreatedDate = news.CreatedDate,
+                UpdatedDate = news.UpdateDate,
                 IsAdminView = false,
-                ContentBodyTitle = "Duyuru Metni",
-                AttachmentSectionTitle = "Duyuru Ekleri",
-                GallerySectionTitle = "Duyuru Galerisi",
-                RelatedSectionTitle = "Diğer Duyurular",
-                BackButtonText = "Tüm duyurulara dön",
-                SideActionText = "Tüm Duyurular",
+                ContentBodyTitle = "Haber Metni",
+                AttachmentSectionTitle = "Haber Ekleri",
+                GallerySectionTitle = "Haber Galerisi",
+                RelatedSectionTitle = "Diğer Haberler",
+                BackButtonText = "Tüm haberlere dön",
+                SideActionText = "Tüm Haberler",
                 BackController = "Home",
-                BackAction = "Announcements",
-                DetailController = "Announcement",
+                BackAction = "News",
+                DetailController = "News",
                 GalleryImages = detail.GalleryImages
                     .Select(x => _announcementImageApiClient.GetFileUrl(x.AnnouncementId, x.FileName))
                     .ToList(),
@@ -369,13 +375,13 @@ namespace MEC.Portal.Controllers
             };
         }
 
-        private void ValidateAnnouncementFiles(AnnouncementFormViewModel model)
+        private void ValidateFiles(AnnouncementFormViewModel model)
         {
-            ValidateFiles(model.AttachmentFiles, AllowedAttachmentExtensions, nameof(model.AttachmentFiles), "Duyuru ekleri");
-            ValidateFiles(model.GalleryFiles, AllowedGalleryExtensions, nameof(model.GalleryFiles), "Duyuru galerisi");
+            ValidateFileGroup(model.AttachmentFiles, AllowedAttachmentExtensions, nameof(model.AttachmentFiles), "Haber ekleri");
+            ValidateFileGroup(model.GalleryFiles, AllowedGalleryExtensions, nameof(model.GalleryFiles), "Haber galerisi");
         }
 
-        private void ValidateFiles(IEnumerable<IFormFile> files, HashSet<string> allowedExtensions, string fieldName, string label)
+        private void ValidateFileGroup(IEnumerable<IFormFile> files, HashSet<string> allowedExtensions, string fieldName, string label)
         {
             const long maxFileSize = 10 * 1024 * 1024;
 
@@ -415,7 +421,7 @@ namespace MEC.Portal.Controllers
                 .ToList();
         }
 
-        private async Task<AnnouncementAssetUploadBundleResult> UploadAnnouncementAssetsAsync(int announcementId, AnnouncementFormViewModel model, CancellationToken cancellationToken)
+        private async Task<AnnouncementAssetUploadBundleResult> UploadAssetsAsync(int announcementId, AnnouncementFormViewModel model, CancellationToken cancellationToken)
         {
             var uploadedAttachments = new List<AnnouncementAssetUploadRecord>();
             var uploadedImages = new List<AnnouncementAssetUploadRecord>();

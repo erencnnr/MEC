@@ -1,4 +1,5 @@
 using MEC.Application.Abstractions.Service.SchoolService;
+using MEC.Domain.Common.Enum;
 using MEC.Portal.Models;
 using MEC.Portal.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -28,7 +29,7 @@ namespace MEC.Portal.Controllers
 
         public async Task<IActionResult> Index()
         {
-            var activeAnnouncements = (await _announcementService.GetActiveAnnouncementsAsync())
+            var activeAnnouncements = (await _announcementService.GetActiveAnnouncementsAsync(AnnouncementContentType.Announcement))
                 .OrderByDescending(x => x.CreatedDate)
                 .ToList();
 
@@ -62,9 +63,17 @@ namespace MEC.Portal.Controllers
         [HttpGet("/Announcements")]
         public async Task<IActionResult> Announcements()
         {
-            var activeAnnouncements = await _announcementService.GetActiveAnnouncementsAsync();
+            var activeAnnouncements = await _announcementService.GetActiveAnnouncementsAsync(AnnouncementContentType.Announcement);
             var sortedAnnouncements = activeAnnouncements.OrderByDescending(x => x.CreatedDate).ToList();
             return View(sortedAnnouncements);
+        }
+
+        [HttpGet("/News")]
+        public async Task<IActionResult> News()
+        {
+            var activeNews = await _announcementService.GetActiveAnnouncementsAsync(AnnouncementContentType.News);
+            var sortedNews = activeNews.OrderByDescending(x => x.CreatedDate).ToList();
+            return View(sortedNews);
         }
     }
 }

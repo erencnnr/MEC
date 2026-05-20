@@ -1666,7 +1666,8 @@ body {
 
 .portal-header__nav-link,
 .portal-header__welcome,
-.portal-header__button {
+.portal-header__button,
+.portal-header__icon-link {
     min-height: 42px;
 }
 
@@ -1694,6 +1695,48 @@ body {
     gap: 10px;
 }
 
+.portal-header__icon-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.portal-header__icon-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    text-decoration: none;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.portal-header__icon-link:hover,
+.portal-header__icon-link.is-active {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+}
+
+.portal-header__icon-link svg {
+    width: 24px;
+    height: 24px;
+    fill: currentColor;
+}
+
+.portal-header__icon-link--logout {
+    color: #ff6b6b;
+}
+
+.portal-header__icon-link--logout:hover {
+    background: rgba(255, 107, 107, 0.16);
+    color: #ff8d8d;
+}
+
 @media (min-width: 992px) and (max-width: 1599.98px) {
     .portal-header__content {
         grid-template-columns: minmax(0, 1fr) auto;
@@ -1717,7 +1760,8 @@ body {
 
     .portal-header__nav-link,
     .portal-header__welcome,
-    .portal-header__button {
+    .portal-header__button,
+    .portal-header__icon-link {
         min-height: 39px;
         font-size: 0.9rem;
     }
@@ -1727,6 +1771,13 @@ body {
     .portal-header__welcome {
         padding-left: 10px;
         padding-right: 10px;
+    }
+
+    .portal-header__icon-link {
+        width: 39px;
+        min-width: 39px;
+        height: 39px;
+        padding: 0;
     }
 
     .portal-header__brand-text strong {
@@ -1847,11 +1898,15 @@ body {
         flex-direction: column;
     }
 
-    .portal-header__welcome,
-    .portal-header__button--ghost {
+    .portal-header__welcome {
         width: 100%;
         justify-content: center;
         text-align: center;
+    }
+
+    .portal-header__icon-links {
+        width: 100%;
+        justify-content: center;
     }
 }
 

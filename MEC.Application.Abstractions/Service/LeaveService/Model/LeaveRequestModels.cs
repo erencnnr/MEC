@@ -17,6 +17,23 @@ namespace MEC.Application.Abstractions.Service.LeaveService.Model
         public int LeaveId { get; set; }
     }
 
+    public class LeaveRequestCreatedDispatchModel
+    {
+        public int LeaveId { get; set; }
+        public string UserEmail { get; set; } = string.Empty;
+        public string IpAddress { get; set; } = "unknown";
+    }
+
+    public class LeaveCancelRequestModel
+    {
+        public int LeaveId { get; set; }
+        public string UserEmail { get; set; } = string.Empty;
+        public string CurrentUser { get; set; } = string.Empty;
+        public string? CancelledBy { get; set; }
+        public string IpAddress { get; set; } = "unknown";
+        public string MethodName { get; set; } = "CancelLeaveRequest";
+    }
+
     public class LeaveRequestValidationModel : OperationResultModel
     {
         public Dictionary<string, string> FieldErrors { get; set; } = new();

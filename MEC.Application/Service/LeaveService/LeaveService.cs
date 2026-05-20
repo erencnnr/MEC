@@ -6,6 +6,8 @@ using MEC.Application.Abstractions.Service.LeaveService;
 using MEC.Application.Abstractions.Service.LeaveService.Model;
 using MEC.Application.Abstractions.Service.LoggingService;
 using MEC.Application.Abstractions.Service.LoggingService.Model;
+using MEC.Application.Abstractions.Service.NotificationService;
+using MEC.Application.Abstractions.Service.NotificationService.Model;
 using MEC.Application.Abstractions.Service.SchoolService;
 using MEC.DAL.Config.Abstractions.Common;
 using MEC.Domain.Common;
@@ -21,6 +23,7 @@ public class LeaveService : ILeaveService
     private readonly IGenericRepository<Holiday> _holidayRepository;
     private readonly IAnnouncementService _announcementService;
     private readonly IUserActionLogService _userActionLogService;
+    private readonly IWorkflowNotificationService _workflowNotificationService;
 
     public LeaveService(
         IGenericRepository<Leave> leaveRepository,
@@ -28,7 +31,8 @@ public class LeaveService : ILeaveService
         IGenericRepository<LeaveType> leaveTypeRepository,
         IGenericRepository<Holiday> holidayRepository,
         IAnnouncementService announcementService,
-        IUserActionLogService userActionLogService)
+        IUserActionLogService userActionLogService,
+        IWorkflowNotificationService workflowNotificationService)
     {
         _leaveRepository = leaveRepository;
         _employeePortalRepository = employeePortalRepository;
@@ -36,6 +40,7 @@ public class LeaveService : ILeaveService
         _holidayRepository = holidayRepository;
         _announcementService = announcementService;
         _userActionLogService = userActionLogService;
+        _workflowNotificationService = workflowNotificationService;
     }
 
     public async Task<List<Leave>> GetAllLeavesAsync()
@@ -231,6 +236,123 @@ public class LeaveService : ILeaveService
         return OperationResultModel<LeaveRequestCreateResultModel>.Success(
             new LeaveRequestCreateResultModel { LeaveId = leaveRequest.Id },
             "İzin talebiniz başarıyla gönderildi.");
+    }
+
+    public async Task DispatchLeaveRequestCreatedNotificationsAsync(LeaveRequestCreatedDispatchModel request)
+    {
+        if (request.LeaveId <= 0 || string.IsNullOrWhiteSpace(request.UserEmail))
+        {
+            return;
+        }
+
+        var employeePortal = (await _employeePortalRepository.GetAllAsync(x => x.Email == request.UserEmail && !x.IsDeleted)).FirstOrDefault();
+        if (employeePortal == null)
+        {
+            return;
+        }
+
+        var leave = (await _leaveRepository.GetAllAsync(
+                x => x.Id == request.LeaveId && x.EmployeeId == employeePortal.Id,
+                x => x.LeaveType!))
+            .FirstOrDefault();
+
+        if (leave == null)
+        {
+            return;
+        }
+
+        await _workflowNotificationService.NotifyLeaveRequestCreatedAsync(new LeaveRequestCreatedNotificationModel
+        {
+            LeaveId = leave.Id,
+            EmployeeName = BuildPortalName(employeePortal),
+            EmployeeEmail = employeePortal.Email ?? string.Empty,
+            StartDate = leave.StartDate,
+            EndDate = leave.EndDate,
+            Reason = leave.Reason,
+            TriggeredByUser = string.IsNullOrWhiteSpace(request.UserEmail) ? BuildPortalName(employeePortal) : request.UserEmail,
+            IpAddress = string.IsNullOrWhiteSpace(request.IpAddress) ? "unknown" : request.IpAddress
+        });
+    }
+
+    public async Task<OperationResultModel> CancelLeaveRequestAsync(LeaveCancelRequestModel request)
+    {
+        if (string.IsNullOrWhiteSpace(request.UserEmail))
+        {
+            return OperationResultModel.Fail("Kullanıcı kaydı bulunamadı.");
+        }
+
+        var employeePortal = (await _employeePortalRepository.GetAllAsync(x => x.Email == request.UserEmail && !x.IsDeleted)).FirstOrDefault();
+        if (employeePortal == null)
+        {
+            return OperationResultModel.Fail("Kullanıcı kaydı bulunamadı.");
+        }
+
+        var leave = (await _leaveRepository.GetAllAsync(
+                x => x.Id == request.LeaveId && x.EmployeeId == employeePortal.Id,
+                x => x.LeaveType!))
+            .FirstOrDefault();
+
+        if (leave == null)
+        {
+            return OperationResultModel.Fail("İzin talebi bulunamadı.");
+        }
+
+        if (leave.Status != (int)LeaveStatus.Pending)
+        {
+            return OperationResultModel.Fail("Sadece onay bekleyen izin talepleri iptal edilebilir.");
+        }
+
+        var employeeName = BuildPortalName(employeePortal);
+        var cancelledBy = string.IsNullOrWhiteSpace(request.CancelledBy) ? employeeName : request.CancelledBy;
+        var currentUser = string.IsNullOrWhiteSpace(request.CurrentUser) ? request.UserEmail : request.CurrentUser;
+
+        try
+        {
+            var result = await UpdateLeaveStatusAsync(leave.Id, (int)LeaveStatus.Cancelled, cancelledBy);
+            if (!result)
+            {
+                await LogWorkflowActionAsync(
+                    request.IpAddress,
+                    currentUser,
+                    "Warning",
+                    request.MethodName,
+                    $"İzin talebi iptal edilemedi. İzin Id: {leave.Id}, Çalışan: {employeeName}.");
+
+                return OperationResultModel.Fail("İzin talebi iptal edilemedi.", "Warning");
+            }
+
+            await LogWorkflowActionAsync(
+                request.IpAddress,
+                currentUser,
+                "Information",
+                request.MethodName,
+                $"İzin talebi iptal edildi. İzin Id: {leave.Id}, Çalışan: {employeeName}, Başlangıç: {leave.StartDate:dd.MM.yyyy HH:mm}, Bitiş: {leave.EndDate:dd.MM.yyyy HH:mm}.");
+
+            await _workflowNotificationService.NotifyLeaveRequestCancelledAsync(new LeaveRequestCancelledNotificationModel
+            {
+                LeaveId = leave.Id,
+                EmployeeName = employeeName,
+                StartDate = leave.StartDate,
+                EndDate = leave.EndDate,
+                Reason = leave.Reason,
+                CancelledBy = cancelledBy,
+                TriggeredByUser = currentUser,
+                IpAddress = string.IsNullOrWhiteSpace(request.IpAddress) ? "unknown" : request.IpAddress
+            });
+
+            return OperationResultModel.Success("İzin talebi iptal edildi.");
+        }
+        catch (Exception ex)
+        {
+            await LogWorkflowActionAsync(
+                request.IpAddress,
+                currentUser,
+                "Error",
+                request.MethodName,
+                $"İzin talebi iptal edilirken hata oluştu. İzin Id: {leave.Id}, Çalışan: {employeeName}, Hata: {ex.Message}");
+
+            return OperationResultModel.Fail("İzin talebi iptal edilirken beklenmeyen bir hata oluştu.", "Error");
+        }
     }
 
     public async Task DeleteLeaveAsync(int id)
@@ -515,6 +637,23 @@ public class LeaveService : ILeaveService
                     "Information",
                     $"İzin durumu güncellendi. İzin Id: {request.LeaveId}, Çalışan: {employeeName}, İşlem Yapan: {currentUser}, Yeni Durum: {targetStatus}.");
 
+                if ((request.Status == (int)LeaveStatus.Approved || request.Status == (int)LeaveStatus.Rejected) && leave != null && employeePortal != null)
+                {
+                    await _workflowNotificationService.NotifyLeaveRequestDecisionAsync(new LeaveRequestDecisionNotificationModel
+                    {
+                        LeaveId = leave.Id,
+                        EmployeeName = employeeName,
+                        EmployeeEmail = employeePortal.Email ?? string.Empty,
+                        StartDate = leave.StartDate,
+                        EndDate = leave.EndDate,
+                        Reason = leave.Reason,
+                        DecisionBy = decisionBy,
+                        DecisionLabel = targetStatus,
+                        TriggeredByUser = currentUser,
+                        IpAddress = string.IsNullOrWhiteSpace(request.IpAddress) ? "unknown" : request.IpAddress
+                    });
+                }
+
                 return OperationResultModel.Success("Durum güncellendi.");
             }
 
@@ -756,7 +895,8 @@ public class LeaveService : ILeaveService
             CreatedDate = leave.CreatedDate,
             StatusLabel = GetLeaveStatusDisplayName(leave.Status),
             StatusTone = GetLeaveStatusTone(leave.Status),
-            DecisionDisplay = GetDecisionDisplay(leave)
+            DecisionDisplay = GetDecisionDisplay(leave),
+            CanCancel = leave.Status == (int)LeaveStatus.Pending
         };
     }
 
@@ -881,6 +1021,20 @@ public class LeaveService : ILeaveService
         return DateTime.TryParse(value, out var parsedDate)
             ? parsedDate
             : null;
+    }
+
+    private Task LogWorkflowActionAsync(string? ipAddress, string? user, string level, string methodName, string message)
+    {
+        return _userActionLogService.LogAsync(new UserActionLogEntryModel
+        {
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "unknown" : ipAddress,
+            MacAddress = null,
+            User = string.IsNullOrWhiteSpace(user) ? "anonymous" : user,
+            Timestamp = DateTime.UtcNow,
+            Message = message,
+            Level = string.IsNullOrWhiteSpace(level) ? "Information" : level,
+            MethodName = string.IsNullOrWhiteSpace(methodName) ? "LeaveWorkflow" : methodName
+        });
     }
 
     private async Task TryLogLeaveStatusChangeAsync(LeaveStatusUpdateRequestModel request, string level, string message)

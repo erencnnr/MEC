@@ -1,7 +1,7 @@
 @model MEC.Portal.Models.AnnouncementListViewModel
 
 @{
-    ViewData["Title"] = "Duyurular";
+    ViewData["Title"] = Model.Title;
     var isActiveFilter = string.Equals(Model.Status, "active", StringComparison.OrdinalIgnoreCase);
 }
 
@@ -9,12 +9,12 @@
     <div class="announcement-board-shell">
         <div class="announcement-board-header">
             <div class="announcement-board-header__copy">
-                <span class="announcement-board-header__eyebrow">Duyuru yönetimi</span>
-                <h1>Duyurular</h1>
-                <p>Aktif ve pasif duyurulari tarih sirasiyla goruntuleyin, kartlardan secerek guncelleme ekranina gecin.</p>
+                <span class="announcement-board-header__eyebrow">@Model.Eyebrow</span>
+                <h1>@Model.Title</h1>
+                <p>@Model.Description</p>
             </div>
 
-            <a asp-action="Create" class="announcement-board-header__action">Yeni Duyuru</a>
+            <a asp-action="@Model.CreateAction" class="announcement-board-header__action">@Model.CreateButtonText</a>
         </div>
 
         @if (TempData["AnnouncementSuccess"] is string successMessage && !string.IsNullOrWhiteSpace(successMessage))
@@ -23,8 +23,8 @@
         }
 
         <div class="announcement-board-filters">
-            <a asp-action="Index" asp-route-status="active" class="@(isActiveFilter ? "announcement-board-filter is-active" : "announcement-board-filter")">Aktif</a>
-            <a asp-action="Index" asp-route-status="passive" class="@(!isActiveFilter ? "announcement-board-filter is-active" : "announcement-board-filter")">Pasif</a>
+            <a asp-action="@Model.IndexAction" asp-route-status="active" class="@(isActiveFilter ? "announcement-board-filter is-active" : "announcement-board-filter")">Aktif</a>
+            <a asp-action="@Model.IndexAction" asp-route-status="passive" class="@(!isActiveFilter ? "announcement-board-filter is-active" : "announcement-board-filter")">Pasif</a>
         </div>
 
         @if (Model.Items.Any())
@@ -35,7 +35,7 @@
                     var dayText = item.CreatedDate?.ToString("dd") ?? "--";
                     var monthText = item.CreatedDate?.ToString("MMM", new System.Globalization.CultureInfo("tr-TR")).ToUpperInvariant() ?? "---";
 
-                    <a asp-action="Edit" asp-route-id="@item.Id" class="announcement-board-card">
+                    <a asp-action="@Model.EditAction" asp-route-id="@item.Id" class="announcement-board-card">
                         <article class="announcement-board-card__surface">
                             <div class="announcement-board-card__head">
                                 <div class="announcement-board-card__brand">
@@ -62,7 +62,7 @@
                 <div class="announcement-board-pagination">
                     @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
                     {
-                        <a asp-action="Index"
+                        <a asp-action="@Model.IndexAction"
                            asp-route-status="@Model.Status"
                            asp-route-page="@pageNumber"
                            class="@(pageNumber == Model.CurrentPage ? "announcement-board-pagination__item is-active" : "announcement-board-pagination__item")">@pageNumber</a>
@@ -73,8 +73,8 @@
         else
         {
             <div class="announcement-board-empty">
-                <h2>Listelenecek duyuru bulunmuyor.</h2>
-                <p>Seçili filtre için henüz bir duyuru kaydı yok. Yeni bir duyuru oluşturabilirsiniz.</p>
+                <h2>@Model.EmptyTitle</h2>
+                <p>@Model.EmptyDescription</p>
             </div>
         }
     </div>

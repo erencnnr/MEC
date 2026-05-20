@@ -5,18 +5,15 @@
     Layout = Model.IsAdminView
         ? "~/Views/Shared/_AdminLayout.cshtml"
         : "~/Views/Shared/_Layout.cshtml";
-
-    var backAction = Model.IsAdminView ? "Index" : "Announcements";
-    var backController = Model.IsAdminView ? "Announcement" : "Home";
 }
 
 <section class="announcement-detail-v2-page">
     <div class="announcement-detail-v2-shell">
         <div class="announcement-detail-v2-backbar">
             <a class="announcement-detail-v2-back"
-               asp-controller="@backController"
-               asp-action="@backAction">
-                Tüm duyurulara dön
+               asp-controller="@Model.BackController"
+               asp-action="@Model.BackAction">
+                @Model.BackButtonText
             </a>
         </div>
 
@@ -32,7 +29,7 @@
                 </div>
 
                 <div class="announcement-detail-v2-section">
-                    <h2>Duyuru Metni</h2>
+                    <h2>@Model.ContentBodyTitle</h2>
                     <div class="announcement-detail-v2-content">
                         @Html.Raw(Model.Content)
                     </div>
@@ -41,7 +38,7 @@
                 @if (Model.Attachments.Any())
                 {
                     <div class="announcement-detail-v2-section">
-                        <h2>Duyuru Ekleri</h2>
+                        <h2>@Model.AttachmentSectionTitle</h2>
                         <div class="announcement-detail-v2-links">
                             @foreach (var link in Model.Attachments)
                             {
@@ -60,7 +57,7 @@
                 @if (Model.GalleryImages.Any())
                 {
                     <div class="announcement-detail-v2-section">
-                        <h2>Duyuru Galerisi</h2>
+                        <h2>@Model.GallerySectionTitle</h2>
                         <div class="announcement-detail-v2-gallery">
                             @foreach (var imageUrl in Model.GalleryImages)
                             {
@@ -75,13 +72,13 @@
 
             <aside class="announcement-detail-v2-side">
                 <div class="announcement-detail-v2-side__card">
-                    <h3>Diğer Duyurular</h3>
+                    <h3>@Model.RelatedSectionTitle</h3>
 
                     <div class="announcement-detail-v2-related">
                         @foreach (var relatedItem in Model.RelatedAnnouncements)
                         {
                             <a class="announcement-detail-v2-related__item"
-                               asp-controller="Announcement"
+                               asp-controller="@Model.DetailController"
                                asp-action="Detail"
                                asp-route-id="@relatedItem.Id">
                                 <img src="@relatedItem.ImageUrl" alt="@relatedItem.Title" />
@@ -94,9 +91,9 @@
                     </div>
 
                     <a class="announcement-detail-v2-side__action"
-                       asp-controller="@backController"
-                       asp-action="@backAction">
-                        Tüm Duyurular
+                       asp-controller="@Model.BackController"
+                       asp-action="@Model.BackAction">
+                        @Model.SideActionText
                     </a>
                 </div>
             </aside>

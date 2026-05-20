@@ -1,7 +1,7 @@
 @model MEC.Portal.Models.AnnouncementFormViewModel
 
 @{
-    ViewData["Title"] = "Yeni Duyuru Ekle";
+    ViewData["Title"] = Model.PageTitle;
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
@@ -9,9 +9,9 @@
     <div class="announcement-form-shell">
         <div class="announcement-form-header">
             <div class="announcement-form-header__copy">
-                <span class="announcement-form-header__eyebrow">Duyuru yönetimi</span>
-                <h1>Yeni Duyuru Ekle</h1>
-                <p>Çalışan portalında yayınlanacak duyuruyu başlık, içerik ve yayın durumu ile birlikte hazırlayın.</p>
+                <span class="announcement-form-header__eyebrow">@Model.Eyebrow</span>
+                <h1>@Model.PageTitle</h1>
+                <p>@Model.Description</p>
             </div>
         </div>
 
@@ -26,13 +26,13 @@
 
                 <div class="announcement-form-grid">
                     <div class="announcement-form-field announcement-form-field--full">
-                        <label asp-for="Title">Duyuru Başlığı</label>
-                        <input asp-for="Title" class="announcement-form-input" placeholder="Duyuru başlığını giriniz" required />
+                        <label asp-for="Title">@Model.TitleLabel</label>
+                        <input asp-for="Title" class="announcement-form-input" placeholder="@Model.TitlePlaceholder" required />
                         <span asp-validation-for="Title" class="announcement-form-validation"></span>
                     </div>
 
                     <div class="announcement-form-field announcement-form-field--full">
-                        <label asp-for="Content">Duyuru İçeriği</label>
+                        <label asp-for="Content">@Model.ContentLabel</label>
                         <textarea asp-for="Content" id="summernote" class="announcement-form-input announcement-form-input--editor" required></textarea>
                         <span asp-validation-for="Content" class="announcement-form-validation"></span>
                     </div>
@@ -53,23 +53,23 @@
                     </div>
 
                     <div class="announcement-form-field announcement-form-field--full">
-                        <label asp-for="AttachmentFiles">Duyuru Ekleri</label>
+                        <label asp-for="AttachmentFiles">@Model.AttachmentLabel</label>
                         <input asp-for="AttachmentFiles" class="announcement-form-input announcement-form-input--file" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.ppt,.pptx,.zip,.rar,.jpg,.jpeg,.png" />
-                        <span class="announcement-form-help">Isterseniz duyuruya belge, dokuman veya indirilebilir dosya ekleyebilirsiniz.</span>
+                        <span class="announcement-form-help">@Model.AttachmentHelpText</span>
                         <span asp-validation-for="AttachmentFiles" class="announcement-form-validation"></span>
                     </div>
 
                     <div class="announcement-form-field announcement-form-field--full">
-                        <label asp-for="GalleryFiles">Duyuru Galerisi</label>
+                        <label asp-for="GalleryFiles">@Model.GalleryLabel</label>
                         <input asp-for="GalleryFiles" class="announcement-form-input announcement-form-input--file" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.gif" />
-                        <span class="announcement-form-help">Detay sayfasinda galeri alaninda gosterilecek fotograflari buradan ekleyebilirsiniz.</span>
+                        <span class="announcement-form-help">@Model.GalleryHelpText</span>
                         <span asp-validation-for="GalleryFiles" class="announcement-form-validation"></span>
                     </div>
                 </div>
 
                 <div class="announcement-form-actions">
-                    <button type="submit" class="announcement-form-actions__save">Kaydet</button>
-                    <a asp-action="Index" class="announcement-form-actions__cancel">İptal</a>
+                    <button type="submit" class="announcement-form-actions__save">@Model.SaveButtonText</button>
+                    <a asp-action="@Model.IndexAction" class="announcement-form-actions__cancel">@Model.CancelButtonText</a>
                 </div>
             </form>
         </div>
@@ -83,7 +83,7 @@
     <script>
         $(document).ready(function () {
             $('#summernote').summernote({
-                placeholder: 'Duyuru detaylarini yazin, link veya gorsel ekleyin...',
+                placeholder: '@Html.Raw(Model.EditorPlaceholder.Replace("'", "\\'"))',
                 tabsize: 2,
                 height: 320,
                 toolbar: [

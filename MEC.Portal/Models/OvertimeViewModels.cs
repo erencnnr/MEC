@@ -42,6 +42,7 @@ namespace MEC.Portal.Models
         public string StatusLabel { get; set; } = string.Empty;
         public string StatusTone { get; set; } = "pending";
         public string DecisionDisplay { get; set; } = "-";
+        public bool CanCancel { get; set; }
     }
 
     public class OvertimeHistoryDetailViewModel
@@ -85,5 +86,35 @@ namespace MEC.Portal.Models
     public class AdminOvertimeRequestDetailViewModel
     {
         public AdminOvertimeRequestViewModel Item { get; set; } = new();
+    }
+
+    public class AdminOvertimeReportViewModel
+    {
+        public List<AdminOvertimeReportItemViewModel> Items { get; set; } = new();
+        public List<AdminOvertimeReportFilterOptionViewModel> EmployeeOptions { get; set; } = new();
+        public List<OvertimeStatusFilterOptionViewModel> StatusOptions { get; set; } = new();
+        public int? SelectedEmployeeId { get; set; }
+        public int? SelectedStatus { get; set; }
+        public string StartDate { get; set; } = string.Empty;
+        public string EndDate { get; set; } = string.Empty;
+        public int TotalCount { get; set; }
+    }
+
+    public class AdminOvertimeReportItemViewModel
+    {
+        public int Id { get; set; }
+        public string EmployeeName { get; set; } = string.Empty;
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public decimal RequestedHours { get; set; }
+        public string StatusLabel { get; set; } = string.Empty;
+        public string StatusTone { get; set; } = "pending";
+        public DateTime? CreatedDate { get; set; }
+    }
+
+    public class AdminOvertimeReportFilterOptionViewModel
+    {
+        public int Id { get; set; }
+        public string Label { get; set; } = string.Empty;
     }
 }

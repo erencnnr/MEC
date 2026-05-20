@@ -63,6 +63,36 @@ namespace MEC.Portal.Controllers
             return View("~/Views/Admin/OvertimeRequestDetail.cshtml", model);
         }
 
+        [HttpGet("/Admin/OvertimeReport")]
+        public async Task<IActionResult> Report(int? employeeId = null, int? status = null, string? startDate = null, string? endDate = null)
+        {
+            var selectedStatus = NormalizeOvertimeStatusFilter(status);
+            var result = await _overtimeService.GetAdminOvertimeReportAsync(new AdminOvertimeReportQueryModel
+            {
+                EmployeeId = employeeId,
+                Status = selectedStatus,
+                StartDate = startDate,
+                EndDate = endDate
+            });
+
+            return View("~/Views/Admin/OvertimeReport.cshtml", MapReport(result));
+        }
+
+        [HttpGet("/Admin/OvertimeReport/Export")]
+        public async Task<IActionResult> ExportReport(int? employeeId = null, int? status = null, string? startDate = null, string? endDate = null)
+        {
+            var selectedStatus = NormalizeOvertimeStatusFilter(status);
+            var export = await _overtimeService.ExportAdminOvertimeReportAsync(new AdminOvertimeReportQueryModel
+            {
+                EmployeeId = employeeId,
+                Status = selectedStatus,
+                StartDate = startDate,
+                EndDate = endDate
+            });
+
+            return File(export.Content, export.ContentType, export.FileName);
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateOvertimeStatus(int id, int status, string? returnUrl = null)
@@ -151,6 +181,39 @@ namespace MEC.Portal.Controllers
                 StatusTone = item.StatusTone,
                 DecisionDisplay = item.DecisionDisplay,
                 CanTakeAction = item.CanTakeAction
+            };
+        }
+
+        private static AdminOvertimeReportViewModel MapReport(AdminOvertimeReportResultModel result)
+        {
+            return new AdminOvertimeReportViewModel
+            {
+                Items = result.Items.Select(x => new AdminOvertimeReportItemViewModel
+                {
+                    Id = x.Id,
+                    EmployeeName = x.EmployeeName,
+                    StartDate = x.StartDate,
+                    EndDate = x.EndDate,
+                    RequestedHours = x.RequestedHours,
+                    StatusLabel = x.StatusLabel,
+                    StatusTone = x.StatusTone,
+                    CreatedDate = x.CreatedDate
+                }).ToList(),
+                EmployeeOptions = result.EmployeeOptions.Select(x => new AdminOvertimeReportFilterOptionViewModel
+                {
+                    Id = x.Id,
+                    Label = x.Label
+                }).ToList(),
+                StatusOptions = result.StatusOptions.Select(x => new OvertimeStatusFilterOptionViewModel
+                {
+                    Value = x.Value,
+                    Label = x.Label
+                }).ToList(),
+                SelectedEmployeeId = result.SelectedEmployeeId,
+                SelectedStatus = result.SelectedStatus,
+                StartDate = result.StartDate,
+                EndDate = result.EndDate,
+                TotalCount = result.TotalCount
             };
         }
     }

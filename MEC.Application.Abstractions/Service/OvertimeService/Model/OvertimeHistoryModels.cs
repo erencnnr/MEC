@@ -36,6 +36,7 @@ namespace MEC.Application.Abstractions.Service.OvertimeService.Model
         public string StatusLabel { get; set; } = string.Empty;
         public string StatusTone { get; set; } = "pending";
         public string DecisionDisplay { get; set; } = "-";
+        public bool CanCancel { get; set; }
     }
 
     public class OvertimeStatusOptionModel

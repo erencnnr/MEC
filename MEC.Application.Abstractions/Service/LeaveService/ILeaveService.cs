@@ -13,6 +13,8 @@ namespace MEC.Application.Abstractions.Service.LeaveService
         Task<List<HolidayCalendarItemModel>> GetHolidayCalendarItemsAsync();
         Task<LeaveRequestValidationModel> ValidateLeaveRequestAsync(LeaveRequestCreateModel request);
         Task<OperationResultModel<LeaveRequestCreateResultModel>> CreateLeaveRequestAsync(LeaveRequestCreateModel request);
+        Task DispatchLeaveRequestCreatedNotificationsAsync(LeaveRequestCreatedDispatchModel request);
+        Task<OperationResultModel> CancelLeaveRequestAsync(LeaveCancelRequestModel request);
         Task DeleteLeaveAsync(int id);
         Task<LeaveHistoryResultModel> GetLeaveHistoryAsync(LeaveHistoryQueryModel query);
         Task<LeaveHistoryItemModel?> GetLeaveHistoryDetailAsync(string userEmail, int leaveId);

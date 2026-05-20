@@ -95,6 +95,31 @@ namespace MEC.Portal.Controllers
             });
         }
 
+        [HttpPost("/Overtime/History/{id:int}/Cancel")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Cancel(int id)
+        {
+            var userEmail = User.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(userEmail))
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            var result = await _overtimeService.CancelOvertimeRequestAsync(new OvertimeCancelRequestModel
+            {
+                OvertimeRequestId = id,
+                UserEmail = userEmail,
+                CurrentUser = userEmail,
+                CancelledBy = GetCurrentUserDisplayName(),
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"
+            });
+
+            TempData["OvertimeHistoryStatusLevel"] = result.IsSuccess ? "success" : "error";
+            TempData["OvertimeHistoryStatusMessage"] = result.Message;
+
+            return RedirectToAction(nameof(HistoryDetail), new { id });
+        }
+
         [HttpPost("/Overtime/Request")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RequestPage(OvertimeRequestViewModel model)
@@ -123,6 +148,7 @@ namespace MEC.Portal.Controllers
                 validation = await _overtimeService.ValidateOvertimeRequestAsync(new OvertimeRequestCreateModel
                 {
                     UserEmail = User.Identity?.Name ?? string.Empty,
+                    IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     StartDate = startDate,
                     EndDate = endDate,
                     Reason = model.Reason
@@ -159,6 +185,7 @@ namespace MEC.Portal.Controllers
             var createResult = await _overtimeService.CreateOvertimeRequestAsync(new OvertimeRequestCreateModel
             {
                 UserEmail = userEmail,
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 StartDate = startDate,
                 EndDate = endDate,
                 Reason = model.Reason
@@ -187,8 +214,22 @@ namespace MEC.Portal.Controllers
                 CreatedDate = item.CreatedDate,
                 StatusLabel = item.StatusLabel,
                 StatusTone = item.StatusTone,
-                DecisionDisplay = item.DecisionDisplay
+                DecisionDisplay = item.DecisionDisplay,
+                CanCancel = item.CanCancel
             };
+        }
+
+        private string GetCurrentUserDisplayName()
+        {
+            var givenName = User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value;
+            var surname = User.FindFirst(System.Security.Claims.ClaimTypes.Surname)?.Value;
+            var fullName = string.Join(" ", new[] { givenName, surname }
+                .Where(x => !string.IsNullOrWhiteSpace(x)))
+                .Trim();
+
+            return string.IsNullOrWhiteSpace(fullName)
+                ? User.Identity?.Name ?? "anonymous"
+                : fullName;
         }
 
         private static OvertimeStatusFilterOptionViewModel MapStatusOption(OvertimeStatusOptionModel option)

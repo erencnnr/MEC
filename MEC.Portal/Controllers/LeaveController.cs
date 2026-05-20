@@ -137,6 +137,31 @@ namespace MEC.Portal.Controllers
             });
         }
 
+        [HttpPost("/Leave/History/{id:int}/Cancel")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Cancel(int id)
+        {
+            var userEmail = User.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(userEmail))
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            var result = await _leaveService.CancelLeaveRequestAsync(new LeaveCancelRequestModel
+            {
+                LeaveId = id,
+                UserEmail = userEmail,
+                CurrentUser = userEmail,
+                CancelledBy = GetCurrentUserDisplayName(),
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"
+            });
+
+            TempData["LeaveHistoryStatusLevel"] = result.IsSuccess ? "success" : "error";
+            TempData["LeaveHistoryStatusMessage"] = result.Message;
+
+            return RedirectToAction(nameof(HistoryDetail), new { id });
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> RequestLeave(LeaveRequestViewModel model)
@@ -233,6 +258,13 @@ namespace MEC.Portal.Controllers
                     return View(model);
                 }
             }
+
+            await _leaveService.DispatchLeaveRequestCreatedNotificationsAsync(new LeaveRequestCreatedDispatchModel
+            {
+                LeaveId = createResult.Data.LeaveId,
+                UserEmail = userEmail,
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"
+            });
 
             TempData["LeaveSuccess"] = createResult.Message;
             return RedirectToAction(nameof(RequestLeave));
@@ -364,8 +396,22 @@ namespace MEC.Portal.Controllers
                 CreatedDate = item.CreatedDate,
                 StatusLabel = item.StatusLabel,
                 StatusTone = item.StatusTone,
-                DecisionDisplay = item.DecisionDisplay
+                DecisionDisplay = item.DecisionDisplay,
+                CanCancel = item.CanCancel
             };
+        }
+
+        private string GetCurrentUserDisplayName()
+        {
+            var givenName = User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value;
+            var surname = User.FindFirst(System.Security.Claims.ClaimTypes.Surname)?.Value;
+            var fullName = string.Join(" ", new[] { givenName, surname }
+                .Where(x => !string.IsNullOrWhiteSpace(x)))
+                .Trim();
+
+            return string.IsNullOrWhiteSpace(fullName)
+                ? User.Identity?.Name ?? "anonymous"
+                : fullName;
         }
 
         private static LeaveHistoryViewModel CreateEmptyHistoryViewModel(

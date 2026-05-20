@@ -1,0 +1,73 @@
+@using System.Text.RegularExpressions
+@model IEnumerable<MEC.Domain.Entity.School.Announcement>
+
+@{
+    ViewData["Title"] = "Haberler";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    string BuildSummary(string? htmlContent)
+    {
+        if (string.IsNullOrWhiteSpace(htmlContent))
+        {
+            return "İçerik bulunmuyor.";
+        }
+
+        var plainText = Regex.Replace(htmlContent, "<.*?>", " ");
+        plainText = Regex.Replace(plainText, @"\s+", " ").Trim();
+
+        if (plainText.Length <= 180)
+        {
+            return plainText;
+        }
+
+        return $"{plainText[..177]}...";
+    }
+}
+
+<section class="announcement-board-page">
+    <div class="announcement-board-shell">
+        <div class="announcement-board-header">
+            <div class="announcement-board-header__copy">
+                <span class="announcement-board-header__eyebrow">Portal haberleri</span>
+                <h1>Haberler</h1>
+            </div>
+        </div>
+
+        @if (Model != null && Model.Any())
+        {
+            <div class="announcement-board-grid">
+                @foreach (var item in Model.OrderByDescending(x => x.CreatedDate))
+                {
+                    var dayText = item.CreatedDate?.ToString("dd") ?? "--";
+                    var monthText = item.CreatedDate?.ToString("MMM", new System.Globalization.CultureInfo("tr-TR")).ToUpperInvariant() ?? "---";
+
+                    <a asp-controller="News" asp-action="Detail" asp-route-id="@item.Id" class="announcement-board-card">
+                        <article class="announcement-board-card__surface">
+                            <div class="announcement-board-card__head">
+                                <div class="announcement-board-card__brand">
+                                    <span class="announcement-board-card__date-badge" aria-hidden="true">
+                                        <strong>@dayText</strong>
+                                        <small>@monthText</small>
+                                    </span>
+                                    <div class="announcement-board-card__title-wrap">
+                                        <h2>@item.Title</h2>
+                                        <span class="announcement-board-card__date">@(item.CreatedDate?.ToString("dd.MM.yyyy") ?? "-")</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p class="announcement-board-card__summary">@BuildSummary(item.Content)</p>
+                        </article>
+                    </a>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="announcement-board-empty">
+                <h2>Listelenecek haber bulunmuyor.</h2>
+                <p>Şu an için sistemde yayınlanmış aktif bir haber bulunmamaktadır.</p>
+            </div>
+        }
+    </div>
+</section>

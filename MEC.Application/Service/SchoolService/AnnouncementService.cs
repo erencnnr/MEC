@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using MEC.Application.Abstractions.Service.SchoolService;
 using MEC.Application.Abstractions.Service.SchoolService.Model;
 using MEC.DAL.Config.Abstractions.Common;
+using MEC.Domain.Common.Enum;
 using MEC.Domain.Entity.School;
 
 namespace MEC.Application.Service.SchoolService
@@ -22,19 +23,19 @@ namespace MEC.Application.Service.SchoolService
             _announcementImageRepository = announcementImageRepository;
         }
 
-        public async Task<IEnumerable<Announcement>> GetAllAnnouncementsAsync()
+        public async Task<IEnumerable<Announcement>> GetAllAnnouncementsAsync(AnnouncementContentType contentType = AnnouncementContentType.Announcement)
         {
-            return await _repository.GetAllAsync();
+            return await _repository.GetAllAsync(x => x.ContentType == contentType);
         }
 
-        public async Task<IEnumerable<Announcement>> GetActiveAnnouncementsAsync()
+        public async Task<IEnumerable<Announcement>> GetActiveAnnouncementsAsync(AnnouncementContentType contentType = AnnouncementContentType.Announcement)
         {
-            return await _repository.GetAllAsync(x => x.IsActive);
+            return await _repository.GetAllAsync(x => x.IsActive && x.ContentType == contentType);
         }
 
-        public async Task<Announcement> GetAnnouncementByIdAsync(int id)
+        public async Task<Announcement?> GetAnnouncementByIdAsync(int id, AnnouncementContentType contentType = AnnouncementContentType.Announcement)
         {
-            return await _repository.GetByIdAsync(id);
+            return (await _repository.GetAllAsync(x => x.Id == id && x.ContentType == contentType)).FirstOrDefault();
         }
 
         public async Task AddAnnouncementAsync(Announcement announcement)
@@ -62,7 +63,7 @@ namespace MEC.Application.Service.SchoolService
         {
             var normalizedStatus = NormalizeStatus(query.Status);
             var pageSize = query.PageSize <= 0 ? 6 : query.PageSize;
-            var announcements = await GetAllAnnouncementsAsync();
+            var announcements = await GetAllAnnouncementsAsync(query.ContentType);
 
             var filteredAnnouncements = announcements
                 .Where(x => normalizedStatus == "passive" ? !x.IsActive : x.IsActive)
@@ -95,9 +96,9 @@ namespace MEC.Application.Service.SchoolService
             };
         }
 
-        public async Task<AnnouncementFormDataModel?> GetAnnouncementFormDataAsync(int id)
+        public async Task<AnnouncementFormDataModel?> GetAnnouncementFormDataAsync(int id, AnnouncementContentType contentType = AnnouncementContentType.Announcement)
         {
-            var announcement = await GetAnnouncementByIdAsync(id);
+            var announcement = await GetAnnouncementByIdAsync(id, contentType);
             if (announcement == null)
             {
                 return null;
@@ -111,15 +112,15 @@ namespace MEC.Application.Service.SchoolService
             };
         }
 
-        public async Task<AnnouncementDetailDataModel?> GetAnnouncementDetailDataAsync(int id)
+        public async Task<AnnouncementDetailDataModel?> GetAnnouncementDetailDataAsync(int id, AnnouncementContentType contentType = AnnouncementContentType.Announcement)
         {
-            var formData = await GetAnnouncementFormDataAsync(id);
+            var formData = await GetAnnouncementFormDataAsync(id, contentType);
             if (formData == null)
             {
                 return null;
             }
 
-            var relatedAnnouncements = (await GetAllAnnouncementsAsync())
+            var relatedAnnouncements = (await GetAllAnnouncementsAsync(contentType))
                 .Where(x => x.Id != id && x.IsActive)
                 .OrderByDescending(x => x.CreatedDate ?? DateTime.MinValue)
                 .Take(4)
@@ -217,8 +218,14 @@ namespace MEC.Application.Service.SchoolService
             }
         }
 
-        public async Task<AnnouncementDeletePrepareModel> PrepareAnnouncementDeleteAsync(int id)
+        public async Task<AnnouncementDeletePrepareModel> PrepareAnnouncementDeleteAsync(int id, AnnouncementContentType contentType = AnnouncementContentType.Announcement)
         {
+            var announcement = await GetAnnouncementByIdAsync(id, contentType);
+            if (announcement == null)
+            {
+                return new AnnouncementDeletePrepareModel();
+            }
+
             return new AnnouncementDeletePrepareModel
             {
                 Attachments = await GetAnnouncementAttachmentsAsync(id),

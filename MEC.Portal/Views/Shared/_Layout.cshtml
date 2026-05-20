@@ -18,9 +18,11 @@
         var welcomeName = !string.IsNullOrWhiteSpace(fullName) ? fullName : (User.Identity?.Name ?? "Kullanıcı");
 
         var isAdminAnnouncementPage = currentPath.StartsWith("/Admin/Announcements", StringComparison.OrdinalIgnoreCase);
+        var isAdminNewsPage = currentPath.StartsWith("/Admin/News", StringComparison.OrdinalIgnoreCase);
         var isAdminLeaveRequestsPage = currentPath.Equals("/Admin/LeaveRequests", StringComparison.OrdinalIgnoreCase) ||
                                        currentPath.StartsWith("/Admin/LeaveRequests/", StringComparison.OrdinalIgnoreCase);
         var isAdminLeaveReportPage = currentPath.Equals("/Admin/LeaveReport", StringComparison.OrdinalIgnoreCase);
+        var isAdminOvertimeReportPage = currentPath.Equals("/Admin/OvertimeReport", StringComparison.OrdinalIgnoreCase);
         var isAdminPortalUsersPage = currentPath.Equals("/Admin/PortalUsers", StringComparison.OrdinalIgnoreCase) ||
                                      currentPath.StartsWith("/Admin/PortalUsers/", StringComparison.OrdinalIgnoreCase);
         var isAdminSliderPage = currentPath.Equals("/Admin/Slider", StringComparison.OrdinalIgnoreCase);
@@ -39,15 +41,21 @@
         var isAdminLeavePage = isAdminLeaveRequestsPage || isAdminLeaveReportPage;
         var isAdminSettingsPage = isAdminPortalUsersPage || isAdminSliderPage;
         var isAdminInventoryPage = isAdminAssetsPage || isAdminLoansPage;
-        var isAdminOvertimePage = isAdminOvertimeRequestsPage;
+        var isAdminOvertimePage = isAdminOvertimeRequestsPage || isAdminOvertimeReportPage;
         var isAnnouncementPage =
             currentPath.Equals("/Announcements", StringComparison.OrdinalIgnoreCase) ||
-            currentPath.StartsWith("/Announcement/", StringComparison.OrdinalIgnoreCase) ||
+            currentPath.StartsWith("/Announcements/", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(currentController, "Home", StringComparison.OrdinalIgnoreCase) &&
             string.Equals(currentAction, "Announcements", StringComparison.OrdinalIgnoreCase);
+        var isNewsPage =
+            currentPath.Equals("/News", StringComparison.OrdinalIgnoreCase) ||
+            currentPath.StartsWith("/News/", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(currentController, "Home", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(currentAction, "News", StringComparison.OrdinalIgnoreCase);
 
         var isAdminPage = string.Equals(currentController, "Admin", StringComparison.OrdinalIgnoreCase) ||
                           isAdminAnnouncementPage ||
+                          isAdminNewsPage ||
                           isAdminLeavePage ||
                           isAdminSettingsPage ||
                           isAdminContentPage ||
@@ -103,6 +111,7 @@
                         <div class="portal-header__nav">
                             <a class="@HeaderNavState("Home", "Index")" asp-controller="Home" asp-action="Index">Ana Sayfa</a>
                             <a class="@(isAnnouncementPage ? "portal-header__nav-link is-active" : "portal-header__nav-link")" asp-controller="Home" asp-action="Announcements">Duyurular</a>
+                            <a class="@(isNewsPage ? "portal-header__nav-link is-active" : "portal-header__nav-link")" asp-controller="Home" asp-action="News">Haberler</a>
 
                             <div class="dropdown portal-header__nav-dropdown @(isLeavePage ? "is-active" : string.Empty)">
                                 <button class="portal-header__nav-link portal-header__nav-dropdown-toggle dropdown-toggle portal-header__nav-link--action @(isLeavePage ? "is-active" : string.Empty)" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -125,7 +134,6 @@
                             </div>
 
                             <a class="@(isLibraryPage ? "portal-header__nav-link is-active" : "portal-header__nav-link")" asp-controller="Library" asp-action="Index">Kütüphane</a>
-                            <a class="@HeaderNavState("Profile", "Index")" asp-controller="Profile" asp-action="Index">Profilim</a>
 
                             @if (isAdminUser)
                             {
@@ -136,6 +144,7 @@
                                     <div class="dropdown-menu portal-header__nav-dropdown-menu">
                                         <a class="portal-header__nav-dropdown-item @(HeaderRouteMatch("Admin", "Index") ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="Index">Genel Bakış</a>
                                         <a class="portal-header__nav-dropdown-item @(isAdminAnnouncementPage ? "is-active" : string.Empty)" asp-controller="Announcement" asp-action="Index">Duyuru Yönetimi</a>
+                                        <a class="portal-header__nav-dropdown-item @(isAdminNewsPage ? "is-active" : string.Empty)" asp-controller="News" asp-action="Index">Haber Yönetimi</a>
                                         <a class="portal-header__nav-dropdown-item @(isAdminContentPage ? "is-active" : string.Empty)" asp-controller="Content" asp-action="Index">İçerik Yönetimi</a>
 
                                         <div class="portal-header__nav-submenu">
@@ -164,6 +173,7 @@
                                             </button>
                                             <div class="portal-header__nav-submenu-menu">
                                                 <a class="portal-header__nav-submenu-item" href="/Admin/OvertimeRequests">Mesai Talepleri</a>
+                                                <a class="portal-header__nav-submenu-item" href="/Admin/OvertimeReport">Mesai Raporu</a>
                                             </div>
                                         </div>
 
@@ -183,7 +193,24 @@
 
                         <div class="portal-header__actions">
                             <span class="portal-header__welcome">Hoş geldiniz, @welcomeName</span>
-                            <a class="portal-header__button portal-header__button--ghost" asp-controller="Account" asp-action="Logout">Çıkış Yap</a>
+                            <div class="portal-header__icon-links">
+                                <a class="@(HeaderRouteMatch("Profile", "Index") ? "portal-header__icon-link is-active" : "portal-header__icon-link")"
+                                   asp-controller="Profile"
+                                   asp-action="Index"
+                                   aria-label="Profilim">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-3.86 0-7 2.24-7 5v1h2v-1c0-1.64 2.24-3 5-3s5 1.36 5 3v1h2v-1c0-2.76-3.14-5-7-5Z" />
+                                    </svg>
+                                </a>
+                                <a class="portal-header__icon-link portal-header__icon-link--logout"
+                                   asp-controller="Account"
+                                   asp-action="Logout"
+                                   aria-label="Çıkış Yap">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                        <path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5v-2H5V6h5Zm7.59 7-2.3-2.29L16.7 7.3 21.41 12l-4.71 4.7-1.41-1.41L17.59 13H9v-2Z" />
+                                    </svg>
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>

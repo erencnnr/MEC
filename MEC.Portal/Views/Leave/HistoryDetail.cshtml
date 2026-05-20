@@ -4,6 +4,10 @@
 @{
     ViewData["Title"] = "İzin Talep Detayları";
     var item = Model.Item;
+    var statusMessage = TempData["LeaveHistoryStatusMessage"] as string;
+    var statusLevel = string.Equals(TempData["LeaveHistoryStatusLevel"] as string, "success", StringComparison.OrdinalIgnoreCase)
+        ? "success"
+        : "error";
 
     string FormatLeaveDays(decimal value)
     {
@@ -22,6 +26,14 @@
             </div>
         </div>
 
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <div class="admin-leave-toast admin-leave-toast--@statusLevel" data-user-leave-toast>
+                <span>@statusMessage</span>
+                <button type="button" data-user-leave-toast-close aria-label="Bildirimi kapat">×</button>
+            </div>
+        }
+
         <div class="leave-detail-card">
             <div class="leave-detail-grid">
                 <div class="leave-detail-field">
@@ -35,8 +47,8 @@
                 </div>
 
                 <div class="leave-detail-field">
-                    <span>Başlangıç Tarihi</span>
-                    <strong>@item.StartDate.ToString("dd.MM.yyyy HH:mm")</strong>
+                    <span>İzin Türü</span>
+                    <strong>@item.LeaveType</strong>
                 </div>
 
                 <div class="leave-detail-field">
@@ -45,13 +57,13 @@
                 </div>
 
                 <div class="leave-detail-field">
-                    <span>Bitiş Tarihi</span>
-                    <strong>@item.EndDate.ToString("dd.MM.yyyy HH:mm")</strong>
+                    <span>Başlangıç Tarihi</span>
+                    <strong>@item.StartDate.ToString("dd.MM.yyyy HH:mm")</strong>
                 </div>
 
                 <div class="leave-detail-field">
-                    <span>İzin Türü</span>
-                    <strong>@item.LeaveType</strong>
+                    <span>Bitiş Tarihi</span>
+                    <strong>@item.EndDate.ToString("dd.MM.yyyy HH:mm")</strong>
                 </div>
 
                 <div class="leave-detail-field">
@@ -66,6 +78,113 @@
                     @(string.IsNullOrWhiteSpace(item.Reason) ? "-" : item.Reason)
                 </div>
             </div>
+
+            @if (item.CanCancel)
+            {
+                <div class="admin-leave-detail-actions">
+                    <form asp-controller="Leave" asp-action="Cancel" asp-route-id="@item.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="button"
+                                class="admin-leave-action admin-leave-action--reject"
+                                data-user-leave-cancel
+                                data-confirm-title="İzin talebini iptal et"
+                                data-confirm-message="Bu izin talebini iptal etmek istediğinize emin misiniz?"
+                                data-confirm-label="İptal Et">
+                            İptal Et
+                        </button>
+                    </form>
+                </div>
+            }
         </div>
     </div>
 </section>
+
+<div class="admin-leave-confirm-modal" id="userLeaveCancelModal" hidden aria-hidden="true">
+    <div class="admin-leave-confirm-modal__backdrop" data-user-leave-cancel-close></div>
+    <div class="admin-leave-confirm-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="userLeaveCancelTitle">
+        <button type="button" class="admin-leave-confirm-modal__close" data-user-leave-cancel-close aria-label="Kapat">×</button>
+        <span class="admin-leave-confirm-modal__eyebrow">İzin işlemi</span>
+        <h2 id="userLeaveCancelTitle">İzin talebini iptal et</h2>
+        <p id="userLeaveCancelMessage">Bu işlemi gerçekleştirmek istediğinize emin misiniz?</p>
+        <div class="admin-leave-confirm-modal__actions">
+            <button type="button" class="admin-leave-confirm-modal__button admin-leave-confirm-modal__button--ghost" data-user-leave-cancel-close>Vazgeç</button>
+            <button type="button" class="admin-leave-confirm-modal__button admin-leave-confirm-modal__button--reject" id="userLeaveCancelSubmit">İptal Et</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const userLeaveToast = document.querySelector("[data-user-leave-toast]");
+        if (userLeaveToast) {
+            const closeToast = function () {
+                userLeaveToast.classList.add("is-hiding");
+                window.setTimeout(function () {
+                    userLeaveToast.remove();
+                }, 260);
+            };
+
+            const toastCloseButton = userLeaveToast.querySelector("[data-user-leave-toast-close]");
+            if (toastCloseButton) {
+                toastCloseButton.addEventListener("click", closeToast);
+            }
+
+            window.setTimeout(closeToast, 4500);
+        }
+
+        const leaveCancelModal = document.getElementById("userLeaveCancelModal");
+        const leaveCancelTitle = document.getElementById("userLeaveCancelTitle");
+        const leaveCancelMessage = document.getElementById("userLeaveCancelMessage");
+        const leaveCancelSubmit = document.getElementById("userLeaveCancelSubmit");
+        let activeLeaveCancelForm = null;
+
+        function closeUserLeaveCancelModal() {
+            if (!leaveCancelModal) {
+                return;
+            }
+
+            leaveCancelModal.hidden = true;
+            leaveCancelModal.setAttribute("aria-hidden", "true");
+            document.body.classList.remove("admin-leave-confirm-open");
+            activeLeaveCancelForm = null;
+        }
+
+        document.querySelectorAll("[data-user-leave-cancel]").forEach(function (button) {
+            button.addEventListener("click", function (event) {
+                event.preventDefault();
+
+                activeLeaveCancelForm = button.closest("form");
+                if (!leaveCancelModal || !activeLeaveCancelForm) {
+                    return;
+                }
+
+                leaveCancelTitle.textContent = button.dataset.confirmTitle || "İzin talebini iptal et";
+                leaveCancelMessage.textContent = button.dataset.confirmMessage || "Bu işlemi gerçekleştirmek istediğinize emin misiniz?";
+                leaveCancelSubmit.textContent = button.dataset.confirmLabel || "İptal Et";
+
+                leaveCancelModal.hidden = false;
+                leaveCancelModal.setAttribute("aria-hidden", "false");
+                document.body.classList.add("admin-leave-confirm-open");
+                leaveCancelSubmit.focus();
+            });
+        });
+
+        document.querySelectorAll("[data-user-leave-cancel-close]").forEach(function (element) {
+            element.addEventListener("click", closeUserLeaveCancelModal);
+        });
+
+        if (leaveCancelSubmit) {
+            leaveCancelSubmit.addEventListener("click", function () {
+                if (activeLeaveCancelForm) {
+                    activeLeaveCancelForm.submit();
+                }
+            });
+        }
+
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && leaveCancelModal && !leaveCancelModal.hidden) {
+                closeUserLeaveCancelModal();
+            }
+        });
+    </script>
+}

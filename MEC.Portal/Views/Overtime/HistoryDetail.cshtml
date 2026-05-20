@@ -4,6 +4,10 @@
 @{
     ViewData["Title"] = "Mesai Talep Detayları";
     var item = Model.Item;
+    var statusMessage = TempData["OvertimeHistoryStatusMessage"] as string;
+    var statusLevel = string.Equals(TempData["OvertimeHistoryStatusLevel"] as string, "success", StringComparison.OrdinalIgnoreCase)
+        ? "success"
+        : "error";
 
     string FormatHours(decimal value)
     {
@@ -21,6 +25,14 @@
                 <h1>Mesai Talep Detayları</h1>
             </div>
         </div>
+
+        @if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            <div class="admin-leave-toast admin-leave-toast--@statusLevel" data-user-overtime-toast>
+                <span>@statusMessage</span>
+                <button type="button" data-user-overtime-toast-close aria-label="Bildirimi kapat">×</button>
+            </div>
+        }
 
         <div class="leave-detail-card">
             <div class="leave-detail-grid">
@@ -66,6 +78,113 @@
                     @(string.IsNullOrWhiteSpace(item.Reason) ? "-" : item.Reason)
                 </div>
             </div>
+
+            @if (item.CanCancel)
+            {
+                <div class="admin-leave-detail-actions">
+                    <form asp-controller="Overtime" asp-action="Cancel" asp-route-id="@item.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="button"
+                                class="admin-leave-action admin-leave-action--reject"
+                                data-user-overtime-cancel
+                                data-confirm-title="Mesai talebini iptal et"
+                                data-confirm-message="Bu mesai talebini iptal etmek istediğinize emin misiniz?"
+                                data-confirm-label="İptal Et">
+                            İptal Et
+                        </button>
+                    </form>
+                </div>
+            }
         </div>
     </div>
 </section>
+
+<div class="admin-leave-confirm-modal" id="userOvertimeCancelModal" hidden aria-hidden="true">
+    <div class="admin-leave-confirm-modal__backdrop" data-user-overtime-cancel-close></div>
+    <div class="admin-leave-confirm-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="userOvertimeCancelTitle">
+        <button type="button" class="admin-leave-confirm-modal__close" data-user-overtime-cancel-close aria-label="Kapat">×</button>
+        <span class="admin-leave-confirm-modal__eyebrow">Mesai işlemi</span>
+        <h2 id="userOvertimeCancelTitle">Mesai talebini iptal et</h2>
+        <p id="userOvertimeCancelMessage">Bu işlemi gerçekleştirmek istediğinize emin misiniz?</p>
+        <div class="admin-leave-confirm-modal__actions">
+            <button type="button" class="admin-leave-confirm-modal__button admin-leave-confirm-modal__button--ghost" data-user-overtime-cancel-close>Vazgeç</button>
+            <button type="button" class="admin-leave-confirm-modal__button admin-leave-confirm-modal__button--reject" id="userOvertimeCancelSubmit">İptal Et</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const userOvertimeToast = document.querySelector("[data-user-overtime-toast]");
+        if (userOvertimeToast) {
+            const closeToast = function () {
+                userOvertimeToast.classList.add("is-hiding");
+                window.setTimeout(function () {
+                    userOvertimeToast.remove();
+                }, 260);
+            };
+
+            const toastCloseButton = userOvertimeToast.querySelector("[data-user-overtime-toast-close]");
+            if (toastCloseButton) {
+                toastCloseButton.addEventListener("click", closeToast);
+            }
+
+            window.setTimeout(closeToast, 4500);
+        }
+
+        const overtimeCancelModal = document.getElementById("userOvertimeCancelModal");
+        const overtimeCancelTitle = document.getElementById("userOvertimeCancelTitle");
+        const overtimeCancelMessage = document.getElementById("userOvertimeCancelMessage");
+        const overtimeCancelSubmit = document.getElementById("userOvertimeCancelSubmit");
+        let activeOvertimeCancelForm = null;
+
+        function closeUserOvertimeCancelModal() {
+            if (!overtimeCancelModal) {
+                return;
+            }
+
+            overtimeCancelModal.hidden = true;
+            overtimeCancelModal.setAttribute("aria-hidden", "true");
+            document.body.classList.remove("admin-leave-confirm-open");
+            activeOvertimeCancelForm = null;
+        }
+
+        document.querySelectorAll("[data-user-overtime-cancel]").forEach(function (button) {
+            button.addEventListener("click", function (event) {
+                event.preventDefault();
+
+                activeOvertimeCancelForm = button.closest("form");
+                if (!overtimeCancelModal || !activeOvertimeCancelForm) {
+                    return;
+                }
+
+                overtimeCancelTitle.textContent = button.dataset.confirmTitle || "Mesai talebini iptal et";
+                overtimeCancelMessage.textContent = button.dataset.confirmMessage || "Bu işlemi gerçekleştirmek istediğinize emin misiniz?";
+                overtimeCancelSubmit.textContent = button.dataset.confirmLabel || "İptal Et";
+
+                overtimeCancelModal.hidden = false;
+                overtimeCancelModal.setAttribute("aria-hidden", "false");
+                document.body.classList.add("admin-leave-confirm-open");
+                overtimeCancelSubmit.focus();
+            });
+        });
+
+        document.querySelectorAll("[data-user-overtime-cancel-close]").forEach(function (element) {
+            element.addEventListener("click", closeUserOvertimeCancelModal);
+        });
+
+        if (overtimeCancelSubmit) {
+            overtimeCancelSubmit.addEventListener("click", function () {
+                if (activeOvertimeCancelForm) {
+                    activeOvertimeCancelForm.submit();
+                }
+            });
+        }
+
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && overtimeCancelModal && !overtimeCancelModal.hidden) {
+                closeUserOvertimeCancelModal();
+            }
+        });
+    </script>
+}

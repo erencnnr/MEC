@@ -1,4 +1,5 @@
 using MEC.Application.Abstractions.Common.Models;
+using MEC.Domain.Common.Enum;
 using MEC.Domain.Entity.School;
 
 namespace MEC.Application.Abstractions.Service.SchoolService.Model
@@ -8,6 +9,7 @@ namespace MEC.Application.Abstractions.Service.SchoolService.Model
         public string? Status { get; set; } = "active";
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 6;
+        public AnnouncementContentType ContentType { get; set; } = AnnouncementContentType.Announcement;
     }
 
     public class AnnouncementCardModel
