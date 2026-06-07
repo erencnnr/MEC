@@ -28,6 +28,10 @@
         var isAdminPortalUsersPage = currentPath.Equals("/Admin/PortalUsers", StringComparison.OrdinalIgnoreCase) ||
                                      currentPath.StartsWith("/Admin/PortalUsers/", StringComparison.OrdinalIgnoreCase);
         var isAdminSliderPage = currentPath.Equals("/Admin/Slider", StringComparison.OrdinalIgnoreCase);
+        var isAdminBirthdayPopupPage = currentPath.Equals("/Admin/BirthdayPopup", StringComparison.OrdinalIgnoreCase) ||
+                                       currentPath.StartsWith("/Admin/BirthdayPopup/", StringComparison.OrdinalIgnoreCase);
+        var isAdminFoodMenuPage = currentPath.Equals("/Admin/FoodMenu", StringComparison.OrdinalIgnoreCase) ||
+                                  currentPath.StartsWith("/Admin/FoodMenu/", StringComparison.OrdinalIgnoreCase);
         var isAdminContentPage = currentPath.Equals("/Admin/Content", StringComparison.OrdinalIgnoreCase) ||
                                  currentPath.StartsWith("/Admin/Content/", StringComparison.OrdinalIgnoreCase);
         var isAdminAssetsPage = currentPath.Equals("/Admin/Assets", StringComparison.OrdinalIgnoreCase) ||
@@ -39,9 +43,8 @@
         var isOvertimePage = string.Equals(currentController, "Overtime", StringComparison.OrdinalIgnoreCase);
         var isLibraryPage = currentPath.Equals("/Library", StringComparison.OrdinalIgnoreCase) ||
                             currentPath.StartsWith("/Library/", StringComparison.OrdinalIgnoreCase);
-
         var isAdminLeavePage = isAdminLeaveRequestsPage || isAdminLeaveReportPage || isAdminLeaveAgreementPage;
-        var isAdminSettingsPage = isAdminPortalUsersPage || isAdminSliderPage;
+        var isAdminSettingsPage = isAdminPortalUsersPage || isAdminSliderPage || isAdminBirthdayPopupPage || isAdminFoodMenuPage;
         var isAdminInventoryPage = isAdminAssetsPage || isAdminLoansPage;
         var isAdminOvertimePage = isAdminOvertimeRequestsPage || isAdminOvertimeReportPage;
         var isAnnouncementPage =
@@ -187,6 +190,8 @@
                                             <div class="portal-header__nav-submenu-menu">
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="PortalUsers">Portal Kullanıcıları</a>
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="Slider">Slider</a>
+                                                <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="BirthdayPopup">DoÄŸum GÃ¼nÃ¼ Popup</a>
+                                                <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="FoodMenu">Yemek Menüsü</a>
                                             </div>
                                         </div>
                                     </div>

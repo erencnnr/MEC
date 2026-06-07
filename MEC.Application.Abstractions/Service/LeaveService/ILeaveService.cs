@@ -22,6 +22,7 @@ namespace MEC.Application.Abstractions.Service.LeaveService
         Task<AdminLeaveRequestItemModel?> GetAdminLeaveRequestDetailAsync(int id);
         Task<PagedResultModel<AdminLeaveAgreementItemModel>> GetAdminLeaveAgreementsAsync(AdminLeaveAgreementListQueryModel query);
         Task<OperationResultModel> SyncLeaveAgreementsAsync();
+        Task<OperationResultModel> UploadLeaveAgreementsAsync(LeaveAgreementUploadRequestModel request);
         Task<OperationResultModel> UpdateLeaveAgreementAsync(AdminLeaveAgreementUpdateModel model);
         Task<AdminLeaveReportResultModel> GetAdminLeaveReportAsync(AdminLeaveReportQueryModel query);
         Task<LeaveReportExportModel> ExportAdminLeaveReportAsync(AdminLeaveReportQueryModel query);

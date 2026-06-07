@@ -1,0 +1,210 @@
+@using System.Globalization
+@model MEC.Portal.Models.AdminFoodMenuViewModel
+
+@{
+    ViewData["Title"] = "Yemek Menüsü";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<section class="leave-history-page admin-food-menu-page">
+    <div class="leave-history-shell">
+        <div class="leave-history-topbar">
+            <div>
+                <span class="leave-history-topbar__eyebrow">Yönetici işlemleri</span>
+                <h1>Yemek Menüsü</h1>
+                <p>Aylık yemek menüsü PDF'lerini yükleyin, günlere ayrılmış taslağı düzenleyin ve yayınlayın.</p>
+            </div>
+        </div>
+
+        @if (TempData["FoodMenuSuccess"] is string successMessage && !string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="admin-slider-alert admin-slider-alert--success">@successMessage</div>
+        }
+
+        @if (TempData["FoodMenuWarning"] is string warningMessage && !string.IsNullOrWhiteSpace(warningMessage))
+        {
+            <div class="admin-slider-alert admin-food-menu-alert--warning">@warningMessage</div>
+        }
+
+        @if (TempData["FoodMenuError"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="admin-slider-alert admin-slider-alert--error">@errorMessage</div>
+        }
+
+        <div class="admin-slider-upload-card">
+            <div class="admin-slider-upload-card__content">
+                <div>
+                    <span class="admin-slider-upload-card__eyebrow">PDF Import</span>
+                    <h2>Aylık menü yükleyin</h2>
+                    <p>PDF yüklendiğinde sistem günleri otomatik çıkarmayı dener. Son kontrol ve düzeltme için taslak editörü aşağıda açılır.</p>
+                </div>
+
+                <form asp-controller="Admin" asp-action="ImportFoodMenu" method="post" enctype="multipart/form-data" class="admin-food-menu-import-form">
+                    @Html.AntiForgeryToken()
+                    <div class="admin-food-menu-import-form__grid">
+                        <div class="admin-slider-upload-form__field">
+                            <label for="importYear">Yıl</label>
+                            <input id="importYear" name="importYear" type="number" min="2024" max="2100" value="@Model.ImportYear" />
+                        </div>
+                        <div class="admin-slider-upload-form__field">
+                            <label for="importMonth">Ay</label>
+                            <select id="importMonth" name="importMonth">
+                                @for (var month = 1; month <= 12; month++)
+                                {
+                                    var monthLabel = new DateTime(2000, month, 1).ToString("MMMM", new CultureInfo("tr-TR"));
+                                    if (month == Model.ImportMonth)
+                                    {
+                                        <option value="@month" selected="selected">@monthLabel</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@month">@monthLabel</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="admin-slider-upload-form__field">
+                            <label for="foodMenuFile">PDF Dosyası</label>
+                            <input id="foodMenuFile" name="file" type="file" accept=".pdf,application/pdf" />
+                        </div>
+                    </div>
+                    <button type="submit" class="leave-history-topbar__action">PDF'yi İçeri Al</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="admin-food-menu-layout">
+            <aside class="admin-food-menu-sidebar">
+                <div class="leave-history-table-card admin-food-menu-sidebar__card">
+                    <div class="leave-history-table-card__meta">
+                        <span>@Model.Months.Count kayıtlı ay</span>
+                        <span>Geçmiş yüklemeler</span>
+                    </div>
+
+                    @if (!Model.Months.Any())
+                    {
+                        <div class="leave-history-empty admin-slider-empty">
+                            <h2>Henüz kayıt yok</h2>
+                            <p>İlk PDF yüklendiğinde aylık arşiv burada listelenir.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="admin-food-menu-month-list">
+                            @foreach (var month in Model.Months)
+                            {
+                                <a class="admin-food-menu-month-card @(month.IsSelected ? "is-selected" : string.Empty)"
+                                   asp-controller="Admin"
+                                   asp-action="FoodMenu"
+                                   asp-route-id="@month.Id">
+                                    <div class="admin-food-menu-month-card__head">
+                                        <strong>@month.MonthLabel</strong>
+                                        <span class="admin-food-menu-status admin-food-menu-status--@month.StatusTone">@month.StatusLabel</span>
+                                    </div>
+                                    <div class="admin-food-menu-month-card__meta">
+                                        <span>@month.DayCount gün dolu</span>
+                                        <span>@(month.PublishedAt?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? month.ImportedAt?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-")</span>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    }
+                </div>
+            </aside>
+
+            <div class="admin-food-menu-editor">
+                @if (Model.SelectedMonth == null)
+                {
+                    <div class="leave-history-empty admin-slider-empty">
+                        <h2>Düzenlenecek ay seçilmedi</h2>
+                        <p>Soldaki listeden bir ay seçin veya yeni bir PDF yükleyin.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="leave-history-table-card admin-food-menu-editor__card">
+                        <div class="admin-food-menu-editor__head">
+                            <div>
+                                <span class="leave-history-topbar__eyebrow">Taslak düzenleyici</span>
+                                <h2>@Model.SelectedMonth.MonthLabel</h2>
+                                <p>@Model.SelectedMonth.OriginalFileName</p>
+                            </div>
+
+                            <div class="admin-food-menu-editor__meta">
+                                <span class="admin-food-menu-status admin-food-menu-status--@Model.SelectedMonth.StatusTone">@Model.SelectedMonth.StatusLabel</span>
+                                <span>@Model.SelectedMonth.PageCount sayfa</span>
+                                <span>Import: @(Model.SelectedMonth.ImportedAt?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-")</span>
+                                <span>Yayın: @(Model.SelectedMonth.PublishedAt?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-")</span>
+                            </div>
+                        </div>
+
+                        @if (Model.SelectedMonth.ParseWarnings.Any())
+                        {
+                            <div class="admin-food-menu-warning-panel">
+                                <strong>Parse notları</strong>
+                                <ul>
+                                    @foreach (var warning in Model.SelectedMonth.ParseWarnings)
+                                    {
+                                        <li>@warning</li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+
+                        <form asp-controller="Admin" asp-action="SaveFoodMenuDays" asp-route-id="@Model.SelectedMonth.Id" method="post" class="admin-food-menu-days-form">
+                            @Html.AntiForgeryToken()
+                            <div class="admin-food-menu-days-table-wrap">
+                                <table class="table admin-food-menu-days-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Tarih</th>
+                                            <th>Menü İçeriği</th>
+                                            <th>PDF Sayfa</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @for (var index = 0; index < Model.SelectedMonth.Days.Count; index++)
+                                        {
+                                            var day = Model.SelectedMonth.Days[index];
+                                            <tr>
+                                                <td>
+                                                    <input type="hidden" name="Days[@index].MenuDate" value="@day.MenuDate.ToString("yyyy-MM-dd")" />
+                                                    <div class="admin-food-menu-days-table__date">
+                                                        <strong>@day.MenuDate.ToString("dd")</strong>
+                                                        <span>@day.MenuDate.ToString("MMMM dddd", new CultureInfo("tr-TR"))</span>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <textarea name="Days[@index].ItemsText" rows="3" placeholder="Günlük menü satırlarını her satıra bir öğe olacak şekilde yazın.">@day.ItemsText</textarea>
+                                                </td>
+                                                <td>
+                                                    <input name="Days[@index].SourcePageNumber" type="number" min="1" value="@day.SourcePageNumber" placeholder="1" />
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="admin-food-menu-editor__actions">
+                                <button type="submit" class="leave-history-topbar__action">Günleri Kaydet</button>
+                            </div>
+                        </form>
+
+                        <div class="admin-food-menu-editor__footer-actions">
+                            <form asp-controller="Admin" asp-action="PublishFoodMenu" asp-route-id="@Model.SelectedMonth.Id" method="post">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="dashboard-hero__action">Yayınla</button>
+                            </form>
+
+                            <form asp-controller="Admin" asp-action="DeleteFoodMenu" asp-route-id="@Model.SelectedMonth.Id" method="post">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="admin-slider-card__delete">Ayı Sil</button>
+                            </form>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</section>

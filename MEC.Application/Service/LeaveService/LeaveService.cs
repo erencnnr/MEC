@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using System.Net.Mail;
 using ClosedXML.Excel;
 using MEC.Application.Abstractions.Common.Models;
@@ -571,6 +572,113 @@ public class LeaveService : ILeaveService
             : OperationResultModel.Success("Eksik mutabakat kaydı bulunamadı.");
     }
 
+    public async Task<OperationResultModel> UploadLeaveAgreementsAsync(LeaveAgreementUploadRequestModel request)
+    {
+        List<LeaveAgreementImportRow> importRows;
+        try
+        {
+            importRows = ReadLeaveAgreementRows(request.ExcelStream);
+        }
+        catch
+        {
+            return OperationResultModel.Fail("Excel dosyası okunamadı. Dosya formatını kontrol ediniz.");
+        }
+
+        if (importRows.Count == 0)
+        {
+            return OperationResultModel.Fail("Excel dosyasında işlenecek veri satırı bulunamadı.");
+        }
+
+        var activePortalUsers = (await _employeePortalRepository.GetAllAsync(x => !x.IsDeleted)).ToList();
+        var portalUsersByEmail = activePortalUsers
+            .Where(x => !string.IsNullOrWhiteSpace(x.Email))
+            .GroupBy(x => x.Email.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+
+        var existingAgreements = (await _leaveAgreementRepository.GetAllAsync()).ToList();
+        var agreementsByEmployeeId = existingAgreements.ToDictionary(x => x.EmployeePortalId, x => x);
+        var processedEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var updatedCount = 0;
+        var errorMessages = new List<string>();
+
+        foreach (var row in importRows)
+        {
+            if (string.IsNullOrWhiteSpace(row.Email))
+            {
+                errorMessages.Add($"{row.RowNumber}. satır: E-posta alanı boş olamaz.");
+                continue;
+            }
+
+            if (!IsValidEmail(row.Email))
+            {
+                errorMessages.Add($"{row.RowNumber}. satır: Geçerli bir e-posta adresi girilmelidir.");
+                continue;
+            }
+
+            if (!row.AgreedLeaveDays.HasValue)
+            {
+                errorMessages.Add($"{row.RowNumber}. satır: Mutabık kalınan izin gün değeri okunamadı.");
+                continue;
+            }
+
+            if (row.AgreedLeaveDays.Value < 0)
+            {
+                errorMessages.Add($"{row.RowNumber}. satır: Mutabık kalınan izin gün değeri negatif olamaz.");
+                continue;
+            }
+
+            if (!processedEmails.Add(row.Email))
+            {
+                errorMessages.Add($"{row.RowNumber}. satır: Aynı Excel içinde bu e-posta adresi daha önce işlendi.");
+                continue;
+            }
+
+            if (!portalUsersByEmail.TryGetValue(row.Email, out var portalUser))
+            {
+                errorMessages.Add($"{row.RowNumber}. satır: E-posta ile eşleşen aktif portal kullanıcısı bulunamadı.");
+                continue;
+            }
+
+            if (agreementsByEmployeeId.TryGetValue(portalUser.Id, out var agreement))
+            {
+                agreement.AgreedLeaveDays = row.AgreedLeaveDays.Value;
+                agreement.IsSigned = false;
+                agreement.UpdateDate = DateTime.Now;
+                _leaveAgreementRepository.Update(agreement);
+            }
+            else
+            {
+                agreement = new LeaveAgreement
+                {
+                    EmployeePortalId = portalUser.Id,
+                    AgreedLeaveDays = row.AgreedLeaveDays.Value,
+                    IsSigned = false,
+                    CreatedDate = DateTime.Now,
+                    UpdateDate = DateTime.Now
+                };
+
+                await _leaveAgreementRepository.AddAsync(agreement);
+                agreementsByEmployeeId[portalUser.Id] = agreement;
+            }
+
+            updatedCount++;
+        }
+
+        if (updatedCount == 0)
+        {
+            return OperationResultModel.Fail(errorMessages.FirstOrDefault() ?? "Excel verisi işlenemedi.");
+        }
+
+        if (errorMessages.Count > 0)
+        {
+            return OperationResultModel.Success(
+                $"{updatedCount} mutabakat kaydı işlendi. {errorMessages.Count} satır atlandı. İlk hata: {errorMessages[0]}",
+                "warning");
+        }
+
+        return OperationResultModel.Success($"{updatedCount} mutabakat kaydı başarıyla işlendi.");
+    }
+
     public async Task<OperationResultModel> UpdateLeaveAgreementAsync(AdminLeaveAgreementUpdateModel model)
     {
         if (model.AgreedLeaveDays < 0)
@@ -1037,6 +1145,8 @@ public class LeaveService : ILeaveService
         {
             Id = agreement.Id,
             EmployeePortalId = agreement.EmployeePortalId,
+            FirstName = agreement.EmployeePortal?.FirstName ?? string.Empty,
+            LastName = agreement.EmployeePortal?.LastName ?? string.Empty,
             EmployeeName = BuildPortalName(agreement.EmployeePortal, agreement.EmployeePortalId),
             Email = agreement.EmployeePortal?.Email ?? string.Empty,
             PhoneNumber = agreement.EmployeePortal?.PhoneNumber ?? string.Empty,
@@ -1340,5 +1450,56 @@ public class LeaveService : ILeaveService
         public string RawDays { get; set; } = string.Empty;
         public decimal? Days { get; set; }
         public string Description { get; set; } = string.Empty;
+    }
+
+    private static List<LeaveAgreementImportRow> ReadLeaveAgreementRows(Stream excelStream)
+    {
+        using var workbook = new XLWorkbook(excelStream);
+        var worksheet = workbook.Worksheets.First();
+        var lastRowNumber = worksheet.LastRowUsed()?.RowNumber() ?? 0;
+        var rows = new List<LeaveAgreementImportRow>();
+
+        for (var rowNumber = 2; rowNumber <= lastRowNumber; rowNumber++)
+        {
+            var row = worksheet.Row(rowNumber);
+            var firstName = row.Cell(1).GetString().Trim();
+            var lastName = row.Cell(2).GetString().Trim();
+            var email = row.Cell(3).GetString().Trim();
+            var phoneNumber = row.Cell(4).GetString().Trim();
+            var rawAgreedLeaveDays = row.Cell(5).GetString().Trim();
+
+            if (string.IsNullOrWhiteSpace(firstName) &&
+                string.IsNullOrWhiteSpace(lastName) &&
+                string.IsNullOrWhiteSpace(email) &&
+                string.IsNullOrWhiteSpace(phoneNumber) &&
+                string.IsNullOrWhiteSpace(rawAgreedLeaveDays))
+            {
+                continue;
+            }
+
+            rows.Add(new LeaveAgreementImportRow
+            {
+                RowNumber = rowNumber,
+                FirstName = firstName,
+                LastName = lastName,
+                Email = email,
+                PhoneNumber = phoneNumber,
+                RawAgreedLeaveDays = rawAgreedLeaveDays,
+                AgreedLeaveDays = TryReadBulkLeaveDays(row.Cell(5), out var agreedLeaveDays) ? agreedLeaveDays : null
+            });
+        }
+
+        return rows;
+    }
+
+    private sealed class LeaveAgreementImportRow
+    {
+        public int RowNumber { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string RawAgreedLeaveDays { get; set; } = string.Empty;
+        public decimal? AgreedLeaveDays { get; set; }
     }
 }

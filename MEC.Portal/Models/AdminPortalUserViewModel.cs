@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc.Rendering;
 using System.ComponentModel.DataAnnotations;
 
 namespace MEC.Portal.Models
@@ -18,6 +19,8 @@ namespace MEC.Portal.Models
         public string FullName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string LocationName { get; set; } = string.Empty;
         public decimal LeaveDays { get; set; }
         public DateTime HireDate { get; set; }
         public bool IsAdmin { get; set; }
@@ -42,11 +45,15 @@ namespace MEC.Portal.Models
 
         public string PhoneNumber { get; set; } = string.Empty;
 
+        public string Title { get; set; } = string.Empty;
+
         [DataType(DataType.Date)]
         public DateTime HireDate { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime BirthDate { get; set; }
+
+        public int? LocationId { get; set; }
 
         [Range(typeof(decimal), "0", "9999")]
         public decimal LeaveDays { get; set; }
@@ -54,6 +61,7 @@ namespace MEC.Portal.Models
         public bool IsAdmin { get; set; }
 
         public bool IsDeleted { get; set; }
+        public List<SelectListItem> LocationOptions { get; set; } = new();
         public string FullName => string.Join(" ", new[] { FirstName, LastName }.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
     }
 }

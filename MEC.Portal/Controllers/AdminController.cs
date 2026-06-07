@@ -10,6 +10,9 @@ using MEC.Portal.Models;
 using MEC.Portal.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using System.Globalization;
+using System.IO;
 
 namespace MEC.Portal.Controllers
 {
@@ -17,15 +20,21 @@ namespace MEC.Portal.Controllers
     public class AdminController : Controller
     {
         private const string UpdateLeaveStatusMethodName = "UpdateLeaveStatus";
+        private const long MaxLeaveAgreementUploadSizeBytes = 10 * 1024 * 1024;
         private const int LeaveRequestsPageSize = 10;
         private const int LeaveAgreementsPageSize = 10;
         private const int PortalUsersPageSize = 10;
+        private const long MaxFoodMenuUploadSizeBytes = 15 * 1024 * 1024;
 
         private readonly ILeaveService _leaveService;
         private readonly IAnnouncementService _announcementService;
         private readonly IEmployeePortalService _employeePortalService;
         private readonly ISliderService _sliderService;
         private readonly ISliderImageApiClient _sliderImageApiClient;
+        private readonly IBirthdayPopupService _birthdayPopupService;
+        private readonly IBirthdayPopupImageApiClient _birthdayPopupImageApiClient;
+        private readonly IFoodMenuService _foodMenuService;
+        private readonly IFoodMenuAttachmentApiClient _foodMenuAttachmentApiClient;
         private readonly IPortalUserSyncApiClient _portalUserSyncApiClient;
 
         public AdminController(
@@ -34,6 +43,10 @@ namespace MEC.Portal.Controllers
             IEmployeePortalService employeePortalService,
             ISliderService sliderService,
             ISliderImageApiClient sliderImageApiClient,
+            IBirthdayPopupService birthdayPopupService,
+            IBirthdayPopupImageApiClient birthdayPopupImageApiClient,
+            IFoodMenuService foodMenuService,
+            IFoodMenuAttachmentApiClient foodMenuAttachmentApiClient,
             IPortalUserSyncApiClient portalUserSyncApiClient)
         {
             _leaveService = leaveService;
@@ -41,6 +54,10 @@ namespace MEC.Portal.Controllers
             _employeePortalService = employeePortalService;
             _sliderService = sliderService;
             _sliderImageApiClient = sliderImageApiClient;
+            _birthdayPopupService = birthdayPopupService;
+            _birthdayPopupImageApiClient = birthdayPopupImageApiClient;
+            _foodMenuService = foodMenuService;
+            _foodMenuAttachmentApiClient = foodMenuAttachmentApiClient;
             _portalUserSyncApiClient = portalUserSyncApiClient;
         }
 
@@ -169,6 +186,49 @@ namespace MEC.Portal.Controllers
             return RedirectToLeaveAgreementReturnUrl(returnUrl);
         }
 
+        [HttpPost("/Admin/LeaveAgreement/Upload")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UploadLeaveAgreement(IFormFile? file, string? returnUrl = null)
+        {
+            if (file == null || file.Length == 0)
+            {
+                TempData["LeaveAgreementLevel"] = "error";
+                TempData["LeaveAgreementMessage"] = "Yüklenecek Excel dosyası seçiniz.";
+                return RedirectToLeaveAgreementReturnUrl(returnUrl);
+            }
+
+            if (file.Length > MaxLeaveAgreementUploadSizeBytes)
+            {
+                TempData["LeaveAgreementLevel"] = "error";
+                TempData["LeaveAgreementMessage"] = "Excel dosyası 10 MB sınırını aşamaz.";
+                return RedirectToLeaveAgreementReturnUrl(returnUrl);
+            }
+
+            var extension = Path.GetExtension(file.FileName);
+            if (!string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                TempData["LeaveAgreementLevel"] = "error";
+                TempData["LeaveAgreementMessage"] = "Sadece .xlsx uzantılı Excel dosyası yükleyebilirsiniz.";
+                return RedirectToLeaveAgreementReturnUrl(returnUrl);
+            }
+
+            using var stream = file.OpenReadStream();
+            var result = await _leaveService.UploadLeaveAgreementsAsync(new LeaveAgreementUploadRequestModel
+            {
+                ExcelStream = stream,
+                CurrentUser = User.Identity?.Name ?? "anonymous",
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                MethodName = "UploadLeaveAgreement"
+            });
+
+            TempData["LeaveAgreementLevel"] = result.IsSuccess
+                ? string.Equals(result.Level, "warning", StringComparison.OrdinalIgnoreCase) ? "warning" : "success"
+                : "error";
+            TempData["LeaveAgreementMessage"] = result.Message;
+
+            return RedirectToLeaveAgreementReturnUrl(returnUrl);
+        }
+
         [HttpPost("/Admin/LeaveAgreement/Update/{id:int}")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateLeaveAgreement(int id, decimal agreedLeaveDays, bool isSigned, string? returnUrl = null)
@@ -244,7 +304,7 @@ namespace MEC.Portal.Controllers
                 return RedirectToAction(nameof(PortalUsers));
             }
 
-            return View(MapPortalUserEditModel(portalUser));
+            return View(await BuildPortalUserEditViewModelAsync(portalUser));
         }
 
         [HttpPost("/Admin/PortalUsers/{id:int}")]
@@ -264,6 +324,7 @@ namespace MEC.Portal.Controllers
 
             if (!ModelState.IsValid)
             {
+                await PopulateLocationOptionsAsync(model);
                 return View(model);
             }
 
@@ -274,8 +335,10 @@ namespace MEC.Portal.Controllers
                 LastName = model.LastName,
                 Email = model.Email,
                 PhoneNumber = model.PhoneNumber,
+                Title = model.Title,
                 HireDate = model.HireDate,
                 BirthDate = model.BirthDate,
+                LocationId = model.LocationId,
                 LeaveDays = model.LeaveDays,
                 IsAdmin = model.IsAdmin,
                 IsDeleted = model.IsDeleted
@@ -284,6 +347,7 @@ namespace MEC.Portal.Controllers
             if (!result.IsSuccess)
             {
                 ModelState.AddModelError(string.Empty, result.Message);
+                await PopulateLocationOptionsAsync(model);
                 return View(model);
             }
 
@@ -295,6 +359,20 @@ namespace MEC.Portal.Controllers
         public async Task<IActionResult> Slider()
         {
             var model = await BuildSliderViewModelAsync();
+            return View(model);
+        }
+
+        [HttpGet("/Admin/BirthdayPopup")]
+        public async Task<IActionResult> BirthdayPopup()
+        {
+            var model = await BuildBirthdayPopupViewModelAsync();
+            return View(model);
+        }
+
+        [HttpGet("/Admin/FoodMenu")]
+        public async Task<IActionResult> FoodMenu(int? id = null)
+        {
+            var model = await BuildFoodMenuViewModelAsync(id);
             return View(model);
         }
 
@@ -353,6 +431,211 @@ namespace MEC.Portal.Controllers
             return RedirectToAction(nameof(Slider));
         }
 
+        [HttpPost("/Admin/BirthdayPopup/Upload")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UploadBirthdayPopupImage(IFormFile? file)
+        {
+            if (file == null || file.Length == 0)
+            {
+                TempData["BirthdayPopupError"] = "Yüklenecek bir görsel seçin.";
+                return RedirectToAction(nameof(BirthdayPopup));
+            }
+
+            if (!IsAllowedSliderImage(file))
+            {
+                TempData["BirthdayPopupError"] = $"{file.FileName} desteklenmeyen bir dosya türü.";
+                return RedirectToAction(nameof(BirthdayPopup));
+            }
+
+            var existingImage = await _birthdayPopupService.GetActiveBirthdayPopupImageAsync();
+            var uploadResult = await _birthdayPopupImageApiClient.UploadAsync(file);
+
+            if (!uploadResult.IsSuccess)
+            {
+                TempData["BirthdayPopupError"] = uploadResult.Message;
+                return RedirectToAction(nameof(BirthdayPopup));
+            }
+
+            if (existingImage != null)
+            {
+                var deleteExistingResult = await _birthdayPopupImageApiClient.DeleteAsync(existingImage.FileName);
+                if (!deleteExistingResult.IsSuccess)
+                {
+                    await _birthdayPopupImageApiClient.DeleteAsync(uploadResult.FileName);
+                    TempData["BirthdayPopupError"] = string.IsNullOrWhiteSpace(deleteExistingResult.Message)
+                        ? "Mevcut doğum günü popup görseli silinemedi."
+                        : deleteExistingResult.Message;
+                    return RedirectToAction(nameof(BirthdayPopup));
+                }
+            }
+
+            var replaceResult = await _birthdayPopupService.ReplaceBirthdayPopupImageAsync(new BirthdayPopupImageCreateModel
+            {
+                FileName = uploadResult.FileName,
+                OriginalFileName = file.FileName,
+                RelativePath = uploadResult.RelativePath,
+                ContentType = string.IsNullOrWhiteSpace(uploadResult.ContentType) ? file.ContentType ?? string.Empty : uploadResult.ContentType,
+                SizeBytes = file.Length
+            });
+
+            TempData[replaceResult.IsSuccess ? "BirthdayPopupSuccess" : "BirthdayPopupError"] = replaceResult.IsSuccess
+                ? "Doğum günü popup görseli güncellendi."
+                : replaceResult.Message;
+
+            return RedirectToAction(nameof(BirthdayPopup));
+        }
+
+        [HttpPost("/Admin/FoodMenu/Import")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportFoodMenu(int importYear, int importMonth, IFormFile? file, CancellationToken cancellationToken)
+        {
+            if (file == null || file.Length == 0)
+            {
+                TempData["FoodMenuError"] = "Yüklenecek PDF dosyasını seçin.";
+                return RedirectToAction(nameof(FoodMenu));
+            }
+
+            if (file.Length > MaxFoodMenuUploadSizeBytes)
+            {
+                TempData["FoodMenuError"] = "PDF dosyası 15 MB sınırını aşamaz.";
+                return RedirectToAction(nameof(FoodMenu));
+            }
+
+            if (!IsAllowedPdf(file))
+            {
+                TempData["FoodMenuError"] = "Sadece PDF dosyası yükleyebilirsiniz.";
+                return RedirectToAction(nameof(FoodMenu));
+            }
+
+            await using var memoryStream = new MemoryStream();
+            await file.CopyToAsync(memoryStream, cancellationToken);
+            var pdfBytes = memoryStream.ToArray();
+
+            var existingMonth = await _foodMenuService.GetFoodMenuMonthByYearMonthAsync(importYear, importMonth);
+            var ensureResult = await _foodMenuService.EnsureDraftFoodMenuMonthAsync(importYear, importMonth);
+            if (!ensureResult.IsSuccess || ensureResult.Data == null)
+            {
+                TempData["FoodMenuError"] = ensureResult.Message;
+                return RedirectToAction(nameof(FoodMenu));
+            }
+
+            var month = ensureResult.Data;
+            var uploadResult = await _foodMenuAttachmentApiClient.UploadAsync(month.Id, file, cancellationToken);
+            if (!uploadResult.IsSuccess)
+            {
+                if (existingMonth == null)
+                {
+                    await _foodMenuService.DeleteFoodMenuMonthAsync(month.Id);
+                }
+
+                TempData["FoodMenuError"] = uploadResult.Message;
+                return RedirectToAction(nameof(FoodMenu), new { id = month.Id });
+            }
+
+            var replaceResult = await _foodMenuService.ReplaceImportedFoodMenuAsync(new FoodMenuImportModel
+            {
+                MonthId = month.Id,
+                Year = importYear,
+                Month = importMonth,
+                FileName = uploadResult.FileName,
+                OriginalFileName = file.FileName,
+                RelativePath = uploadResult.RelativePath,
+                ContentType = string.IsNullOrWhiteSpace(uploadResult.ContentType) ? file.ContentType ?? "application/pdf" : uploadResult.ContentType,
+                SizeBytes = file.Length,
+                PdfContent = pdfBytes
+            });
+
+            if (!replaceResult.IsSuccess || replaceResult.Data == null)
+            {
+                await _foodMenuAttachmentApiClient.DeleteAsync(month.Id, uploadResult.FileName, cancellationToken);
+                if (existingMonth == null)
+                {
+                    await _foodMenuService.DeleteFoodMenuMonthAsync(month.Id);
+                }
+
+                TempData["FoodMenuError"] = replaceResult.Message;
+                return RedirectToAction(nameof(FoodMenu), new { id = month.Id });
+            }
+
+            if (existingMonth != null &&
+                !string.IsNullOrWhiteSpace(existingMonth.FileName) &&
+                !string.Equals(existingMonth.FileName, uploadResult.FileName, StringComparison.OrdinalIgnoreCase))
+            {
+                var oldDeleteResult = await _foodMenuAttachmentApiClient.DeleteAsync(existingMonth.Id, existingMonth.FileName, cancellationToken);
+                if (!oldDeleteResult.IsSuccess)
+                {
+                    TempData["FoodMenuWarning"] = "Yeni PDF kaydedildi, ancak eski PDF fiziksel olarak silinemedi.";
+                }
+            }
+
+            if (string.Equals(replaceResult.Level, "warning", StringComparison.OrdinalIgnoreCase))
+            {
+                TempData["FoodMenuWarning"] = replaceResult.Message;
+            }
+            else
+            {
+                TempData["FoodMenuSuccess"] = replaceResult.Message;
+            }
+
+            return RedirectToAction(nameof(FoodMenu), new { id = replaceResult.Data.Id });
+        }
+
+        [HttpPost("/Admin/FoodMenu/{id:int}/SaveDays")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SaveFoodMenuDays(int id, AdminFoodMenuEditorViewModel model)
+        {
+            var result = await _foodMenuService.SaveFoodMenuDaysAsync(new FoodMenuMonthDaySaveModel
+            {
+                MonthId = id,
+                Days = model.Days.Select(x => new FoodMenuMonthDaySaveItemModel
+                {
+                    MenuDate = x.MenuDate,
+                    ItemsText = x.ItemsText,
+                    SourcePageNumber = x.SourcePageNumber
+                }).ToList()
+            });
+
+            TempData[result.IsSuccess ? "FoodMenuSuccess" : "FoodMenuError"] = result.Message;
+            return RedirectToAction(nameof(FoodMenu), new { id });
+        }
+
+        [HttpPost("/Admin/FoodMenu/{id:int}/Publish")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> PublishFoodMenu(int id)
+        {
+            var result = await _foodMenuService.PublishFoodMenuMonthAsync(id);
+            TempData[result.IsSuccess ? "FoodMenuSuccess" : "FoodMenuError"] = result.Message;
+            return RedirectToAction(nameof(FoodMenu), new { id });
+        }
+
+        [HttpPost("/Admin/FoodMenu/{id:int}/Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteFoodMenu(int id, CancellationToken cancellationToken)
+        {
+            var month = await _foodMenuService.GetFoodMenuMonthAsync(id);
+            if (month == null)
+            {
+                TempData["FoodMenuError"] = "Silinecek yemek menüsü bulunamadı.";
+                return RedirectToAction(nameof(FoodMenu));
+            }
+
+            if (!string.IsNullOrWhiteSpace(month.FileName))
+            {
+                var deleteFileResult = await _foodMenuAttachmentApiClient.DeleteAsync(month.Id, month.FileName, cancellationToken);
+                if (!deleteFileResult.IsSuccess)
+                {
+                    TempData["FoodMenuError"] = string.IsNullOrWhiteSpace(deleteFileResult.Message)
+                        ? "Yemek menüsü PDF dosyası silinemedi."
+                        : deleteFileResult.Message;
+                    return RedirectToAction(nameof(FoodMenu), new { id });
+                }
+            }
+
+            var result = await _foodMenuService.DeleteFoodMenuMonthAsync(id);
+            TempData[result.IsSuccess ? "FoodMenuSuccess" : "FoodMenuError"] = result.Message;
+            return RedirectToAction(nameof(FoodMenu));
+        }
+
         [HttpPost("/Admin/Slider/Delete/{id:int}")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteSliderImage(int id)
@@ -377,6 +660,34 @@ namespace MEC.Portal.Controllers
 
             TempData["SliderSuccess"] = "Slider gÃ¶rseli silindi.";
             return RedirectToAction(nameof(Slider));
+        }
+
+        [HttpPost("/Admin/BirthdayPopup/Delete/{id:int}")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteBirthdayPopupImage(int id)
+        {
+            var item = await _birthdayPopupService.GetBirthdayPopupImageAsync(id);
+            if (item == null)
+            {
+                TempData["BirthdayPopupError"] = "Silinecek doğum günü popup görseli bulunamadı.";
+                return RedirectToAction(nameof(BirthdayPopup));
+            }
+
+            var deleteResult = await _birthdayPopupImageApiClient.DeleteAsync(item.FileName);
+            if (!deleteResult.IsSuccess)
+            {
+                TempData["BirthdayPopupError"] = string.IsNullOrWhiteSpace(deleteResult.Message)
+                    ? "Doğum günü popup görseli silinemedi."
+                    : deleteResult.Message;
+                return RedirectToAction(nameof(BirthdayPopup));
+            }
+
+            var metadataDeleteResult = await _birthdayPopupService.DeleteBirthdayPopupImageMetadataAsync(id);
+            TempData[metadataDeleteResult.IsSuccess ? "BirthdayPopupSuccess" : "BirthdayPopupError"] = metadataDeleteResult.IsSuccess
+                ? "Doğum günü popup görseli silindi."
+                : metadataDeleteResult.Message;
+
+            return RedirectToAction(nameof(BirthdayPopup));
         }
 
         [HttpPost("/Admin/Slider/Reorder")]
@@ -561,6 +872,8 @@ namespace MEC.Portal.Controllers
                 {
                     Id = x.Id,
                     EmployeePortalId = x.EmployeePortalId,
+                    FirstName = x.FirstName,
+                    LastName = x.LastName,
                     EmployeeName = x.EmployeeName,
                     Email = x.Email,
                     PhoneNumber = x.PhoneNumber,
@@ -592,6 +905,57 @@ namespace MEC.Portal.Controllers
             };
         }
 
+        private async Task<AdminBirthdayPopupViewModel> BuildBirthdayPopupViewModelAsync()
+        {
+            var item = await _birthdayPopupService.GetActiveBirthdayPopupImageAsync();
+            return new AdminBirthdayPopupViewModel
+            {
+                Item = item == null ? null : MapBirthdayPopupItem(item)
+            };
+        }
+
+        private async Task<AdminFoodMenuViewModel> BuildFoodMenuViewModelAsync(int? id)
+        {
+            var months = await _foodMenuService.GetFoodMenuMonthsAsync();
+            var selectedMonthId = id ?? months.FirstOrDefault()?.Id;
+            var selectedMonth = selectedMonthId.HasValue
+                ? await _foodMenuService.GetFoodMenuMonthAsync(selectedMonthId.Value)
+                : null;
+
+            return new AdminFoodMenuViewModel
+            {
+                ImportYear = selectedMonth?.Year ?? DateTime.Today.Year,
+                ImportMonth = selectedMonth?.Month ?? DateTime.Today.Month,
+                Months = months.Select(x => MapFoodMenuMonthListItem(x, selectedMonthId)).ToList(),
+                SelectedMonth = selectedMonth == null ? null : MapFoodMenuEditor(selectedMonth)
+            };
+        }
+
+        private async Task<AdminPortalUserEditViewModel> BuildPortalUserEditViewModelAsync(PortalUserEditModel portalUser)
+        {
+            var model = MapPortalUserEditModel(portalUser);
+            await PopulateLocationOptionsAsync(model);
+            return model;
+        }
+
+        private async Task PopulateLocationOptionsAsync(AdminPortalUserEditViewModel model)
+        {
+            var options = await _employeePortalService.GetLocationOptionsAsync();
+            model.LocationOptions = options
+                .Select(x => new SelectListItem
+                {
+                    Value = x.Id.ToString(),
+                    Text = x.Name
+                })
+                .ToList();
+
+            model.LocationOptions.Insert(0, new SelectListItem
+            {
+                Value = string.Empty,
+                Text = "Konum seçiniz"
+            });
+        }
+
         private static AdminPortalUserListItemViewModel MapPortalUserListItem(PortalUserListItemModel portalUser)
         {
             return new AdminPortalUserListItemViewModel
@@ -600,6 +964,8 @@ namespace MEC.Portal.Controllers
                 FullName = portalUser.FullName,
                 Email = portalUser.Email,
                 PhoneNumber = portalUser.PhoneNumber,
+                Title = portalUser.Title,
+                LocationName = portalUser.LocationName,
                 LeaveDays = portalUser.LeaveDays,
                 HireDate = portalUser.HireDate,
                 IsAdmin = portalUser.IsAdmin,
@@ -616,8 +982,10 @@ namespace MEC.Portal.Controllers
                 LastName = portalUser.LastName,
                 Email = portalUser.Email,
                 PhoneNumber = portalUser.PhoneNumber,
+                Title = portalUser.Title,
                 HireDate = portalUser.HireDate,
                 BirthDate = portalUser.BirthDate,
+                LocationId = portalUser.LocationId,
                 LeaveDays = portalUser.LeaveDays,
                 IsAdmin = portalUser.IsAdmin,
                 IsDeleted = portalUser.IsDeleted
@@ -637,6 +1005,105 @@ namespace MEC.Portal.Controllers
             };
         }
 
+        private AdminBirthdayPopupItemViewModel MapBirthdayPopupItem(BirthdayPopupImageModel image)
+        {
+            return new AdminBirthdayPopupItemViewModel
+            {
+                Id = image.Id,
+                FileName = image.FileName,
+                OriginalFileName = image.OriginalFileName,
+                CreatedDate = image.CreatedDate,
+                ImageUrl = _birthdayPopupImageApiClient.GetFileUrl(image.FileName)
+            };
+        }
+
+        private static AdminFoodMenuMonthListItemViewModel MapFoodMenuMonthListItem(FoodMenuMonthModel month, int? selectedMonthId)
+        {
+            return new AdminFoodMenuMonthListItemViewModel
+            {
+                Id = month.Id,
+                Year = month.Year,
+                Month = month.Month,
+                MonthLabel = BuildMonthLabel(month.Year, month.Month),
+                Status = month.Status,
+                StatusLabel = GetFoodMenuStatusLabel(month.Status),
+                StatusTone = GetFoodMenuStatusTone(month.Status),
+                DayCount = month.Days.Count(x => !string.IsNullOrWhiteSpace(x.ItemsText)),
+                ImportedAt = month.ImportedAt,
+                PublishedAt = month.PublishedAt,
+                IsSelected = selectedMonthId.HasValue && month.Id == selectedMonthId.Value
+            };
+        }
+
+        private static AdminFoodMenuEditorViewModel MapFoodMenuEditor(FoodMenuMonthModel month)
+        {
+            return new AdminFoodMenuEditorViewModel
+            {
+                Id = month.Id,
+                Year = month.Year,
+                Month = month.Month,
+                MonthLabel = BuildMonthLabel(month.Year, month.Month),
+                OriginalFileName = month.OriginalFileName,
+                PageCount = month.PageCount,
+                Status = month.Status,
+                StatusLabel = GetFoodMenuStatusLabel(month.Status),
+                StatusTone = GetFoodMenuStatusTone(month.Status),
+                ImportedAt = month.ImportedAt,
+                PublishedAt = month.PublishedAt,
+                ParseWarnings = SplitWarnings(month.ParseWarnings),
+                Days = BuildEditableDays(month)
+            };
+        }
+
+        private static List<AdminFoodMenuDayEditItemViewModel> BuildEditableDays(FoodMenuMonthModel month)
+        {
+            var existingDays = month.Days.ToDictionary(x => x.MenuDate.Date);
+            var dayCount = DateTime.DaysInMonth(month.Year, month.Month);
+            var days = new List<AdminFoodMenuDayEditItemViewModel>(dayCount);
+
+            for (var day = 1; day <= dayCount; day++)
+            {
+                var date = new DateTime(month.Year, month.Month, day);
+                existingDays.TryGetValue(date.Date, out var existingDay);
+
+                days.Add(new AdminFoodMenuDayEditItemViewModel
+                {
+                    MenuDate = date,
+                    ItemsText = existingDay?.ItemsText ?? string.Empty,
+                    SourcePageNumber = existingDay?.SourcePageNumber
+                });
+            }
+
+            return days;
+        }
+
+        private static List<string> SplitWarnings(string? warnings)
+        {
+            if (string.IsNullOrWhiteSpace(warnings))
+            {
+                return new List<string>();
+            }
+
+            return warnings
+                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+        }
+
+        private static string BuildMonthLabel(int year, int month)
+        {
+            return new DateTime(year, month, 1).ToString("MMMM yyyy", new CultureInfo("tr-TR"));
+        }
+
+        private static string GetFoodMenuStatusLabel(FoodMenuMonthStatus status)
+        {
+            return status == FoodMenuMonthStatus.Published ? "Yayında" : "Taslak";
+        }
+
+        private static string GetFoodMenuStatusTone(FoodMenuMonthStatus status)
+        {
+            return status == FoodMenuMonthStatus.Published ? "success" : "draft";
+        }
+
         private static bool IsAllowedSliderImage(IFormFile file)
         {
             var extension = System.IO.Path.GetExtension(file.FileName);
@@ -651,6 +1118,12 @@ namespace MEC.Portal.Controllers
                    extension.Equals(".gif", StringComparison.OrdinalIgnoreCase) ||
                    extension.Equals(".bmp", StringComparison.OrdinalIgnoreCase) ||
                    extension.Equals(".webp", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsAllowedPdf(IFormFile file)
+        {
+            var extension = System.IO.Path.GetExtension(file.FileName);
+            return extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

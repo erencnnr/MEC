@@ -1,0 +1,164 @@
+@using System.Globalization
+@model MEC.Portal.Models.FoodListViewModel
+
+@{
+    ViewData["Title"] = "Yemek Menüsü";
+    var selectedDayLabel = Model.SelectedDay?.MenuDate.ToString("dd MMMM yyyy dddd", new CultureInfo("tr-TR")) ?? string.Empty;
+}
+
+<section class="food-list-page">
+    <div class="food-list-shell">
+        <div class="food-list-hero">
+            <div>
+                <span class="food-list-hero__eyebrow">Aylık yemek planı</span>
+                <h1>Yemek Menüsü</h1>
+                <p>İstediğiniz ayı ve günü seçerek günlük menüyü inceleyin veya yüklenen PDF sayfasını doğrudan görüntüleyin.</p>
+            </div>
+        </div>
+
+        @if (!Model.Months.Any())
+        {
+            <div class="home-empty-state food-list-empty-state">
+                <h3>Henüz yayınlanmış yemek menüsü yok.</h3>
+                <p>Yönetim panelinden ilk aylık menü yayınlandığında burada görünecek.</p>
+            </div>
+        }
+        else
+        {
+            <div class="food-list-toolbar">
+                <form method="get" class="food-list-toolbar__form">
+                    <label for="foodListMonthId">Ay seçin</label>
+                    <select id="foodListMonthId" name="monthId" onchange="this.form.submit()">
+                        @foreach (var month in Model.Months)
+                        {
+                            if (month.Id == Model.SelectedMonthId)
+                            {
+                                <option value="@month.Id" selected="selected">@month.Label</option>
+                            }
+                            else
+                            {
+                                <option value="@month.Id">@month.Label</option>
+                            }
+                        }
+                    </select>
+                </form>
+
+                <div class="food-list-toolbar__meta">
+                    <strong>@Model.SelectedMonthLabel</strong>
+                    @if (!string.IsNullOrWhiteSpace(Model.PdfPreviewUrl))
+                    {
+                        <a href="@Model.PdfPreviewUrl" target="_blank" rel="noopener">PDF'yi Yeni Sekmede Aç</a>
+                    }
+                </div>
+            </div>
+
+            <div class="food-list-day-pills">
+                @foreach (var day in Model.Days)
+                {
+                    <a class="food-list-day-pill @(day.IsSelected ? "is-selected" : string.Empty)"
+                       asp-controller="FoodList"
+                       asp-action="Index"
+                       asp-route-monthId="@Model.SelectedMonthId"
+                       asp-route-date="@day.QueryValue">
+                        @day.Label
+                    </a>
+                }
+            </div>
+
+            <div class="food-list-content">
+                <section class="food-list-menu-card">
+                    <div class="food-list-menu-card__head">
+                        <span class="food-list-hero__eyebrow">Günlük menü</span>
+                        <h2>@(string.IsNullOrWhiteSpace(selectedDayLabel) ? "Gün seçin" : selectedDayLabel)</h2>
+                    </div>
+
+                    @if (Model.SelectedDay == null || !Model.SelectedDay.MenuItems.Any())
+                    {
+                        <div class="home-empty-state home-empty-state--compact">
+                            <h3>Bu gün için menü bulunamadı.</h3>
+                            <p>Başka bir gün seçebilir veya yönetim panelinden taslağı kontrol edebilirsiniz.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <ul class="food-list-menu-items">
+                            @foreach (var item in Model.SelectedDay.MenuItems)
+                            {
+                                <li>@item</li>
+                            }
+                        </ul>
+                    }
+                </section>
+
+                <section class="food-list-preview-card">
+                    <div class="food-list-preview-card__head">
+                        <span class="food-list-hero__eyebrow">PDF önizleme</span>
+                        <h2>@(string.IsNullOrWhiteSpace(Model.PdfFileName) ? "Önizleme" : Model.PdfFileName)</h2>
+                    </div>
+
+                    @if (string.IsNullOrWhiteSpace(Model.PdfPreviewUrl))
+                    {
+                        <div class="home-empty-state home-empty-state--compact">
+                            <h3>PDF önizlemesi hazır değil.</h3>
+                            <p>Seçili ay için yüklenmiş PDF bulunamadı.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="food-list-preview-surface">
+                            <canvas id="foodListPdfCanvas"
+                                    data-pdf-url="@Model.PdfPreviewUrl"
+                                    data-page-number="@Model.SelectedDay?.PreviewPageNumber"></canvas>
+                            <div id="foodListPdfStatus" class="food-list-preview-surface__status">PDF sayfası yükleniyor...</div>
+                        </div>
+                    }
+                </section>
+            </div>
+        }
+    </div>
+</section>
+
+@section Scripts
+{
+    @if (!string.IsNullOrWhiteSpace(Model.PdfPreviewUrl))
+    {
+        <script type="module">
+            import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs";
+
+            pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
+
+            const canvas = document.getElementById("foodListPdfCanvas");
+            const status = document.getElementById("foodListPdfStatus");
+
+            if (canvas && status) {
+                const pdfUrl = canvas.dataset.pdfUrl;
+                const requestedPage = Number(canvas.dataset.pageNumber || "1");
+
+                const renderPdfPage = async () => {
+                    try {
+                        const loadingTask = pdfjsLib.getDocument({ url: pdfUrl, withCredentials: true });
+                        const pdf = await loadingTask.promise;
+                        const safePageNumber = Math.min(Math.max(requestedPage, 1), pdf.numPages);
+                        const page = await pdf.getPage(safePageNumber);
+                        const viewport = page.getViewport({ scale: 1.2 });
+                        const context = canvas.getContext("2d");
+
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+
+                        await page.render({
+                            canvasContext: context,
+                            viewport: viewport
+                        }).promise;
+
+                        status.textContent = "PDF sayfa " + safePageNumber + " gösteriliyor.";
+                    } catch (error) {
+                        status.textContent = "PDF önizlemesi yüklenemedi. PDF bağlantısını yeni sekmede açabilirsiniz.";
+                    }
+                };
+
+                renderPdfPage();
+            }
+        </script>
+    }
+}

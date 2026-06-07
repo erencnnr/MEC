@@ -1,0 +1,86 @@
+@using System.Globalization
+@model MEC.Portal.Models.AdminBirthdayPopupViewModel
+
+@{
+    ViewData["Title"] = "Doğum Günü Popup";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<section class="leave-history-page admin-slider-page">
+    <div class="leave-history-shell">
+        <div class="leave-history-topbar">
+            <div>
+                <span class="leave-history-topbar__eyebrow">Yönetici işlemleri</span>
+                <h1>Doğum Günü Popup</h1>
+                <p>Doğum günü olan kullanıcılara ana sayfada gösterilecek tekil popup görselini yönetin.</p>
+            </div>
+        </div>
+
+        @if (TempData["BirthdayPopupSuccess"] is string successMessage && !string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="admin-slider-alert admin-slider-alert--success">@successMessage</div>
+        }
+
+        @if (TempData["BirthdayPopupError"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="admin-slider-alert admin-slider-alert--error">@errorMessage</div>
+        }
+
+        <div class="admin-slider-upload-card">
+            <div class="admin-slider-upload-card__content">
+                <div>
+                    <span class="admin-slider-upload-card__eyebrow">Görsel Yükleme</span>
+                    <h2>Popup görselini güncelleyin</h2>
+                    <p>Yeni yüklenen görsel mevcut popup görselinin yerini alır. Kullanıcılar bu görseli doğum günlerinde yılda bir kez görür.</p>
+                </div>
+
+                <form asp-controller="Admin" asp-action="UploadBirthdayPopupImage" method="post" enctype="multipart/form-data" class="admin-slider-upload-form">
+                    @Html.AntiForgeryToken()
+                    <div class="admin-slider-upload-form__field">
+                        <label for="birthdayPopupFile">Popup Görseli</label>
+                        <input id="birthdayPopupFile" name="file" type="file" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp,image/*" />
+                    </div>
+                    <button type="submit" class="leave-history-topbar__action">Görseli Kaydet</button>
+                </form>
+            </div>
+        </div>
+
+        @if (Model.Item == null)
+        {
+            <div class="leave-history-empty admin-slider-empty">
+                <h2>Popup görseli bulunmuyor</h2>
+                <p>Bir görsel yüklendiğinde yalnızca doğum günü olan ve popup'ı o yıl henüz görmemiş kullanıcılar için gösterilir.</p>
+            </div>
+        }
+        else
+        {
+            <div class="leave-history-table-card admin-slider-board">
+                <div class="leave-history-table-card__meta">
+                    <span>1 aktif görsel</span>
+                    <span>Yeni yükleme mevcut görseli değiştirir</span>
+                </div>
+
+                <article class="admin-slider-card">
+                    <div class="admin-slider-card__preview">
+                        <img src="@Model.Item.ImageUrl" alt="@Model.Item.OriginalFileName" />
+                        <span class="admin-slider-card__order">Aktif görsel</span>
+                    </div>
+
+                    <div class="admin-slider-card__body">
+                        <div class="admin-slider-card__meta">
+                            <strong>@Model.Item.OriginalFileName</strong>
+                            <span>@(Model.Item.CreatedDate?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-")</span>
+                        </div>
+
+                        <div class="admin-slider-card__actions">
+                            <form asp-controller="Admin" asp-action="DeleteBirthdayPopupImage" asp-route-id="@Model.Item.Id" method="post">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="admin-slider-card__delete">Sil</button>
+                            </form>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        }
+    </div>
+</section>

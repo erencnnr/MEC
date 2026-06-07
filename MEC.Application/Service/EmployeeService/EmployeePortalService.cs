@@ -12,25 +12,28 @@ namespace MEC.Application.Service.EmployeeService
     public class EmployeePortalService : IEmployeePortalService
     {
         private readonly IGenericRepository<EmployeePortal> _repository;
+        private readonly IGenericRepository<Location> _locationRepository;
         private readonly IGenericRepository<Leave> _leaveRepository;
 
         public EmployeePortalService(
             IGenericRepository<EmployeePortal> repository,
+            IGenericRepository<Location> locationRepository,
             IGenericRepository<Leave> leaveRepository)
         {
             _repository = repository;
+            _locationRepository = locationRepository;
             _leaveRepository = leaveRepository;
         }
 
         public async Task<EmployeePortal> GetProfileByEmailAsync(string email)
         {
-            var results = await _repository.GetAllAsync(x => x.Email == email && !x.IsDeleted);
+            var results = await _repository.GetAllAsync(x => x.Email == email && !x.IsDeleted, x => x.Location!);
             return results.FirstOrDefault();
         }
 
         public async Task<List<EmployeePortal>> GetActivePortalUsersAsync()
         {
-            return (await _repository.GetAllAsync(x => !x.IsDeleted))
+            return (await _repository.GetAllAsync(x => !x.IsDeleted, x => x.Location!))
                 .OrderBy(x => x.FirstName)
                 .ThenBy(x => x.LastName)
                 .ThenBy(x => x.Email)
@@ -44,7 +47,7 @@ namespace MEC.Application.Service.EmployeeService
                 return null;
             }
 
-            return (await _repository.GetAllAsync(x => !x.IsDeleted && x.Email == email)).FirstOrDefault();
+            return (await _repository.GetAllAsync(x => !x.IsDeleted && x.Email == email, x => x.Location!)).FirstOrDefault();
         }
 
         public async Task<ProfileSummaryModel> GetProfileSummaryByEmailAsync(string email)
@@ -86,7 +89,7 @@ namespace MEC.Application.Service.EmployeeService
             var currentPage = query.Page < 1 ? 1 : query.Page;
             var pageSize = query.PageSize <= 0 ? 10 : query.PageSize;
 
-            var portalUsers = (await _repository.GetAllAsync())
+            var portalUsers = (await _repository.GetAllAsync(null, x => x.Location!))
                 .Where(x => normalizedStatus == "passive" ? x.IsDeleted : !x.IsDeleted)
                 .OrderBy(x => x.FirstName)
                 .ThenBy(x => x.LastName)
@@ -114,7 +117,7 @@ namespace MEC.Application.Service.EmployeeService
 
         public async Task<PortalUserEditModel?> GetPortalUserEditAsync(int id)
         {
-            var portalUser = await _repository.GetByIdAsync(id);
+            var portalUser = (await _repository.GetAllAsync(x => x.Id == id, x => x.Location!)).FirstOrDefault();
             return portalUser == null ? null : MapPortalUserEditModel(portalUser);
         }
 
@@ -130,8 +133,10 @@ namespace MEC.Application.Service.EmployeeService
             portalUser.LastName = model.LastName.Trim();
             portalUser.Email = model.Email.Trim();
             portalUser.PhoneNumber = model.PhoneNumber.Trim();
+            portalUser.Title = model.Title.Trim();
             portalUser.HireDate = model.HireDate;
             portalUser.BirthDate = model.BirthDate;
+            portalUser.LocationId = model.LocationId;
             portalUser.LeaveDays = model.LeaveDays;
             portalUser.IsAdmin = model.IsAdmin;
             portalUser.IsDeleted = model.IsDeleted;
@@ -139,6 +144,19 @@ namespace MEC.Application.Service.EmployeeService
 
             _repository.Update(portalUser);
             return OperationResultModel.Success("Portal kullanıcısı güncellendi.");
+        }
+
+        public async Task<List<LocationOptionModel>> GetLocationOptionsAsync()
+        {
+            return (await _locationRepository.GetAllAsync())
+                .OrderBy(x => x.Name)
+                .ThenBy(x => x.Id)
+                .Select(x => new LocationOptionModel
+                {
+                    Id = x.Id,
+                    Name = x.Name
+                })
+                .ToList();
         }
 
         private static bool IsAnnualLeave(Leave leave)
@@ -178,6 +196,9 @@ namespace MEC.Application.Service.EmployeeService
                 FullName = BuildPortalName(portalUser),
                 Email = portalUser.Email,
                 PhoneNumber = portalUser.PhoneNumber,
+                Title = portalUser.Title,
+                LocationId = portalUser.LocationId,
+                LocationName = portalUser.Location?.Name ?? string.Empty,
                 LeaveDays = portalUser.LeaveDays,
                 HireDate = portalUser.HireDate,
                 IsAdmin = portalUser.IsAdmin,
@@ -194,8 +215,10 @@ namespace MEC.Application.Service.EmployeeService
                 LastName = portalUser.LastName,
                 Email = portalUser.Email,
                 PhoneNumber = portalUser.PhoneNumber,
+                Title = portalUser.Title,
                 HireDate = portalUser.HireDate,
                 BirthDate = portalUser.BirthDate,
+                LocationId = portalUser.LocationId,
                 LeaveDays = portalUser.LeaveDays,
                 IsAdmin = portalUser.IsAdmin,
                 IsDeleted = portalUser.IsDeleted

@@ -13,6 +13,8 @@
     var employees = Model?.Employees?.OrderBy(x => x.FullName).ThenBy(x => x.Email).ToList()
         ?? new List<MEC.Portal.Models.HomeEmployeeDirectoryItemViewModel>();
     var sliderItems = Model?.SliderItems ?? new List<MEC.Portal.Models.HomeSliderItemViewModel>();
+    var showBirthdayPopup = Model?.ShowBirthdayPopup == true && !string.IsNullOrWhiteSpace(Model.BirthdayPopupImageUrl);
+    var birthdayPopupImageUrl = Model?.BirthdayPopupImageUrl ?? string.Empty;
 
     string GetDay(DateTime? value) => value?.ToString("dd") ?? "--";
     string GetMonth(DateTime? value) => value?.ToString("MMM").ToUpperInvariant() ?? "---";
@@ -29,6 +31,23 @@
         plainText = Regex.Replace(plainText, @"\s+", " ").Trim();
         return plainText.Length > 140 ? $"{plainText[..140]}..." : plainText;
     }
+}
+
+@if (showBirthdayPopup)
+{
+    <div class="modal fade" id="birthdayPopupModal" tabindex="-1" aria-labelledby="birthdayPopupModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content birthday-popup-modal">
+                <div class="modal-header birthday-popup-modal__header">
+                    <h2 class="modal-title birthday-popup-modal__title" id="birthdayPopupModalTitle">İyi ki doğdunuz</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                </div>
+                <div class="modal-body birthday-popup-modal__body">
+                    <img src="@birthdayPopupImageUrl" class="birthday-popup-modal__image" alt="Doğum günü kutlama görseli" />
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
 <section class="home-page">
@@ -53,7 +72,7 @@
                     {
                         var item = sliderItems[index];
                         <div class="carousel-item home-slider__item @(index == 0 ? "active" : string.Empty)">
-                            <img src="@item.ImageUrl" class="d-block w-100 home-slider__image" alt="Slider görseli @(index + 1)" />
+                            <img src="@item.ImageUrl" class="d-block w-100 home-slider__image" alt="Slider g&#246;rseli @(index + 1)" />
                         </div>
                     }
                 </div>
@@ -62,7 +81,7 @@
                 {
                     <button class="carousel-control-prev home-slider__control" type="button" data-bs-target="#homeSliderCarousel" data-bs-slide="prev">
                         <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                        <span class="visually-hidden">Önceki</span>
+                        <span class="visually-hidden">&#214;nceki</span>
                     </button>
                     <button class="carousel-control-next home-slider__control" type="button" data-bs-target="#homeSliderCarousel" data-bs-slide="next">
                         <span class="carousel-control-next-icon" aria-hidden="true"></span>
@@ -72,55 +91,6 @@
             </div>
         </section>
     }
-
-    <section class="home-hero">
-        <div class="home-hero__content">
-            <span class="home-hero__eyebrow">MEC okul portalı</span>
-            <h1>Duyuru ve izinleri portaldan takip edin.</h1>
-
-            <div class="home-hero__actions">
-                <a class="home-btn home-btn--primary" asp-controller="Leave" asp-action="RequestLeave">İzin talep et</a>
-                <a class="home-btn home-btn--secondary" asp-controller="Home" asp-action="Announcements">Tüm duyurular</a>
-            </div>
-        </div>
-
-        <aside class="home-hero__aside">
-            <div class="home-summary-card">
-                <span class="home-summary-card__label">Hızlı erişim</span>
-                <div class="home-quick-links">
-                    <a class="home-quick-link" asp-controller="Leave" asp-action="RequestLeave">
-                        <span class="home-quick-link__icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M8 3.75h6.5l4.75 4.75V20a1.25 1.25 0 0 1-1.25 1.25h-10.5A1.25 1.25 0 0 1 6.25 20V5A1.25 1.25 0 0 1 7.5 3.75h.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
-                                <path d="M14.5 3.75V8.5h4.75" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
-                                <path d="M9 12h6M9 15.5h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
-                            </svg>
-                        </span>
-                        <span>İzin Talebi Oluştur</span>
-                    </a>
-                    <a class="home-quick-link" asp-controller="Overtime" asp-action="Request">
-                        <span class="home-quick-link__icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <circle cx="12" cy="12" r="8.25" stroke="currentColor" stroke-width="1.7" />
-                                <path d="M12 7.75V12l3 2.25" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                            </svg>
-                        </span>
-                        <span>Mesai Girişi</span>
-                    </a>
-                    <a class="home-quick-link" asp-controller="Library" asp-action="Index">
-                        <span class="home-quick-link__icon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M4.25 6.5A2.25 2.25 0 0 1 6.5 4.25h11.25v14.5H6.5A2.25 2.25 0 0 0 4.25 21V6.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
-                                <path d="M17.75 4.25V18.75" stroke="currentColor" stroke-width="1.7" />
-                                <path d="M6.75 7.75h7.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
-                            </svg>
-                        </span>
-                        <span>Kütüphane</span>
-                    </a>
-                </div>
-            </div>
-        </aside>
-    </section>
 
     <section class="home-announcements">
         <div class="home-section-head home-section-head--spaced">
@@ -132,8 +102,8 @@
         <div class="home-dual-feed">
             <section class="home-feed-column">
                 <div class="home-feed-column__head">
-                    <span class="home-feed-column__label">Son duyurular</span>
-                    <a class="home-link-pill" asp-controller="Home" asp-action="Announcements">Tümünü gör</a>
+                    <span class="home-feed-column__label">Son Duyurular</span>
+                    <a class="home-link-pill" asp-controller="Home" asp-action="Announcements">T&#252;m&#252;n&#252; g&#246;r</a>
                 </div>
 
                 @if (announcements.Any())
@@ -162,16 +132,16 @@
                 else
                 {
                     <div class="home-empty-state home-empty-state--compact">
-                        <h3>Henüz duyuru yok.</h3>
-                        <p>Yeni duyurular yayımlandığında burada listelenecek.</p>
+                        <h3>Hen&#252;z duyuru yok.</h3>
+                        <p>Yeni duyurular yay&#305;nland&#305;&#287;&#305;nda burada listelenecek.</p>
                     </div>
                 }
             </section>
 
             <section class="home-feed-column">
                 <div class="home-feed-column__head">
-                    <span class="home-feed-column__label">Son haberler</span>
-                    <a class="home-link-pill" asp-controller="Home" asp-action="News">Tümünü gör</a>
+                    <span class="home-feed-column__label">Son Haberler</span>
+                    <a class="home-link-pill" asp-controller="Home" asp-action="News">T&#252;m&#252;n&#252; g&#246;r</a>
                 </div>
 
                 @if (news.Any())
@@ -200,19 +170,68 @@
                 else
                 {
                     <div class="home-empty-state home-empty-state--compact">
-                        <h3>Henüz haber yok.</h3>
-                        <p>Yeni haberler yayımlandığında burada listelenecek.</p>
+                        <h3>Hen&#252;z haber yok.</h3>
+                        <p>Yeni haberler yay&#305;nland&#305;&#287;&#305;nda burada listelenecek.</p>
                     </div>
                 }
             </section>
         </div>
     </section>
 
+    <section class="home-hero">
+        <div class="home-hero__content">
+            <span class="home-hero__eyebrow">MEC okul portal&#305;</span>
+            <h1>Duyuru ve izinleri portaldan takip edin.</h1>
+
+            <div class="home-hero__actions">
+                <a class="home-btn home-btn--primary" asp-controller="Leave" asp-action="RequestLeave">&#304;zin talep et</a>
+                <a class="home-btn home-btn--secondary" asp-controller="Home" asp-action="Announcements">T&#252;m duyurular</a>
+            </div>
+        </div>
+
+        <aside class="home-hero__aside">
+            <div class="home-summary-card">
+                <span class="home-summary-card__label">H&#305;zl&#305; eri&#351;im</span>
+                <div class="home-quick-links">
+                    <a class="home-quick-link" asp-controller="Leave" asp-action="RequestLeave">
+                        <span class="home-quick-link__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M8 3.75h6.5l4.75 4.75V20a1.25 1.25 0 0 1-1.25 1.25h-10.5A1.25 1.25 0 0 1 6.25 20V5A1.25 1.25 0 0 1 7.5 3.75h.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                                <path d="M14.5 3.75V8.5h4.75" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                                <path d="M9 12h6M9 15.5h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                            </svg>
+                        </span>
+                        <span>&#304;zin Talebi Olu&#351;tur</span>
+                    </a>
+                    <a class="home-quick-link" asp-controller="Overtime" asp-action="Request">
+                        <span class="home-quick-link__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="8.25" stroke="currentColor" stroke-width="1.7" />
+                                <path d="M12 7.75V12l3 2.25" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </span>
+                        <span>Mesai Giri&#351;i</span>
+                    </a>
+                    <a class="home-quick-link" asp-controller="Library" asp-action="Index">
+                        <span class="home-quick-link__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M4.25 6.5A2.25 2.25 0 0 1 6.5 4.25h11.25v14.5H6.5A2.25 2.25 0 0 0 4.25 21V6.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                                <path d="M17.75 4.25V18.75" stroke="currentColor" stroke-width="1.7" />
+                                <path d="M6.75 7.75h7.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                            </svg>
+                        </span>
+                        <span>K&#252;t&#252;phane</span>
+                    </a>
+                </div>
+            </div>
+        </aside>
+    </section>
+
     <section class="home-directory">
         <div class="home-section-head home-section-head--spaced">
             <div>
-                <span class="home-section-head__eyebrow">Çalışan dizini</span>
-                <h2>Çalışanları Ara</h2>
+                <span class="home-section-head__eyebrow">&#199;al&#305;&#351;an dizini</span>
+                <h2>&#199;al&#305;&#351;anlar&#305; Ara</h2>
             </div>
         </div>
 
@@ -224,7 +243,7 @@
                            class="inventory-search__input"
                            placeholder="Ad, soyad, email, telefon..."
                            autocomplete="off" />
-                    <button type="button" id="homeEmployeeSearchButton" class="inventory-search__button inventory-search__button--icon" aria-label="Çalışan ara">
+                    <button type="button" id="homeEmployeeSearchButton" class="inventory-search__button inventory-search__button--icon" aria-label="&#199;alışan ara">
                         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                             <circle cx="11" cy="11" r="6.75" stroke="currentColor" stroke-width="1.8"></circle>
                             <path d="M16 16L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
@@ -233,7 +252,7 @@
                 </div>
             </div>
 
-            <p class="home-directory__count"><span id="homeEmployeeDirectoryCount">0</span> çalışan listeleniyor</p>
+            <p class="home-directory__count"><span id="homeEmployeeDirectoryCount">0</span> &#231;al&#305;&#351;an listeleniyor</p>
 
             <div id="homeEmployeeDirectoryGrid" class="home-directory__grid">
                 @foreach (var employee in employees)
@@ -250,8 +269,8 @@
             </div>
 
             <div id="homeEmployeeDirectoryEmpty" class="home-empty-state home-empty-state--compact home-directory__empty" hidden>
-                <h3>Eşleşen çalışan bulunamadı.</h3>
-                <p>Arama ifadesini değiştirerek tekrar deneyin.</p>
+                <h3>E&#351;le&#351;en &#231;al&#305;&#351;an bulunamad&#305;.</h3>
+                <p>Arama ifadesini de&#287;i&#351;tirerek tekrar deneyin.</p>
             </div>
         </div>
     </section>
@@ -266,39 +285,52 @@
             const cards = Array.from(document.querySelectorAll("[data-employee-card='true']"));
             const count = document.getElementById("homeEmployeeDirectoryCount");
             const emptyState = document.getElementById("homeEmployeeDirectoryEmpty");
+            const birthdayPopupModalElement = document.getElementById("birthdayPopupModal");
 
-            if (!searchInput || !searchButton || !count || !emptyState) {
-                return;
+            if (birthdayPopupModalElement && window.bootstrap && window.bootstrap.Modal) {
+                const birthdayPopupModal = window.bootstrap.Modal.getOrCreateInstance(birthdayPopupModalElement);
+                birthdayPopupModal.show();
+
+                fetch("/Home/BirthdayPopup/Seen", {
+                    method: "POST",
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest"
+                    }
+                }).catch(function () {
+                    return null;
+                });
             }
 
-            const filterEmployees = () => {
-                const searchTerm = searchInput.value.trim().toLowerCase();
-                let visibleCount = 0;
-                const hasSearch = searchTerm.length > 0;
+            if (searchInput && searchButton && count && emptyState) {
+                const filterEmployees = () => {
+                    const searchTerm = searchInput.value.trim().toLowerCase();
+                    let visibleCount = 0;
+                    const hasSearch = searchTerm.length > 0;
 
-                cards.forEach(card => {
-                    const haystack = card.dataset.search || "";
-                    const isVisible = hasSearch && haystack.includes(searchTerm);
-                    card.hidden = !isVisible;
+                    cards.forEach(card => {
+                        const haystack = card.dataset.search || "";
+                        const isVisible = hasSearch && haystack.includes(searchTerm);
+                        card.hidden = !isVisible;
 
-                    if (isVisible) {
-                        visibleCount += 1;
+                        if (isVisible) {
+                            visibleCount += 1;
+                        }
+                    });
+
+                    count.textContent = visibleCount.toString();
+                    emptyState.hidden = !hasSearch || visibleCount !== 0;
+                };
+
+                searchInput.addEventListener("input", filterEmployees);
+                searchInput.addEventListener("keydown", function (event) {
+                    if (event.key === "Enter") {
+                        event.preventDefault();
+                        filterEmployees();
                     }
                 });
-
-                count.textContent = visibleCount.toString();
-                emptyState.hidden = !hasSearch || visibleCount !== 0;
-            };
-
-            searchInput.addEventListener("input", filterEmployees);
-            searchInput.addEventListener("keydown", function (event) {
-                if (event.key === "Enter") {
-                    event.preventDefault();
-                    filterEmployees();
-                }
-            });
-            searchButton.addEventListener("click", filterEmployees);
-            filterEmployees();
+                searchButton.addEventListener("click", filterEmployees);
+                filterEmployees();
+            }
         });
     </script>
 }

@@ -1,6 +1,7 @@
 using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.SchoolService;
 using MEC.Domain.Common.Enum;
+using MEC.Domain.Entity.Employee;
 using MEC.Portal.Models;
 using MEC.Portal.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -16,19 +17,25 @@ namespace MEC.Portal.Controllers
         private readonly IEmployeePortalService _employeePortalService;
         private readonly ISliderService _sliderService;
         private readonly ISliderImageApiClient _sliderImageApiClient;
+        private readonly IBirthdayPopupService _birthdayPopupService;
+        private readonly IBirthdayPopupImageApiClient _birthdayPopupImageApiClient;
 
         public HomeController(
             ILogger<HomeController> logger,
             IAnnouncementService announcementService,
             IEmployeePortalService employeePortalService,
             ISliderService sliderService,
-            ISliderImageApiClient sliderImageApiClient)
+            ISliderImageApiClient sliderImageApiClient,
+            IBirthdayPopupService birthdayPopupService,
+            IBirthdayPopupImageApiClient birthdayPopupImageApiClient)
         {
             _logger = logger;
             _announcementService = announcementService;
             _employeePortalService = employeePortalService;
             _sliderService = sliderService;
             _sliderImageApiClient = sliderImageApiClient;
+            _birthdayPopupService = birthdayPopupService;
+            _birthdayPopupImageApiClient = birthdayPopupImageApiClient;
         }
 
         public async Task<IActionResult> Index()
@@ -61,13 +68,38 @@ namespace MEC.Portal.Controllers
                 })
                 .ToList();
 
+            var birthdayPopup = await BuildBirthdayPopupAsync();
+
             return View(new HomeIndexViewModel
             {
                 Announcements = activeAnnouncements,
                 News = activeNews,
                 Employees = employees,
-                SliderItems = sliderItems
+                SliderItems = sliderItems,
+                ShowBirthdayPopup = birthdayPopup.ShouldShow,
+                BirthdayPopupImageUrl = birthdayPopup.ImageUrl
             });
+        }
+
+        [HttpPost("/Home/BirthdayPopup/Seen")]
+        public async Task<IActionResult> MarkBirthdayPopupSeen()
+        {
+            var portalUser = await GetCurrentPortalUserAsync();
+            if (portalUser == null || !IsBirthdayToday(portalUser.BirthDate))
+            {
+                return BadRequest(new { message = "Aktif doğum günü popup kaydı oluşturulamadı." });
+            }
+
+            var activeImage = await _birthdayPopupService.GetActiveBirthdayPopupImageAsync();
+            if (activeImage == null)
+            {
+                return BadRequest(new { message = "Aktif doğum günü popup görseli bulunamadı." });
+            }
+
+            var result = await _birthdayPopupService.MarkBirthdayPopupAsSeenAsync(portalUser.Id, DateTime.Today.Year);
+            return result.IsSuccess
+                ? Ok(new { message = "ok" })
+                : BadRequest(new { message = result.Message });
         }
 
         public IActionResult Privacy()
@@ -95,6 +127,51 @@ namespace MEC.Portal.Controllers
             var activeNews = await _announcementService.GetActiveAnnouncementsAsync(AnnouncementContentType.News);
             var sortedNews = activeNews.OrderByDescending(x => x.CreatedDate).ToList();
             return View(sortedNews);
+        }
+
+        private async Task<(bool ShouldShow, string ImageUrl)> BuildBirthdayPopupAsync()
+        {
+            var portalUser = await GetCurrentPortalUserAsync();
+            if (portalUser == null || !IsBirthdayToday(portalUser.BirthDate))
+            {
+                return (false, string.Empty);
+            }
+
+            var activeImage = await _birthdayPopupService.GetActiveBirthdayPopupImageAsync();
+            if (activeImage == null)
+            {
+                return (false, string.Empty);
+            }
+
+            var hasSeenThisYear = await _birthdayPopupService.HasSeenBirthdayPopupAsync(portalUser.Id, DateTime.Today.Year);
+            if (hasSeenThisYear)
+            {
+                return (false, string.Empty);
+            }
+
+            return (true, _birthdayPopupImageApiClient.GetFileUrl(activeImage.FileName));
+        }
+
+        private async Task<EmployeePortal?> GetCurrentPortalUserAsync()
+        {
+            var email = User.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return null;
+            }
+
+            return await _employeePortalService.GetActivePortalUserByEmailAsync(email);
+        }
+
+        private static bool IsBirthdayToday(DateTime birthDate)
+        {
+            if (birthDate.Year <= 1000)
+            {
+                return false;
+            }
+
+            var today = DateTime.Today;
+            return birthDate.Month == today.Month && birthDate.Day == today.Day;
         }
     }
 }

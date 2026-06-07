@@ -11,11 +11,18 @@ namespace MEC.Domain.Entity.Employee
         public string LastName { get; set; }        // Soyad
         public string PhoneNumber { get; set; }     // Telefon
         public string Email { get; set; }           // Mail (Giriş yapılan mail ile eşleşecek)
+        
+        public string Title { get; set; } = string.Empty;
         public DateTime HireDate { get; set; }      // İşe Giriş Tarihi
         public DateTime BirthDate { get; set; }     // Doğum Günü
+        
+        public int? LocationId { get; set; }
         [Column(TypeName = "decimal(10,2)")]
         public decimal LeaveDays { get; set; }      // İzin Gün Sayısı
         public bool IsAdmin { get; set; }
         public bool IsDeleted { get; set; }
+
+        [ForeignKey(nameof(LocationId))]
+        public Location? Location { get; set; }
     }
 }

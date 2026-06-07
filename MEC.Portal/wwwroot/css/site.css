@@ -376,6 +376,352 @@ body {
     color: #123966;
 }
 
+.admin-food-menu-layout,
+.food-list-content {
+    display: grid;
+    gap: 22px;
+}
+
+.admin-food-menu-layout {
+    grid-template-columns: 320px minmax(0, 1fr);
+    align-items: start;
+}
+
+.admin-food-menu-sidebar__card,
+.admin-food-menu-editor__card,
+.food-list-menu-card,
+.food-list-preview-card,
+.food-list-toolbar {
+    border: 1px solid rgba(18, 57, 102, 0.08);
+    border-radius: 26px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    box-shadow: 0 18px 38px rgba(17, 41, 71, 0.06);
+}
+
+.admin-food-menu-sidebar__card,
+.admin-food-menu-editor__card,
+.food-list-menu-card,
+.food-list-preview-card {
+    padding: 22px;
+}
+
+.admin-food-menu-month-list {
+    display: grid;
+    gap: 12px;
+}
+
+.admin-food-menu-month-card {
+    display: block;
+    padding: 16px 18px;
+    border: 1px solid rgba(18, 57, 102, 0.08);
+    border-radius: 18px;
+    background: #ffffff;
+    color: #123966;
+    text-decoration: none;
+    transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.admin-food-menu-month-card:hover {
+    color: #123966;
+    transform: translateY(-1px);
+    border-color: rgba(18, 57, 102, 0.18);
+    box-shadow: 0 12px 26px rgba(18, 57, 102, 0.08);
+}
+
+.admin-food-menu-month-card.is-selected {
+    border-color: rgba(18, 57, 102, 0.28);
+    background: linear-gradient(135deg, rgba(18, 57, 102, 0.06), rgba(126, 202, 255, 0.14));
+}
+
+.admin-food-menu-month-card__head,
+.admin-food-menu-editor__head,
+.food-list-toolbar,
+.food-list-preview-card__head,
+.food-list-menu-card__head {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.admin-food-menu-month-card__meta,
+.admin-food-menu-editor__meta {
+    display: grid;
+    gap: 6px;
+    color: #5e7892;
+    font-size: 0.92rem;
+}
+
+.admin-food-menu-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.admin-food-menu-status--success {
+    background: rgba(43, 135, 89, 0.14);
+    color: #216845;
+}
+
+.admin-food-menu-status--draft {
+    background: rgba(18, 57, 102, 0.1);
+    color: #123966;
+}
+
+.admin-food-menu-alert--warning,
+.admin-food-menu-warning-panel {
+    border: 1px solid rgba(180, 117, 11, 0.2);
+    background: linear-gradient(180deg, #fff7e8 0%, #fffdf8 100%);
+    color: #8a5a09;
+}
+
+.admin-food-menu-import-form__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.admin-food-menu-import-form input,
+.admin-food-menu-import-form select,
+.admin-food-menu-days-table input,
+.admin-food-menu-days-table textarea,
+.food-list-toolbar__form select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid rgba(18, 57, 102, 0.12);
+    border-radius: 14px;
+    background: #ffffff;
+    color: #123966;
+}
+
+.admin-food-menu-days-table-wrap {
+    overflow-x: auto;
+}
+
+.admin-food-menu-days-table {
+    margin: 0;
+    vertical-align: middle;
+}
+
+.admin-food-menu-days-table th {
+    color: #5e7892;
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.admin-food-menu-days-table td {
+    min-width: 140px;
+}
+
+.admin-food-menu-days-table textarea {
+    min-height: 110px;
+    resize: vertical;
+}
+
+.admin-food-menu-days-table__date {
+    display: grid;
+    gap: 4px;
+}
+
+.admin-food-menu-days-table__date strong {
+    font-size: 1.2rem;
+    color: #102f58;
+}
+
+.admin-food-menu-editor__actions,
+.admin-food-menu-editor__footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.admin-food-menu-editor__actions {
+    margin-top: 18px;
+}
+
+.admin-food-menu-editor__footer-actions {
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(18, 57, 102, 0.08);
+}
+
+.admin-food-menu-warning-panel {
+    margin-bottom: 18px;
+    padding: 16px 18px;
+    border-radius: 18px;
+}
+
+.admin-food-menu-warning-panel strong {
+    display: block;
+    margin-bottom: 10px;
+}
+
+.admin-food-menu-warning-panel ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.food-list-page {
+    padding: 16px 0 32px;
+}
+
+.food-list-shell {
+    display: grid;
+    gap: 22px;
+}
+
+.food-list-hero,
+.food-list-toolbar {
+    padding: 24px 26px;
+}
+
+.food-list-hero {
+    border: 1px solid rgba(18, 57, 102, 0.08);
+    border-radius: 28px;
+    background:
+        radial-gradient(circle at top right, rgba(134, 205, 255, 0.22), transparent 28%),
+        linear-gradient(135deg, #fdfefe 0%, #eef6ff 100%);
+    box-shadow: 0 18px 38px rgba(17, 41, 71, 0.06);
+}
+
+.food-list-hero__eyebrow {
+    display: inline-block;
+    margin-bottom: 10px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(18, 57, 102, 0.08);
+    color: #1b4d83;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.food-list-hero h1,
+.food-list-menu-card h2,
+.food-list-preview-card h2 {
+    margin: 0 0 10px;
+    color: #102f58;
+}
+
+.food-list-hero p,
+.food-list-toolbar__meta,
+.food-list-preview-surface__status {
+    color: #5e7892;
+}
+
+.food-list-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.food-list-toolbar__form {
+    display: grid;
+    gap: 8px;
+}
+
+.food-list-toolbar__meta {
+    display: grid;
+    gap: 6px;
+    text-align: right;
+}
+
+.food-list-toolbar__meta a {
+    color: #123966;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.food-list-day-pills {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.food-list-day-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 14px;
+    border-radius: 999px;
+    background: rgba(18, 57, 102, 0.06);
+    color: #123966;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.food-list-day-pill.is-selected {
+    background: linear-gradient(135deg, #123966 0%, #245896 100%);
+    color: #ffffff;
+}
+
+.food-list-content {
+    grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+}
+
+.food-list-menu-items {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding-left: 18px;
+}
+
+.food-list-menu-items li {
+    color: #23486f;
+    line-height: 1.6;
+}
+
+.food-list-preview-surface {
+    display: grid;
+    gap: 14px;
+}
+
+.food-list-preview-surface canvas {
+    width: 100%;
+    max-width: 100%;
+    border: 1px solid rgba(18, 57, 102, 0.1);
+    border-radius: 18px;
+    background: #f7fbff;
+}
+
+.food-list-empty-state {
+    border: 1px solid rgba(18, 57, 102, 0.08);
+    border-radius: 26px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    box-shadow: 0 18px 38px rgba(17, 41, 71, 0.06);
+}
+
+@media (max-width: 1199.98px) {
+    .admin-food-menu-layout,
+    .food-list-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .admin-food-menu-import-form__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .food-list-toolbar,
+    .admin-food-menu-editor__head,
+    .food-list-preview-card__head,
+    .food-list-menu-card__head {
+        flex-direction: column;
+    }
+
+    .food-list-toolbar__meta {
+        text-align: left;
+    }
+}
+
 .dashboard-activity-list,
 .dashboard-announcement-list {
     display: flex;
@@ -482,6 +828,7 @@ body {
 .home-overview,
 .home-announcements {
     width: 100%;
+    margin-bottom: 24px;
 }
 
 .home-hero {
@@ -489,6 +836,8 @@ body {
     grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.85fr);
     gap: 24px;
     align-items: stretch;
+    margin-top: 28px;
+    clear: both;
 }
 
 .home-hero__content,
@@ -7158,4 +7507,34 @@ body.content-management-modal-open {
         flex-direction: column;
         align-items: stretch;
     }
+}
+
+.birthday-popup-modal {
+    border: 0;
+    border-radius: 28px;
+    overflow: hidden;
+    background: linear-gradient(180deg, #fff7ef 0%, #ffffff 100%);
+}
+
+.birthday-popup-modal__header {
+    border-bottom: 0;
+    padding: 20px 24px 0;
+}
+
+.birthday-popup-modal__title {
+    color: #b85c23;
+    font-size: 1.6rem;
+    font-weight: 800;
+}
+
+.birthday-popup-modal__body {
+    padding: 20px 24px 28px;
+}
+
+.birthday-popup-modal__image {
+    width: 100%;
+    max-height: 75vh;
+    object-fit: contain;
+    border-radius: 22px;
+    display: block;
 }

@@ -70,6 +70,8 @@ try
     builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
     builder.Services.AddScoped<ILibraryService, LibraryService>();
     builder.Services.AddScoped<ISliderService, SliderService>();
+    builder.Services.AddScoped<IBirthdayPopupService, BirthdayPopupService>();
+    builder.Services.AddScoped<IFoodMenuService, FoodMenuService>();
     builder.Services.AddScoped<IWorkflowNotificationService, SmtpWorkflowNotificationService>();
     builder.Services.AddScoped<ILeaveService, LeaveService>();
     builder.Services.AddScoped<IOvertimeService, OvertimeService>();
@@ -90,7 +92,9 @@ try
     builder.Services.AddHttpClient<IAnnouncementAttachmentApiClient, AnnouncementAttachmentApiClient>(ConfigureApiClient);
     builder.Services.AddHttpClient<IAnnouncementImageApiClient, AnnouncementImageApiClient>(ConfigureApiClient);
     builder.Services.AddHttpClient<ISliderImageApiClient, SliderImageApiClient>(ConfigureApiClient);
+    builder.Services.AddHttpClient<IBirthdayPopupImageApiClient, BirthdayPopupImageApiClient>(ConfigureApiClient);
     builder.Services.AddHttpClient<ILibraryAttachmentApiClient, LibraryAttachmentApiClient>(ConfigureApiClient);
+    builder.Services.AddHttpClient<IFoodMenuAttachmentApiClient, FoodMenuAttachmentApiClient>(ConfigureApiClient);
     builder.Services.AddHttpClient<IPortalUserSyncApiClient, PortalUserSyncApiClient>(ConfigureApiClient);
     builder.Services.AddHttpClient<IAssetImageApiClient, AssetImageApiClient>(ConfigureApiClient);
     builder.Services.AddHttpClient<IAssetAttachmentApiClient, AssetAttachmentApiClient>(ConfigureApiClient);

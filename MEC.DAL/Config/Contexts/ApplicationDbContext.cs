@@ -38,6 +38,7 @@ namespace MEC.DAL.Config.Contexts
         
         public DbSet<Employee> Employees { get; set; }
         public DbSet<EmployeeType> EmployeeTypes { get; set; }
+        public DbSet<Location> Locations { get; set; }
         public DbSet<EmployeePortal> EmployeePortals { get; set; }
         public DbSet<Announcement> Announcement { get; set; }
         public DbSet<AnnouncementAttachment> AnnouncementAttachments { get; set; }
@@ -45,6 +46,10 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<LibraryFolder> LibraryFolders { get; set; }
         public DbSet<LibraryDocument> LibraryDocuments { get; set; }
         public DbSet<SliderImage> SliderImages { get; set; }
+        public DbSet<BirthdayPopupImage> BirthdayPopupImages { get; set; }
+        public DbSet<BirthdayPopupView> BirthdayPopupViews { get; set; }
+        public DbSet<FoodMenuMonth> FoodMenuMonths { get; set; }
+        public DbSet<FoodMenuDay> FoodMenuDays { get; set; }
         public DbSet<ApiLog> ApiLogs { get; set; }
         public DbSet<UserActionLog> UserActionLogs { get; set; }
         public DbSet<LeaveType> LeaveTypes { get; set; }
@@ -79,6 +84,27 @@ namespace MEC.DAL.Config.Contexts
             modelBuilder.Entity<LeaveType>()
                 .HasIndex(x => x.Code)
                 .IsUnique();
+
+            modelBuilder.Entity<Location>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<Location>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<Location>()
+                .HasIndex(x => x.Name)
+                .IsUnique();
+
+            modelBuilder.Entity<EmployeePortal>()
+                .HasIndex(x => x.LocationId);
+
+            modelBuilder.Entity<EmployeePortal>()
+                .HasOne(x => x.Location)
+                .WithMany()
+                .HasForeignKey(x => x.LocationId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Holiday>()
                 .Property(x => x.CreatedDate)
@@ -198,6 +224,70 @@ namespace MEC.DAL.Config.Contexts
             modelBuilder.Entity<SliderImage>()
                 .Property(x => x.UpdateDate)
                 .HasColumnName("update_date");
+
+            modelBuilder.Entity<BirthdayPopupImage>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<BirthdayPopupImage>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<BirthdayPopupView>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<BirthdayPopupView>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<BirthdayPopupView>()
+                .HasIndex(x => new { x.EmployeePortalId, x.ShownYear })
+                .IsUnique();
+
+            modelBuilder.Entity<BirthdayPopupView>()
+                .HasOne(x => x.EmployeePortal)
+                .WithMany()
+                .HasForeignKey(x => x.EmployeePortalId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<FoodMenuMonth>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<FoodMenuMonth>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<FoodMenuMonth>()
+                .Property(x => x.ParseWarnings)
+                .HasColumnType("text");
+
+            modelBuilder.Entity<FoodMenuMonth>()
+                .HasIndex(x => new { x.Year, x.Month })
+                .IsUnique();
+
+            modelBuilder.Entity<FoodMenuDay>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<FoodMenuDay>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<FoodMenuDay>()
+                .Property(x => x.ItemsText)
+                .HasColumnType("text");
+
+            modelBuilder.Entity<FoodMenuDay>()
+                .HasIndex(x => new { x.FoodMenuMonthId, x.MenuDate })
+                .IsUnique();
+
+            modelBuilder.Entity<FoodMenuDay>()
+                .HasOne(x => x.FoodMenuMonth)
+                .WithMany(x => x.Days)
+                .HasForeignKey(x => x.FoodMenuMonthId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             base.OnModelCreating(modelBuilder);
         }

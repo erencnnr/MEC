@@ -10,6 +10,8 @@ namespace MEC.Portal.Models
         public List<Announcement> News { get; set; } = new();
         public List<HomeEmployeeDirectoryItemViewModel> Employees { get; set; } = new();
         public List<HomeSliderItemViewModel> SliderItems { get; set; } = new();
+        public bool ShowBirthdayPopup { get; set; }
+        public string BirthdayPopupImageUrl { get; set; } = string.Empty;
     }
 
     public class HomeSliderItemViewModel

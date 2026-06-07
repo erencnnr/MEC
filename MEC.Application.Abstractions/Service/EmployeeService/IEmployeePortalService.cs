@@ -13,5 +13,6 @@ namespace MEC.Application.Abstractions.Service.EmployeeService
         Task<PortalUserEditModel?> GetPortalUserEditAsync(int id);
         Task<EmployeePortal?> GetActivePortalUserByEmailAsync(string email);
         Task<OperationResultModel> UpdatePortalUserAsync(PortalUserEditModel model);
+        Task<List<LocationOptionModel>> GetLocationOptionsAsync();
     }
 }

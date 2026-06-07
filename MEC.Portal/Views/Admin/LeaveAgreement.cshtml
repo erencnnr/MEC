@@ -2,34 +2,38 @@
 @model MEC.Portal.Models.AdminLeaveAgreementListViewModel
 
 @{
-    ViewData["Title"] = "İzin Mutabakat";
+    ViewData["Title"] = "Izin Mutabakat";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
     var currentUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
     var resultMessage = TempData["LeaveAgreementMessage"] as string;
-    var resultLevel = string.Equals(TempData["LeaveAgreementLevel"] as string, "success", StringComparison.OrdinalIgnoreCase)
+    var resultLevelValue = TempData["LeaveAgreementLevel"] as string;
+    var resultLevel = string.Equals(resultLevelValue, "success", StringComparison.OrdinalIgnoreCase)
         ? "success"
-        : "error";
+        : string.Equals(resultLevelValue, "warning", StringComparison.OrdinalIgnoreCase)
+            ? "warning"
+            : "error";
 }
 
 <section class="inventory-page">
     <div class="inventory-page__header">
         <div>
-            <span class="inventory-page__eyebrow">YÖNETİCİ İŞLEMLERİ</span>
-            <h1 class="inventory-page__title">İzin Mutabakat</h1>
-            <p class="inventory-page__subtitle">Personel mutabakat kayıtlarını arayın, imza durumunu filtreleyin ve satır bazlı güncelleyin.</p>
+            <span class="inventory-page__eyebrow">YONETICI ISLEMLERI</span>
+            <h1 class="inventory-page__title">Izin Mutabakat</h1>
+            <p class="inventory-page__subtitle">Mutabakat kayitlarini arayin, imza durumunu filtreleyin ve satir bazli guncelleyin.</p>
         </div>
         <div class="inventory-page__actions">
-            <form method="post" asp-controller="Admin" asp-action="SyncLeaveAgreement">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="returnUrl" value="@currentUrl" />
-                <button type="submit" class="inventory-button inventory-button--secondary">Eksik Kayıtları Oluştur</button>
-            </form>
+            <button type="button"
+                    class="inventory-button inventory-button--success"
+                    data-bs-toggle="modal"
+                    data-bs-target="#leaveAgreementUploadModal">
+                Excel Yukle
+            </button>
         </div>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(resultMessage))
     {
-        <div class="inventory-inline-alert inventory-inline-alert--@(resultLevel == "success" ? "success" : "error")" id="leaveAgreementResultAlert">@resultMessage</div>
+        <div class="inventory-inline-alert inventory-inline-alert--@resultLevel" id="leaveAgreementResultAlert">@resultMessage</div>
     }
 
     <div class="inventory-table-card">
@@ -39,7 +43,7 @@
             <input type="hidden" name="isSigned" id="leaveAgreementIsSignedInput" value="@(Model.SelectedIsSigned.HasValue ? Model.SelectedIsSigned.Value.ToString().ToLowerInvariant() : string.Empty)" />
 
             <div class="inventory-table-card__meta">
-                <span>@Model.TotalCount kayıt</span>
+                <span>@Model.TotalCount kayit</span>
                 <div class="inventory-table-card__meta-actions">
                     <div class="inventory-search inventory-search--compact">
                         <input type="text" name="searchText" value="@Model.SearchText" class="inventory-search__input" placeholder="Ad, soyad, telefon veya e-posta..." />
@@ -63,13 +67,14 @@
             <table class="table inventory-table mb-0">
                 <thead>
                     <tr>
-                        <th>Personel</th>
+                        <th>Ad</th>
+                        <th>Soyad</th>
                         <th>E-posta</th>
                         <th>Telefon</th>
-                        <th>Mutabık Kalınan İzin Gün</th>
+                        <th>Mutabik Kalinan Izin Gun</th>
                         <th>
                             <div class="inventory-table__header-filter">
-                                <span>Mutabakat İmzalandı</span>
+                                <span>Mutabakat Imzalandi</span>
                                 <div class="dropdown" data-bs-auto-close="outside">
                                     <button class="inventory-table__filter-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         <span class="inventory-table__filter-icon @(Model.SelectedIsSigned.HasValue ? "is-active" : string.Empty)" aria-hidden="true">
@@ -79,16 +84,16 @@
                                         </span>
                                     </button>
                                     <div class="dropdown-menu inventory-table__filter-menu inventory-table__filter-menu--compact">
-                                        <button type="button" class="inventory-dropdown-action @(!Model.SelectedIsSigned.HasValue ? "is-active" : string.Empty)" onclick="changeLeaveAgreementSignedFilter('')">Tümü</button>
+                                        <button type="button" class="inventory-dropdown-action @(!Model.SelectedIsSigned.HasValue ? "is-active" : string.Empty)" onclick="changeLeaveAgreementSignedFilter('')">Tumu</button>
                                         <button type="button" class="inventory-dropdown-action @(Model.SelectedIsSigned == true ? "is-active" : string.Empty)" onclick="changeLeaveAgreementSignedFilter('true')">Evet</button>
-                                        <button type="button" class="inventory-dropdown-action @(Model.SelectedIsSigned == false ? "is-active" : string.Empty)" onclick="changeLeaveAgreementSignedFilter('false')">Hayır</button>
+                                        <button type="button" class="inventory-dropdown-action @(Model.SelectedIsSigned == false ? "is-active" : string.Empty)" onclick="changeLeaveAgreementSignedFilter('false')">Hayir</button>
                                     </div>
                                 </div>
                             </div>
                         </th>
                         <th>
                             <div class="inventory-table__header-filter">
-                                <span>Oluşturma Tarihi</span>
+                                <span>Olusturma Tarihi</span>
                                 <div class="dropdown" data-bs-auto-close="outside">
                                     <button class="inventory-table__filter-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         <span class="inventory-table__filter-icon @(!string.IsNullOrWhiteSpace(Model.SortOrder) ? "is-active" : string.Empty)" aria-hidden="true">
@@ -104,7 +109,7 @@
                                 </div>
                             </div>
                         </th>
-                        <th class="text-end">İşlemler</th>
+                        <th class="text-end">Islemler</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -114,7 +119,8 @@
                         {
                             var formId = $"leaveAgreementForm-{item.Id}";
                             <tr>
-                                <td>@item.EmployeeName</td>
+                                <td>@item.FirstName</td>
+                                <td>@item.LastName</td>
                                 <td>@item.Email</td>
                                 <td>@item.PhoneNumber</td>
                                 <td>
@@ -128,8 +134,16 @@
                                 </td>
                                 <td>
                                     <select name="isSigned" class="inventory-select" form="@formId">
-                                        <option value="false" selected="@(!item.IsSigned ? "selected" : null)">Hayır</option>
-                                        <option value="true" selected="@(item.IsSigned ? "selected" : null)">Evet</option>
+                                        @if (item.IsSigned)
+                                        {
+                                            <option value="false">Hayir</option>
+                                            <option value="true" selected>Evet</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="false" selected>Hayir</option>
+                                            <option value="true">Evet</option>
+                                        }
                                     </select>
                                 </td>
                                 <td>@(item.CreatedDate?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-")</td>
@@ -146,7 +160,7 @@
                     else
                     {
                         <tr>
-                            <td colspan="7" class="inventory-table__empty">Kayıt bulunamadı.</td>
+                            <td colspan="8" class="inventory-table__empty">Kayit bulunamadi.</td>
                         </tr>
                     }
                 </tbody>
@@ -156,8 +170,8 @@
 
     @if (Model.TotalPages > 1)
     {
-        <div class="inventory-pagination" aria-label="İzin mutabakat sayfalama">
-            <button type="button" class="inventory-pagination__button" onclick="changeLeaveAgreementPage(@(Model.CurrentPage - 1))" disabled="@(Model.CurrentPage == 1 ? "disabled" : null)">Önceki</button>
+        <div class="inventory-pagination" aria-label="Izin mutabakat sayfalama">
+            <button type="button" class="inventory-pagination__button" onclick="changeLeaveAgreementPage(@(Model.CurrentPage - 1))" disabled="@(Model.CurrentPage == 1 ? "disabled" : null)">Onceki</button>
             @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
             {
                 <button type="button" class="inventory-pagination__button @(pageNumber == Model.CurrentPage ? "is-active" : string.Empty)" onclick="changeLeaveAgreementPage(@pageNumber)">@pageNumber</button>
@@ -166,6 +180,38 @@
         </div>
     }
 </section>
+
+<div class="modal fade bulk-leave-upload-modal" id="leaveAgreementUploadModal" tabindex="-1" aria-labelledby="leaveAgreementUploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bulk-leave-upload-modal__content">
+            <form method="post" enctype="multipart/form-data" asp-controller="Admin" asp-action="UploadLeaveAgreement">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@currentUrl" />
+                <div class="modal-header bulk-leave-upload-modal__header">
+                    <div>
+                        <span class="bulk-leave-upload-modal__eyebrow">Excel import</span>
+                        <h2 class="modal-title" id="leaveAgreementUploadModalLabel">Izin Mutabakat Excel Yukle</h2>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                </div>
+                <div class="modal-body bulk-leave-upload-modal__body">
+                    <p class="bulk-leave-upload-modal__description">
+                        Excel sirasi: <strong>Ad</strong>, <strong>Soyad</strong>, <strong>Eposta</strong>, <strong>Telefon</strong>, <strong>Mutabik kalinan izin gun</strong>.
+                    </p>
+                    <label class="bulk-leave-upload-modal__file" for="leaveAgreementUploadFile">
+                        <span>Excel dosyasi</span>
+                        <input id="leaveAgreementUploadFile" name="file" type="file" accept=".xlsx" required />
+                        <small>Sadece .xlsx dosyalari desteklenir. Maksimum dosya boyutu 10 MB.</small>
+                    </label>
+                </div>
+                <div class="modal-footer bulk-leave-upload-modal__footer">
+                    <button type="button" class="bulk-leave-upload-modal__button bulk-leave-upload-modal__button--ghost" data-bs-dismiss="modal">Vazgec</button>
+                    <button type="submit" class="bulk-leave-upload-modal__button bulk-leave-upload-modal__button--primary">Yukle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 @section Scripts {
     <script>

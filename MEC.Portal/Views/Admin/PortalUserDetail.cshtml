@@ -60,6 +60,12 @@
                     </div>
 
                     <div class="leave-detail-field">
+                        <span>Ünvan</span>
+                        <input asp-for="Title" class="announcement-form-input" />
+                        <span asp-validation-for="Title" class="announcement-form-validation"></span>
+                    </div>
+
+                    <div class="leave-detail-field">
                         <span>İşe Giriş Tarihi</span>
                         <input asp-for="HireDate" type="date" class="announcement-form-input" />
                         <span asp-validation-for="HireDate" class="announcement-form-validation"></span>
@@ -69,6 +75,12 @@
                         <span>Doğum Tarihi</span>
                         <input asp-for="BirthDate" type="date" class="announcement-form-input" />
                         <span asp-validation-for="BirthDate" class="announcement-form-validation"></span>
+                    </div>
+
+                    <div class="leave-detail-field">
+                        <span>Lokasyon</span>
+                        <select asp-for="LocationId" asp-items="Model.LocationOptions" class="announcement-form-input"></select>
+                        <span asp-validation-for="LocationId" class="announcement-form-validation"></span>
                     </div>
 
                     <div class="leave-detail-field">

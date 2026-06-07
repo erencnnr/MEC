@@ -91,6 +91,7 @@ namespace MEC.Application.Service.LdapService
                         existingPortalUser.LastName = ldapUser.LastName;
                         existingPortalUser.PhoneNumber = ldapUser.Phone;
                         existingPortalUser.Email = ldapUser.EffectiveEmail;
+                        existingPortalUser.Title ??= string.Empty;
                         existingPortalUser.IsDeleted = false;
                         existingPortalUser.UpdateDate = DateTime.Now;
 
@@ -104,8 +105,10 @@ namespace MEC.Application.Service.LdapService
                             LastName = ldapUser.LastName,
                             PhoneNumber = ldapUser.Phone,
                             Email = ldapUser.EffectiveEmail,
+                            Title = string.Empty,
                             HireDate = MySqlMinimumDate,
                             BirthDate = MySqlMinimumDate,
+                            LocationId = null,
                             LeaveDays = 0,
                             CreatedDate = DateTime.Now,
                             IsDeleted = false
