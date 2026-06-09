@@ -23,6 +23,10 @@ namespace MEC.Application.Abstractions.Service.LeaveService.Model
         public string PhoneNumber { get; set; } = string.Empty;
         public decimal AgreedLeaveDays { get; set; }
         public bool IsSigned { get; set; }
+        public bool HasAgreementPdf { get; set; }
+        public string AgreementPdfFileName { get; set; } = string.Empty;
+        public string AgreementPdfOriginalFileName { get; set; } = string.Empty;
+        public string AgreementPdfContentType { get; set; } = string.Empty;
         public DateTime? CreatedDate { get; set; }
     }
 
@@ -31,6 +35,15 @@ namespace MEC.Application.Abstractions.Service.LeaveService.Model
         public int Id { get; set; }
         public decimal AgreedLeaveDays { get; set; }
         public bool IsSigned { get; set; }
+    }
+
+    public class AdminLeaveAgreementPdfUpdateModel
+    {
+        public int Id { get; set; }
+        public string FileName { get; set; } = string.Empty;
+        public string OriginalFileName { get; set; } = string.Empty;
+        public string ContentType { get; set; } = string.Empty;
+        public long SizeBytes { get; set; }
     }
 
     public class LeaveAgreementUploadRequestModel

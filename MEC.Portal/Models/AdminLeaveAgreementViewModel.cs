@@ -15,6 +15,8 @@ namespace MEC.Portal.Models
         public string PhoneNumber { get; set; } = string.Empty;
         public decimal AgreedLeaveDays { get; set; }
         public bool IsSigned { get; set; }
+        public bool HasAgreementPdf { get; set; }
+        public string AgreementPdfOriginalFileName { get; set; } = string.Empty;
         public DateTime? CreatedDate { get; set; }
 
         public string AgreedLeaveDaysInput => AgreedLeaveDays.ToString("0.##", CultureInfo.InvariantCulture);

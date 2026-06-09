@@ -18,5 +18,20 @@ namespace MEC.Domain.Entity.Leave
 
         [Column("is_signed")]
         public bool IsSigned { get; set; }
+
+        [Column("agreement_pdf_file_name")]
+        public string? AgreementPdfFileName { get; set; }
+
+        [Column("agreement_pdf_original_file_name")]
+        public string? AgreementPdfOriginalFileName { get; set; }
+
+        [Column("agreement_pdf_content_type")]
+        public string? AgreementPdfContentType { get; set; }
+
+        [Column("agreement_pdf_size_bytes")]
+        public long? AgreementPdfSizeBytes { get; set; }
+
+        [Column("agreement_pdf_uploaded_at")]
+        public DateTime? AgreementPdfUploadedAt { get; set; }
     }
 }

@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Globalization;
 using System.IO;
+using System.Text;
 
 namespace MEC.Portal.Controllers
 {
@@ -21,6 +22,8 @@ namespace MEC.Portal.Controllers
     {
         private const string UpdateLeaveStatusMethodName = "UpdateLeaveStatus";
         private const long MaxLeaveAgreementUploadSizeBytes = 10 * 1024 * 1024;
+        private const long MaxLeaveAgreementPdfUploadSizeBytes = 10 * 1024 * 1024;
+        private const string LeaveAgreementPdfUploadFolder = "uploads/leave-agreements";
         private const int LeaveRequestsPageSize = 10;
         private const int LeaveAgreementsPageSize = 10;
         private const int PortalUsersPageSize = 10;
@@ -36,6 +39,7 @@ namespace MEC.Portal.Controllers
         private readonly IFoodMenuService _foodMenuService;
         private readonly IFoodMenuAttachmentApiClient _foodMenuAttachmentApiClient;
         private readonly IPortalUserSyncApiClient _portalUserSyncApiClient;
+        private readonly IWebHostEnvironment _environment;
 
         public AdminController(
             ILeaveService leaveService,
@@ -47,7 +51,8 @@ namespace MEC.Portal.Controllers
             IBirthdayPopupImageApiClient birthdayPopupImageApiClient,
             IFoodMenuService foodMenuService,
             IFoodMenuAttachmentApiClient foodMenuAttachmentApiClient,
-            IPortalUserSyncApiClient portalUserSyncApiClient)
+            IPortalUserSyncApiClient portalUserSyncApiClient,
+            IWebHostEnvironment environment)
         {
             _leaveService = leaveService;
             _announcementService = announcementService;
@@ -59,6 +64,7 @@ namespace MEC.Portal.Controllers
             _foodMenuService = foodMenuService;
             _foodMenuAttachmentApiClient = foodMenuAttachmentApiClient;
             _portalUserSyncApiClient = portalUserSyncApiClient;
+            _environment = environment;
         }
 
         public async Task<IActionResult> Index()
@@ -244,6 +250,99 @@ namespace MEC.Portal.Controllers
             TempData["LeaveAgreementMessage"] = result.Message;
 
             return RedirectToLeaveAgreementReturnUrl(returnUrl);
+        }
+
+        [HttpGet("/Admin/LeaveAgreement/Print/{id:int}")]
+        public async Task<IActionResult> PrintLeaveAgreement(int id)
+        {
+            var agreement = await _leaveService.GetAdminLeaveAgreementAsync(id);
+            if (agreement == null)
+            {
+                return NotFound();
+            }
+
+            var pdfBytes = BuildLeaveAgreementPdf(agreement);
+            Response.Headers.ContentDisposition = $"inline; filename=\"mutabakat-{id}.pdf\"";
+
+            return File(pdfBytes, "application/pdf");
+        }
+
+        [HttpPost("/Admin/LeaveAgreement/UploadPdf/{id:int}")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UploadLeaveAgreementPdf(int id, IFormFile? file, string? returnUrl = null)
+        {
+            if (file == null || file.Length == 0)
+            {
+                TempData["LeaveAgreementLevel"] = "error";
+                TempData["LeaveAgreementMessage"] = "Yüklenecek PDF dosyası seçiniz.";
+                return RedirectToLeaveAgreementReturnUrl(returnUrl);
+            }
+
+            if (file.Length > MaxLeaveAgreementPdfUploadSizeBytes)
+            {
+                TempData["LeaveAgreementLevel"] = "error";
+                TempData["LeaveAgreementMessage"] = "PDF dosyası 10 MB sınırını aşamaz.";
+                return RedirectToLeaveAgreementReturnUrl(returnUrl);
+            }
+
+            if (!IsAllowedPdf(file))
+            {
+                TempData["LeaveAgreementLevel"] = "error";
+                TempData["LeaveAgreementMessage"] = "Sadece .pdf uzantılı dosya yükleyebilirsiniz.";
+                return RedirectToLeaveAgreementReturnUrl(returnUrl);
+            }
+
+            var uploadFolder = GetLeaveAgreementPdfUploadFolder();
+            Directory.CreateDirectory(uploadFolder);
+
+            var fileName = $"{id}-{Guid.NewGuid():N}.pdf";
+            var filePath = Path.Combine(uploadFolder, fileName);
+
+            await using (var stream = System.IO.File.Create(filePath))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var result = await _leaveService.UpdateLeaveAgreementPdfAsync(new AdminLeaveAgreementPdfUpdateModel
+            {
+                Id = id,
+                FileName = fileName,
+                OriginalFileName = Path.GetFileName(file.FileName),
+                ContentType = string.IsNullOrWhiteSpace(file.ContentType) ? "application/pdf" : file.ContentType,
+                SizeBytes = file.Length
+            });
+
+            if (!result.IsSuccess && System.IO.File.Exists(filePath))
+            {
+                System.IO.File.Delete(filePath);
+            }
+
+            TempData["LeaveAgreementLevel"] = result.IsSuccess ? "success" : "error";
+            TempData["LeaveAgreementMessage"] = result.Message;
+
+            return RedirectToLeaveAgreementReturnUrl(returnUrl);
+        }
+
+        [HttpGet("/Admin/LeaveAgreement/ViewPdf/{id:int}")]
+        public async Task<IActionResult> ViewLeaveAgreementPdf(int id)
+        {
+            var agreement = await _leaveService.GetAdminLeaveAgreementAsync(id);
+            if (agreement == null || !agreement.HasAgreementPdf || string.IsNullOrWhiteSpace(agreement.AgreementPdfFileName))
+            {
+                return NotFound();
+            }
+
+            var filePath = Path.Combine(GetLeaveAgreementPdfUploadFolder(), agreement.AgreementPdfFileName);
+            if (!System.IO.File.Exists(filePath))
+            {
+                return NotFound();
+            }
+
+            var contentType = string.IsNullOrWhiteSpace(agreement.AgreementPdfContentType)
+                ? "application/pdf"
+                : agreement.AgreementPdfContentType;
+
+            return PhysicalFile(filePath, contentType, enableRangeProcessing: true);
         }
 
         [HttpGet("/Admin/PortalUsers")]
@@ -879,6 +978,8 @@ namespace MEC.Portal.Controllers
                     PhoneNumber = x.PhoneNumber,
                     AgreedLeaveDays = x.AgreedLeaveDays,
                     IsSigned = x.IsSigned,
+                    HasAgreementPdf = x.HasAgreementPdf,
+                    AgreementPdfOriginalFileName = x.AgreementPdfOriginalFileName,
                     CreatedDate = x.CreatedDate
                 }).ToList(),
                 SearchText = searchText ?? string.Empty,
@@ -1102,6 +1203,110 @@ namespace MEC.Portal.Controllers
         private static string GetFoodMenuStatusTone(FoodMenuMonthStatus status)
         {
             return status == FoodMenuMonthStatus.Published ? "success" : "draft";
+        }
+
+        private string GetLeaveAgreementPdfUploadFolder()
+        {
+            var webRootPath = string.IsNullOrWhiteSpace(_environment.WebRootPath)
+                ? Path.Combine(_environment.ContentRootPath, "wwwroot")
+                : _environment.WebRootPath;
+
+            return Path.Combine(webRootPath, LeaveAgreementPdfUploadFolder.Replace('/', Path.DirectorySeparatorChar));
+        }
+
+        private static byte[] BuildLeaveAgreementPdf(AdminLeaveAgreementItemModel agreement)
+        {
+            var fullName = string.Join(" ", new[] { agreement.FirstName, agreement.LastName }
+                .Where(x => !string.IsNullOrWhiteSpace(x)))
+                .Trim();
+            if (string.IsNullOrWhiteSpace(fullName))
+            {
+                fullName = agreement.EmployeeName;
+            }
+
+            var lines = new[]
+            {
+                "Izin Mutabakat Formu",
+                $"Ad Soyad: {fullName}",
+                $"Mutabik Kalinacak Izin Gun Sayisi: {agreement.AgreedLeaveDays.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"))}"
+            };
+
+            var content = new StringBuilder();
+            content.AppendLine("BT");
+            content.AppendLine("/F1 22 Tf");
+            content.AppendLine("72 760 Td");
+            content.AppendLine($"({EscapePdfText(lines[0])}) Tj");
+            content.AppendLine("/F1 13 Tf");
+
+            for (var i = 1; i < lines.Length; i++)
+            {
+                content.AppendLine("0 -32 Td");
+                content.AppendLine($"({EscapePdfText(lines[i])}) Tj");
+            }
+
+            content.AppendLine("ET");
+
+            var contentBytes = Encoding.ASCII.GetBytes(content.ToString());
+            var objects = new[]
+            {
+                "<< /Type /Catalog /Pages 2 0 R >>",
+                "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+                "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+                $"<< /Length {contentBytes.Length} >>\nstream\n{content}endstream"
+            };
+
+            var pdf = new StringBuilder();
+            var offsets = new List<int> { 0 };
+            pdf.Append("%PDF-1.4\n");
+
+            for (var i = 0; i < objects.Length; i++)
+            {
+                offsets.Add(Encoding.ASCII.GetByteCount(pdf.ToString()));
+                pdf.Append(i + 1).Append(" 0 obj\n");
+                pdf.Append(objects[i]).Append("\n");
+                pdf.Append("endobj\n");
+            }
+
+            var xrefOffset = Encoding.ASCII.GetByteCount(pdf.ToString());
+            pdf.Append("xref\n");
+            pdf.Append("0 ").Append(objects.Length + 1).Append('\n');
+            pdf.Append("0000000000 65535 f \n");
+
+            for (var i = 1; i < offsets.Count; i++)
+            {
+                pdf.Append(offsets[i].ToString("D10", CultureInfo.InvariantCulture)).Append(" 00000 n \n");
+            }
+
+            pdf.Append("trailer\n");
+            pdf.Append("<< /Size ").Append(objects.Length + 1).Append(" /Root 1 0 R >>\n");
+            pdf.Append("startxref\n");
+            pdf.Append(xrefOffset.ToString(CultureInfo.InvariantCulture)).Append('\n');
+            pdf.Append("%%EOF");
+
+            return Encoding.ASCII.GetBytes(pdf.ToString());
+        }
+
+        private static string EscapePdfText(string value)
+        {
+            var normalized = value
+                .Replace('İ', 'I')
+                .Replace('ı', 'i')
+                .Replace('Ş', 'S')
+                .Replace('ş', 's')
+                .Replace('Ğ', 'G')
+                .Replace('ğ', 'g')
+                .Replace('Ü', 'U')
+                .Replace('ü', 'u')
+                .Replace('Ö', 'O')
+                .Replace('ö', 'o')
+                .Replace('Ç', 'C')
+                .Replace('ç', 'c');
+
+            return normalized
+                .Replace("\\", "\\\\")
+                .Replace("(", "\\(")
+                .Replace(")", "\\)");
         }
 
         private static bool IsAllowedSliderImage(IFormFile file)

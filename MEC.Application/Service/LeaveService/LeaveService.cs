@@ -538,6 +538,12 @@ public class LeaveService : ILeaveService
         };
     }
 
+    public async Task<AdminLeaveAgreementItemModel?> GetAdminLeaveAgreementAsync(int id)
+    {
+        var agreement = (await _leaveAgreementRepository.GetAllAsync(x => x.Id == id, x => x.EmployeePortal)).FirstOrDefault();
+        return agreement == null ? null : MapAdminLeaveAgreementItem(agreement);
+    }
+
     public async Task<OperationResultModel> SyncLeaveAgreementsAsync()
     {
         var activePortalUsers = (await _employeePortalRepository.GetAllAsync(x => !x.IsDeleted)).ToList();
@@ -699,6 +705,31 @@ public class LeaveService : ILeaveService
         _leaveAgreementRepository.Update(agreement);
 
         return OperationResultModel.Success($"{BuildPortalName(agreement.EmployeePortal, agreement.EmployeePortalId)} için izin mutabakat kaydı güncellendi.");
+    }
+
+    public async Task<OperationResultModel> UpdateLeaveAgreementPdfAsync(AdminLeaveAgreementPdfUpdateModel model)
+    {
+        if (string.IsNullOrWhiteSpace(model.FileName))
+        {
+            return OperationResultModel.Fail("Yüklenecek PDF dosyası bulunamadı.");
+        }
+
+        var agreement = (await _leaveAgreementRepository.GetAllAsync(x => x.Id == model.Id, x => x.EmployeePortal)).FirstOrDefault();
+        if (agreement == null)
+        {
+            return OperationResultModel.Fail("Mutabakat kaydı bulunamadı.");
+        }
+
+        agreement.AgreementPdfFileName = model.FileName;
+        agreement.AgreementPdfOriginalFileName = model.OriginalFileName;
+        agreement.AgreementPdfContentType = string.IsNullOrWhiteSpace(model.ContentType) ? "application/pdf" : model.ContentType;
+        agreement.AgreementPdfSizeBytes = model.SizeBytes;
+        agreement.AgreementPdfUploadedAt = DateTime.Now;
+        agreement.UpdateDate = DateTime.Now;
+
+        _leaveAgreementRepository.Update(agreement);
+
+        return OperationResultModel.Success($"{BuildPortalName(agreement.EmployeePortal, agreement.EmployeePortalId)} için mutabakat PDF'i yüklendi.");
     }
 
     public async Task<AdminLeaveReportResultModel> GetAdminLeaveReportAsync(AdminLeaveReportQueryModel query)
@@ -1152,6 +1183,10 @@ public class LeaveService : ILeaveService
             PhoneNumber = agreement.EmployeePortal?.PhoneNumber ?? string.Empty,
             AgreedLeaveDays = agreement.AgreedLeaveDays,
             IsSigned = agreement.IsSigned,
+            HasAgreementPdf = !string.IsNullOrWhiteSpace(agreement.AgreementPdfFileName),
+            AgreementPdfFileName = agreement.AgreementPdfFileName ?? string.Empty,
+            AgreementPdfOriginalFileName = agreement.AgreementPdfOriginalFileName ?? string.Empty,
+            AgreementPdfContentType = agreement.AgreementPdfContentType ?? string.Empty,
             CreatedDate = agreement.CreatedDate
         };
     }

@@ -64,15 +64,15 @@
         </form>
 
         <div class="table-responsive">
-            <table class="table inventory-table mb-0">
+            <table class="table inventory-table leave-agreement-table mb-0">
                 <thead>
                     <tr>
                         <th>Ad</th>
                         <th>Soyad</th>
                         <th>E-posta</th>
                         <th>Telefon</th>
-                        <th>Mutabik Kalinan Izin Gun</th>
-                        <th>
+                        <th class="leave-agreement-table__days-col">Mutabik Kalinan Izin Gun</th>
+                        <th class="leave-agreement-table__signed-col">
                             <div class="inventory-table__header-filter">
                                 <span>Mutabakat Imzalandi</span>
                                 <div class="dropdown" data-bs-auto-close="outside">
@@ -123,7 +123,7 @@
                                 <td>@item.LastName</td>
                                 <td>@item.Email</td>
                                 <td>@item.PhoneNumber</td>
-                                <td>
+                                <td class="leave-agreement-table__days-col">
                                     <input type="number"
                                            step="0.01"
                                            min="0"
@@ -132,7 +132,7 @@
                                            class="inventory-input"
                                            form="@formId" />
                                 </td>
-                                <td>
+                                <td class="leave-agreement-table__signed-col">
                                     <select name="isSigned" class="inventory-select" form="@formId">
                                         @if (item.IsSigned)
                                         {
@@ -148,11 +148,31 @@
                                 </td>
                                 <td>@(item.CreatedDate?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-")</td>
                                 <td class="text-end">
+                                    @{
+                                        var uploadFormId = $"leaveAgreementPdfUploadForm-{item.Id}";
+                                        var uploadInputId = $"leaveAgreementPdfUploadFile-{item.Id}";
+                                        var actionsModalId = $"leaveAgreementActionsModal-{item.Id}";
+                                    }
                                     <form id="@formId" method="post" asp-controller="Admin" asp-action="UpdateLeaveAgreement" asp-route-id="@item.Id">
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="returnUrl" value="@currentUrl" />
-                                        <button type="submit" class="inventory-button inventory-button--primary inventory-button--small">Kaydet</button>
                                     </form>
+                                    <form id="@uploadFormId" method="post" enctype="multipart/form-data" asp-controller="Admin" asp-action="UploadLeaveAgreementPdf" asp-route-id="@item.Id">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="returnUrl" value="@currentUrl" />
+                                        <input id="@uploadInputId"
+                                               class="leave-agreement-table__file-input"
+                                               name="file"
+                                               type="file"
+                                               accept="application/pdf,.pdf"
+                                               onchange="submitLeaveAgreementPdfUpload('@uploadFormId')" />
+                                    </form>
+                                    <button class="inventory-button inventory-button--ghost inventory-button--small"
+                                            type="button"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#@actionsModalId">
+                                        Islemler
+                                    </button>
                                 </td>
                             </tr>
                         }
@@ -180,6 +200,62 @@
         </div>
     }
 </section>
+
+@foreach (var item in Model.Items)
+{
+    var formId = $"leaveAgreementForm-{item.Id}";
+    var uploadInputId = $"leaveAgreementPdfUploadFile-{item.Id}";
+    var actionsModalId = $"leaveAgreementActionsModal-{item.Id}";
+    var actionsModalLabelId = $"leaveAgreementActionsModalLabel-{item.Id}";
+
+    <div class="modal fade leave-agreement-actions-modal" id="@actionsModalId" tabindex="-1" aria-labelledby="@actionsModalLabelId" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content leave-agreement-actions-modal__content">
+                <div class="modal-header leave-agreement-actions-modal__header">
+                    <div>
+                        <span class="leave-agreement-actions-modal__eyebrow">Mutabakat islemleri</span>
+                        <h2 class="modal-title" id="@actionsModalLabelId">@item.FirstName @item.LastName</h2>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                </div>
+                <div class="modal-body leave-agreement-actions-modal__body">
+                    <button type="submit" class="leave-agreement-actions-modal__button leave-agreement-actions-modal__button--primary" form="@formId">
+                        Kaydet
+                    </button>
+                    <a class="leave-agreement-actions-modal__button leave-agreement-actions-modal__button--ghost"
+                       asp-controller="Admin"
+                       asp-action="PrintLeaveAgreement"
+                       asp-route-id="@item.Id"
+                       target="_blank"
+                       rel="noopener">
+                        Mutabakat yazdir
+                    </a>
+                    <button type="button" class="leave-agreement-actions-modal__button leave-agreement-actions-modal__button--ghost" onclick="triggerLeaveAgreementPdfUpload('@uploadInputId')">
+                        Mutabakat yukle
+                    </button>
+                    @if (item.HasAgreementPdf)
+                    {
+                        <a class="leave-agreement-actions-modal__button leave-agreement-actions-modal__button--ghost"
+                           asp-controller="Admin"
+                           asp-action="ViewLeaveAgreementPdf"
+                           asp-route-id="@item.Id"
+                           target="_blank"
+                           rel="noopener"
+                           title="@item.AgreementPdfOriginalFileName">
+                            Mutabakat goruntule
+                        </a>
+                    }
+                    else
+                    {
+                        <button type="button" class="leave-agreement-actions-modal__button leave-agreement-actions-modal__button--disabled" disabled>
+                            Mutabakat goruntule
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 <div class="modal fade bulk-leave-upload-modal" id="leaveAgreementUploadModal" tabindex="-1" aria-labelledby="leaveAgreementUploadModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -238,6 +314,20 @@
             document.getElementById('leaveAgreementSortOrderInput').value = sortOrder;
             resetLeaveAgreementPage();
             document.getElementById('leaveAgreementFilterForm').submit();
+        }
+
+        function triggerLeaveAgreementPdfUpload(inputId) {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.click();
+            }
+        }
+
+        function submitLeaveAgreementPdfUpload(formId) {
+            const form = document.getElementById(formId);
+            if (form) {
+                form.submit();
+            }
         }
 
         window.setTimeout(function () {

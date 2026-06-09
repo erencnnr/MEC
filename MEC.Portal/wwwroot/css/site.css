@@ -7268,6 +7268,7 @@ body.content-management-modal-open {
 }
 
 .inventory-dropdown-action {
+    display: block;
     width: 100%;
     padding: 10px 12px;
     border: 0;
@@ -7276,6 +7277,7 @@ body.content-management-modal-open {
     color: #22325f;
     font-weight: 600;
     text-align: left;
+    text-decoration: none;
     transition: background-color 0.2s ease, color 0.2s ease;
 }
 
@@ -7283,6 +7285,132 @@ body.content-management-modal-open {
 .inventory-dropdown-action.is-active {
     background: #eef5ff;
     color: #18285c;
+}
+
+.inventory-dropdown-action:disabled {
+    color: #9aa5bd;
+    cursor: not-allowed;
+    opacity: 0.72;
+}
+
+.inventory-dropdown-action:disabled:hover {
+    background: transparent;
+    color: #9aa5bd;
+}
+
+.inventory-table__action-menu {
+    min-width: 210px;
+}
+
+.leave-agreement-table__days-col {
+    width: 132px;
+    min-width: 132px;
+    max-width: 132px;
+}
+
+.leave-agreement-table__signed-col {
+    width: 138px;
+    min-width: 138px;
+    max-width: 138px;
+}
+
+.leave-agreement-table th.leave-agreement-table__days-col,
+.leave-agreement-table th.leave-agreement-table__signed-col {
+    white-space: normal;
+    line-height: 1.25;
+}
+
+.leave-agreement-table td.leave-agreement-table__days-col .inventory-input,
+.leave-agreement-table td.leave-agreement-table__signed-col .inventory-select {
+    min-height: 38px;
+    padding: 8px 10px;
+    border-radius: 12px;
+}
+
+.leave-agreement-table__file-input {
+    position: fixed;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.leave-agreement-actions-modal__content {
+    border: 1px solid #d7e1f5;
+    border-radius: 22px;
+    box-shadow: 0 24px 58px rgba(24, 40, 92, 0.18);
+    overflow: hidden;
+}
+
+.leave-agreement-actions-modal__header {
+    align-items: flex-start;
+    gap: 16px;
+    padding: 22px 24px;
+    border-bottom: 1px solid #e5ecfb;
+    background: #fbfdff;
+}
+
+.leave-agreement-actions-modal__eyebrow {
+    display: inline-flex;
+    margin-bottom: 8px;
+    color: #5c678f;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.leave-agreement-actions-modal__header .modal-title {
+    color: #18285c;
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.leave-agreement-actions-modal__body {
+    display: grid;
+    gap: 10px;
+    padding: 22px 24px 24px;
+}
+
+.leave-agreement-actions-modal__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    width: 100%;
+    padding: 0 16px;
+    border: 1px solid #d5def4;
+    border-radius: 14px;
+    background: #fff;
+    color: #18285c;
+    font-weight: 800;
+    text-decoration: none;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.leave-agreement-actions-modal__button:hover {
+    background: #f5f8ff;
+    color: #18285c;
+    border-color: #bfd0ef;
+}
+
+.leave-agreement-actions-modal__button--primary {
+    border-color: #18285c;
+    background: #18285c;
+    color: #fff;
+}
+
+.leave-agreement-actions-modal__button--primary:hover {
+    background: #101e47;
+    color: #fff;
+}
+
+.leave-agreement-actions-modal__button--disabled,
+.leave-agreement-actions-modal__button--disabled:hover {
+    background: #f3f6fb;
+    color: #9aa5bd;
+    border-color: #e2e8f4;
+    cursor: not-allowed;
 }
 
 .inventory-status {
