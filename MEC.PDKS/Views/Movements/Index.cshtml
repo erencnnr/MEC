@@ -1,0 +1,106 @@
+@model MEC.PDKS.Models.PdksMovementListViewModel
+
+@{
+    ViewData["Title"] = "Giriş-Çıkış Kayıtları";
+}
+
+<section class="pdks-page">
+    <div class="pdks-page__head">
+        <div>
+            <span class="pdks-page__eyebrow">Hareketler</span>
+            <h1>Giriş-Çıkış Kayıtları</h1>
+            <p>Kullanıcı, gün veya tarih aralığı filtreleriyle PDKS hareketlerini listeleyin.</p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+            {
+                <div class="alert alert-danger mb-3">@Model.ErrorMessage</div>
+            }
+
+            <form method="get" asp-controller="Movements" asp-action="Index" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label" for="KullaniciId">Kullanıcı</label>
+                    <select class="form-select" id="KullaniciId" name="KullaniciId">
+                        <option value="">Tüm kullanıcılar</option>
+                        @foreach (var option in Model.UserOptions)
+                        {
+                            if (Model.Filter.KullaniciId.HasValue && option.Value == Model.Filter.KullaniciId.Value.ToString())
+                            {
+                                <option value="@option.Value" selected="selected">@option.Text</option>
+                            }
+                            else
+                            {
+                                <option value="@option.Value">@option.Text</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label" for="Gun">Gün</label>
+                    <input class="form-control" id="Gun" name="Gun" type="date" value="@Model.Filter.Gun?.ToString("yyyy-MM-dd")" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label" for="BaslangicTarihi">Başlangıç Tarihi</label>
+                    <input class="form-control" id="BaslangicTarihi" name="BaslangicTarihi" type="date" value="@Model.Filter.BaslangicTarihi?.ToString("yyyy-MM-dd")" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label" for="BitisTarihi">Bitiş Tarihi</label>
+                    <input class="form-control" id="BitisTarihi" name="BitisTarihi" type="date" value="@Model.Filter.BitisTarihi?.ToString("yyyy-MM-dd")" />
+                </div>
+
+                <div class="col-12 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Filtrele</button>
+                    <a class="btn btn-outline-secondary" asp-controller="Movements" asp-action="Index">Temizle</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            @if (!Model.Items.Any() && string.IsNullOrWhiteSpace(Model.ErrorMessage))
+            {
+                <div class="pdks-empty-state">
+                    <h2>Kayıt bulunamadı</h2>
+                    <p>Seçilen filtre için hareket kaydı yok.</p>
+                </div>
+            }
+            else if (Model.Items.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Tarih/Saat</th>
+                                <th>Kullanıcı</th>
+                                <th>Sicil No</th>
+                                <th>Hareket Tipi</th>
+                                <th>Cihaz</th>
+                                <th>Not</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td>@item.HareketZamani.ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>@item.KullaniciAdi</td>
+                                    <td>@item.SicilNo</td>
+                                    <td>@item.HareketTipi</td>
+                                    <td>@(!string.IsNullOrWhiteSpace(item.CihazAdi) ? item.CihazAdi : "-")</td>
+                                    <td>@(!string.IsNullOrWhiteSpace(item.Not) ? item.Not : "-")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</section>

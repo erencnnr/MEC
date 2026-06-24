@@ -37,6 +37,7 @@ namespace MEC.Portal.Controllers
         private readonly IBirthdayPopupService _birthdayPopupService;
         private readonly IBirthdayPopupImageApiClient _birthdayPopupImageApiClient;
         private readonly IFoodMenuService _foodMenuService;
+        private readonly ISurveyService _surveyService;
         private readonly IFoodMenuAttachmentApiClient _foodMenuAttachmentApiClient;
         private readonly IPortalUserSyncApiClient _portalUserSyncApiClient;
         private readonly IWebHostEnvironment _environment;
@@ -50,6 +51,7 @@ namespace MEC.Portal.Controllers
             IBirthdayPopupService birthdayPopupService,
             IBirthdayPopupImageApiClient birthdayPopupImageApiClient,
             IFoodMenuService foodMenuService,
+            ISurveyService surveyService,
             IFoodMenuAttachmentApiClient foodMenuAttachmentApiClient,
             IPortalUserSyncApiClient portalUserSyncApiClient,
             IWebHostEnvironment environment)
@@ -62,6 +64,7 @@ namespace MEC.Portal.Controllers
             _birthdayPopupService = birthdayPopupService;
             _birthdayPopupImageApiClient = birthdayPopupImageApiClient;
             _foodMenuService = foodMenuService;
+            _surveyService = surveyService;
             _foodMenuAttachmentApiClient = foodMenuAttachmentApiClient;
             _portalUserSyncApiClient = portalUserSyncApiClient;
             _environment = environment;
@@ -415,6 +418,8 @@ namespace MEC.Portal.Controllers
                 model.Id = id;
             }
 
+            EnsurePortalChildInputs(model);
+
             var existingPortalUser = await _employeePortalService.GetPortalUserEditAsync(id);
             if (existingPortalUser == null)
             {
@@ -438,6 +443,16 @@ namespace MEC.Portal.Controllers
                 HireDate = model.HireDate,
                 BirthDate = model.BirthDate,
                 LocationId = model.LocationId,
+                AddressText = model.AddressText,
+                MaritalStatus = model.MaritalStatus,
+                EducationUniversity = model.EducationUniversity,
+                EducationFaculty = model.EducationFaculty,
+                EducationDepartment = model.EducationDepartment,
+                Children = model.Children.Select(x => new PortalUserChildEditModel
+                {
+                    Gender = x.Gender,
+                    BirthDate = x.BirthDate
+                }).ToList(),
                 LeaveDays = model.LeaveDays,
                 IsAdmin = model.IsAdmin,
                 IsDeleted = model.IsDeleted
@@ -473,6 +488,87 @@ namespace MEC.Portal.Controllers
         {
             var model = await BuildFoodMenuViewModelAsync(id);
             return View(model);
+        }
+
+        [HttpGet("/Admin/Surveys")]
+        public async Task<IActionResult> Surveys(string? status = "all")
+        {
+            var model = await BuildSurveyListViewModelAsync(status);
+            return View(model);
+        }
+
+        [HttpGet("/Admin/Surveys/Create")]
+        public IActionResult SurveyCreate()
+        {
+            var model = new AdminSurveyCreateViewModel();
+            EnsureSurveyQuestionInputs(model);
+            return View(model);
+        }
+
+        [HttpGet("/Admin/Surveys/{id:int}")]
+        public async Task<IActionResult> SurveyDetail(int id)
+        {
+            var model = await BuildSurveyDetailViewModelAsync(id);
+            if (model == null)
+            {
+                return RedirectToAction(nameof(Surveys));
+            }
+
+            return View(model);
+        }
+
+        [HttpPost("/Admin/Surveys/Create")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateSurvey(AdminSurveyCreateViewModel model)
+        {
+            EnsureSurveyQuestionInputs(model);
+
+            if (!ModelState.IsValid)
+            {
+                return View("SurveyCreate", model);
+            }
+
+            var result = await _surveyService.CreateSurveyAsync(new SurveyCreateModel
+            {
+                Title = model.Title,
+                Description = model.Description,
+                IsActive = model.IsActive,
+                Questions = model.Questions.Select(question => new SurveyQuestionCreateModel
+                {
+                    Type = question.Type,
+                    QuestionText = question.QuestionText,
+                    Options = question.Type == SurveyType.MultipleChoice
+                        ? question.Options.Select(option => option.Text ?? string.Empty).ToList()
+                        : new List<string>()
+                }).ToList()
+            });
+
+            if (!result.IsSuccess)
+            {
+                ModelState.AddModelError(string.Empty, result.Message);
+                return View("SurveyCreate", model);
+            }
+
+            TempData["SurveySuccess"] = result.Message;
+            return RedirectToAction(nameof(Surveys));
+        }
+
+        [HttpPost("/Admin/Surveys/{id:int}/Activate")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ActivateSurvey(int id)
+        {
+            var result = await _surveyService.SetSurveyActiveStateAsync(id, true);
+            TempData[result.IsSuccess ? "SurveySuccess" : "SurveyError"] = result.Message;
+            return RedirectToAction(nameof(SurveyDetail), new { id });
+        }
+
+        [HttpPost("/Admin/Surveys/{id:int}/Deactivate")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeactivateSurvey(int id)
+        {
+            var result = await _surveyService.SetSurveyActiveStateAsync(id, false);
+            TempData[result.IsSuccess ? "SurveySuccess" : "SurveyError"] = result.Message;
+            return RedirectToAction(nameof(SurveyDetail), new { id });
         }
 
         [HttpPost("/Admin/Slider/Upload")]
@@ -1032,9 +1128,75 @@ namespace MEC.Portal.Controllers
             };
         }
 
+        private async Task<AdminSurveyListViewModel> BuildSurveyListViewModelAsync(string? status)
+        {
+            var normalizedStatus = NormalizeSurveyStatusFilter(status);
+            var items = await _surveyService.GetAdminSurveysAsync(normalizedStatus);
+
+            return new AdminSurveyListViewModel
+            {
+                Status = NormalizeSurveyStatusValue(status),
+                Items = items.Select(MapAdminSurveyListItem).ToList()
+            };
+        }
+
+        private async Task<AdminSurveyDetailViewModel?> BuildSurveyDetailViewModelAsync(int id)
+        {
+            var detail = await _surveyService.GetAdminSurveyDetailAsync(id);
+            if (detail == null)
+            {
+                return null;
+            }
+
+            return new AdminSurveyDetailViewModel
+            {
+                Id = detail.Id,
+                Title = detail.Title,
+                Description = detail.Description,
+                IsActive = detail.IsActive,
+                StatusLabel = detail.IsActive ? "Aktif" : "Pasif",
+                StatusTone = detail.IsActive ? "approved" : "rejected",
+                QuestionCount = detail.Questions.Count,
+                AnswerCount = detail.AnswerCount,
+                ActivePortalUserCount = detail.ActivePortalUserCount,
+                ParticipationRate = detail.ParticipationRate,
+                CreatedDate = detail.CreatedDate,
+                Questions = detail.QuestionResults.Select(question => new AdminSurveyQuestionDetailViewModel
+                {
+                    Id = question.Id,
+                    QuestionText = question.QuestionText,
+                    Type = question.Type,
+                    TypeLabel = GetSurveyTypeLabel(question.Type),
+                    DisplayOrder = question.DisplayOrder,
+                    AverageRating = question.AverageRating,
+                    Options = question.Options.Select(x => new AdminSurveyOptionViewModel
+                    {
+                        Id = x.Id,
+                        Text = x.Text,
+                        DisplayOrder = x.DisplayOrder
+                    }).ToList(),
+                    RatingDistribution = question.RatingDistribution.Select(x => new AdminSurveyRatingDistributionViewModel
+                    {
+                        RatingValue = x.RatingValue,
+                        Count = x.Count,
+                        Percentage = x.Percentage
+                    }).ToList(),
+                    OptionResults = question.OptionResults.Select(x => new AdminSurveyOptionResultViewModel
+                    {
+                        OptionId = x.OptionId,
+                        Text = x.Text,
+                        DisplayOrder = x.DisplayOrder,
+                        Count = x.Count,
+                        Percentage = x.Percentage
+                    }).ToList()
+                }).ToList()
+            };
+        }
+
         private async Task<AdminPortalUserEditViewModel> BuildPortalUserEditViewModelAsync(PortalUserEditModel portalUser)
         {
             var model = MapPortalUserEditModel(portalUser);
+            EnsurePortalChildInputs(model);
             await PopulateLocationOptionsAsync(model);
             return model;
         }
@@ -1087,9 +1249,55 @@ namespace MEC.Portal.Controllers
                 HireDate = portalUser.HireDate,
                 BirthDate = portalUser.BirthDate,
                 LocationId = portalUser.LocationId,
+                AddressText = portalUser.AddressText,
+                MaritalStatus = portalUser.MaritalStatus,
+                EducationUniversity = portalUser.EducationUniversity,
+                EducationFaculty = portalUser.EducationFaculty,
+                EducationDepartment = portalUser.EducationDepartment,
+                Children = portalUser.Children.Select(x => new ProfileChildInputViewModel
+                {
+                    Gender = x.Gender,
+                    BirthDate = x.BirthDate
+                }).ToList(),
                 LeaveDays = portalUser.LeaveDays,
                 IsAdmin = portalUser.IsAdmin,
                 IsDeleted = portalUser.IsDeleted
+            };
+        }
+
+        private static void EnsurePortalChildInputs(AdminPortalUserEditViewModel model)
+        {
+            model.Children ??= new List<ProfileChildInputViewModel>();
+            model.Children = model.Children
+                .Where(x => x != null)
+                .Select(x => new ProfileChildInputViewModel
+                {
+                    Gender = x.Gender,
+                    BirthDate = x.BirthDate
+                })
+                .ToList();
+
+            if (!model.Children.Any())
+            {
+                model.Children.Add(new ProfileChildInputViewModel());
+            }
+        }
+
+        private static AdminSurveyListItemViewModel MapAdminSurveyListItem(AdminSurveyListItemModel survey)
+        {
+            return new AdminSurveyListItemViewModel
+            {
+                Id = survey.Id,
+                Title = survey.Title,
+                Description = survey.Description,
+                QuestionCount = survey.QuestionCount,
+                QuestionPreview = survey.QuestionPreview,
+                IsActive = survey.IsActive,
+                StatusLabel = survey.IsActive ? "Aktif" : "Pasif",
+                StatusTone = survey.IsActive ? "approved" : "rejected",
+                AnswerCount = survey.AnswerCount,
+                ParticipationRate = survey.ParticipationRate,
+                CreatedDate = survey.CreatedDate
             };
         }
 
@@ -1193,6 +1401,77 @@ namespace MEC.Portal.Controllers
         private static string BuildMonthLabel(int year, int month)
         {
             return new DateTime(year, month, 1).ToString("MMMM yyyy", new CultureInfo("tr-TR"));
+        }
+
+        private static void EnsureSurveyQuestionInputs(AdminSurveyCreateViewModel model)
+        {
+            model.Questions ??= new List<AdminSurveyQuestionInputViewModel>();
+            model.Questions = model.Questions
+                .Where(x => x != null)
+                .Select(question => new AdminSurveyQuestionInputViewModel
+                {
+                    Type = question.Type,
+                    QuestionText = question.QuestionText ?? string.Empty,
+                    Options = (question.Options ?? new List<AdminSurveyOptionInputViewModel>())
+                        .Where(option => option != null)
+                        .Select(option => new AdminSurveyOptionInputViewModel
+                        {
+                            Text = option.Text ?? string.Empty
+                        })
+                        .ToList()
+                })
+                .ToList();
+
+            if (!model.Questions.Any())
+            {
+                model.Questions.Add(new AdminSurveyQuestionInputViewModel());
+            }
+
+            foreach (var question in model.Questions)
+            {
+                question.Options ??= new List<AdminSurveyOptionInputViewModel>();
+
+                if (question.Type != SurveyType.MultipleChoice)
+                {
+                    question.Options = question.Options
+                        .Where(option => option != null)
+                        .Select(option => new AdminSurveyOptionInputViewModel
+                        {
+                            Text = option.Text ?? string.Empty
+                        })
+                        .ToList();
+                    continue;
+                }
+
+                while (question.Options.Count < 2)
+                {
+                    question.Options.Add(new AdminSurveyOptionInputViewModel());
+                }
+            }
+        }
+
+        private static bool? NormalizeSurveyStatusFilter(string? status)
+        {
+            return NormalizeSurveyStatusValue(status) switch
+            {
+                "active" => true,
+                "passive" => false,
+                _ => null
+            };
+        }
+
+        private static string NormalizeSurveyStatusValue(string? status)
+        {
+            return string.Equals(status, "active", StringComparison.OrdinalIgnoreCase)
+                ? "active"
+                : string.Equals(status, "passive", StringComparison.OrdinalIgnoreCase)
+                    ? "passive"
+                    : "all";
+        }
+
+        private static string GetSurveyTypeLabel(SurveyType type)
+        {
+            return type == SurveyType.MultipleChoice ? "Çoktan seçmeli" : "Puanlamalı";
         }
 
         private static string GetFoodMenuStatusLabel(FoodMenuMonthStatus status)

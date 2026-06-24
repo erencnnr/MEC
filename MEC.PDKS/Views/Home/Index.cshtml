@@ -1,0 +1,16 @@
+@{
+    ViewData["Title"] = "PDKS";
+}
+
+<section class="pdks-hero">
+    <div>
+        <span class="pdks-hero__eyebrow">MEC PDKS</span>
+        <h1>Personel hareket kayıtları</h1>
+        <p>PDKS kullanıcılarını listeleyin ve giriş-çıkış kayıtlarını gün veya tarih aralığı ile filtreleyin.</p>
+    </div>
+
+    <div class="pdks-hero__actions">
+        <a class="btn btn-primary" asp-controller="PdksUsers" asp-action="Index">PDKS Kullanıcıları</a>
+        <a class="btn btn-outline-primary" asp-controller="Movements" asp-action="Index">Giriş-Çıkış Kayıtları</a>
+    </div>
+</section>

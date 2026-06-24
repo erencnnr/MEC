@@ -1,0 +1,445 @@
+@using MEC.Domain.Common.Enum
+@model MEC.Portal.Models.AdminSurveyCreateViewModel
+
+@{
+    ViewData["Title"] = "Yeni Anket";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<section class="leave-history-page admin-surveys-page">
+    <div class="leave-history-shell">
+        <div class="leave-history-topbar">
+            <div>
+                <span class="leave-history-topbar__eyebrow">Yönetici işlemleri</span>
+                <h1>Yeni Anket</h1>
+                <p>Anket başlığını belirleyin ve soruları ekleme sırasıyla oluşturun.</p>
+            </div>
+
+            <div class="admin-page-topbar__actions">
+                <a asp-controller="Admin" asp-action="Surveys" class="home-link-pill">Listeye Dön</a>
+            </div>
+        </div>
+
+        <div class="admin-slider-upload-card admin-survey-create-card">
+            <div class="admin-slider-upload-card__content">
+                <form action="/Admin/Surveys/Create" method="post" class="admin-survey-create-form" id="adminSurveyCreateForm">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="admin-slider-alert admin-slider-alert--error admin-survey-validation"></div>
+
+                    <div class="admin-survey-form-grid">
+                        <div class="admin-slider-upload-form__field">
+                            <label asp-for="Title">Anket Başlığı</label>
+                            <input asp-for="Title" />
+                        </div>
+
+                        <label class="admin-survey-checkbox admin-survey-checkbox--top">
+                            <input asp-for="IsActive" />
+                            <span>Aktif olarak başlasın</span>
+                        </label>
+
+                        <div class="admin-slider-upload-form__field admin-survey-form-grid__full">
+                            <label asp-for="Description">Kısa Açıklama</label>
+                            <textarea asp-for="Description" rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="admin-survey-questions" id="adminSurveyQuestions">
+                        @for (var questionIndex = 0; questionIndex < Model.Questions.Count; questionIndex++)
+                        {
+                            var question = Model.Questions[questionIndex];
+                            var isMultipleChoice = question.Type == SurveyType.MultipleChoice;
+                            <section class="admin-survey-question-card" data-question-card="true">
+                                <div class="admin-survey-question-card__head">
+                                    <div>
+                                        <span class="admin-slider-upload-card__eyebrow">Soru @(questionIndex + 1)</span>
+                                        <h2>Soru Kartı</h2>
+                                    </div>
+
+                                    <button type="button"
+                                            class="admin-slider-card__delete admin-survey-question-card__remove"
+                                            data-remove-question="true"
+                                            @(Model.Questions.Count == 1 ? "disabled" : null)>
+                                        Soruyu Kaldır
+                                    </button>
+                                </div>
+
+                                <div class="admin-survey-form-grid">
+                                    <div class="admin-slider-upload-form__field">
+                                        <label>Soru Tipi</label>
+                                        <select name="Questions[@questionIndex].Type" data-question-type="true">
+                                            @if (question.Type == SurveyType.Rating)
+                                            {
+                                                <option value="@((int)SurveyType.Rating)" selected="selected">Puanlamalı</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="@((int)SurveyType.Rating)">Puanlamalı</option>
+                                            }
+
+                                            @if (question.Type == SurveyType.MultipleChoice)
+                                            {
+                                                <option value="@((int)SurveyType.MultipleChoice)" selected="selected">Çoktan seçmeli</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="@((int)SurveyType.MultipleChoice)">Çoktan seçmeli</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="admin-slider-upload-form__field admin-survey-form-grid__full">
+                                        <label>Soru Metni</label>
+                                        <textarea name="Questions[@questionIndex].QuestionText" rows="3">@question.QuestionText</textarea>
+                                        <small class="admin-survey-field-hint">Kullanıcının cevaplayacağı soruyu burada belirtin.</small>
+                                    </div>
+                                </div>
+
+                                <div class="@(isMultipleChoice ? "admin-survey-options-panel" : "admin-survey-options-panel is-hidden")" data-options-panel="true">
+                                    <div class="admin-survey-options-panel__head">
+                                        <strong>Cevap Şıkları</strong>
+                                    </div>
+                                    <p class="admin-survey-options-panel__hint">Çoktan seçmeli sorularda en fazla 10 seçenek olabilir.</p>
+                                    <div class="admin-survey-options-list" data-options-list="true">
+                                        @for (var optionIndex = 0; optionIndex < question.Options.Count; optionIndex++)
+                                        {
+                                            <div class="admin-survey-option-row" data-option-row="true">
+                                                <span class="admin-survey-option-row__label">Şık @(optionIndex + 1)</span>
+                                                <input name="Questions[@questionIndex].Options[@optionIndex].Text"
+                                                       value="@question.Options[optionIndex].Text"
+                                                       placeholder="Seçenek metni" />
+                                                <button type="button" class="admin-slider-card__delete admin-survey-option-row__remove" data-remove-option="true">Kaldır</button>
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="admin-survey-options-actions">
+                                        <button type="button" class="home-link-pill" data-add-option="true">Seçenek ekle</button>
+                                    </div>
+                                </div>
+                            </section>
+                        }
+                    </div>
+
+                    <div class="admin-survey-add-question-row" id="adminSurveyAddQuestionRow">
+                        <button type="button" class="leave-history-topbar__action" data-add-question="true">Soru Ekle +</button>
+                    </div>
+
+                    <div class="admin-survey-submit-row">
+                        <button type="button" class="leave-history-topbar__action" id="adminSurveySubmitButton">Anketi Oluştur</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts
+{
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const questionsRoot = document.getElementById("adminSurveyQuestions");
+            const form = document.getElementById("adminSurveyCreateForm");
+            const addQuestionRow = document.getElementById("adminSurveyAddQuestionRow");
+            const submitButton = document.getElementById("adminSurveySubmitButton");
+            const validationSummary = form?.querySelector(".admin-survey-validation");
+
+            if (!questionsRoot || !form) {
+                return;
+            }
+
+            const maxOptions = 10;
+            const ratingTypeValue = "@((int)SurveyType.Rating)";
+            const multipleChoiceTypeValue = "@((int)SurveyType.MultipleChoice)";
+
+            const getQuestionCards = () => Array.from(questionsRoot.querySelectorAll("[data-question-card='true']"));
+
+            const createOptionRow = (questionIndex, optionIndex, value) => {
+                const row = document.createElement("div");
+                row.className = "admin-survey-option-row";
+                row.setAttribute("data-option-row", "true");
+                row.innerHTML =
+                    '<span class="admin-survey-option-row__label">Şık ' + (optionIndex + 1) + '</span>' +
+                    '<input name="Questions[' + questionIndex + '].Options[' + optionIndex + '].Text" placeholder="Seçenek metni" />' +
+                    '<button type="button" class="admin-slider-card__delete admin-survey-option-row__remove" data-remove-option="true">Kaldır</button>';
+                row.querySelector("input").value = value || "";
+                return row;
+            };
+
+            const createQuestionCard = () => {
+                const card = document.createElement("section");
+                card.className = "admin-survey-question-card";
+                card.setAttribute("data-question-card", "true");
+                card.innerHTML =
+                    '<div class="admin-survey-question-card__head">' +
+                        '<div>' +
+                            '<span class="admin-slider-upload-card__eyebrow">Soru</span>' +
+                            '<h2>Soru Kartı</h2>' +
+                        '</div>' +
+                        '<button type="button" class="admin-slider-card__delete admin-survey-question-card__remove" data-remove-question="true">Soruyu Kaldır</button>' +
+                    '</div>' +
+                    '<div class="admin-survey-form-grid">' +
+                        '<div class="admin-slider-upload-form__field">' +
+                            '<label>Soru Tipi</label>' +
+                            '<select data-question-type="true">' +
+                                '<option value="' + ratingTypeValue + '">Puanlamalı</option>' +
+                                '<option value="' + multipleChoiceTypeValue + '">Çoktan seçmeli</option>' +
+                            '</select>' +
+                        '</div>' +
+                        '<div class="admin-slider-upload-form__field admin-survey-form-grid__full">' +
+                            '<label>Soru Metni</label>' +
+                            '<textarea rows="3"></textarea>' +
+                            '<small class="admin-survey-field-hint">Kullanıcının cevaplayacağı soruyu burada belirtin.</small>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="admin-survey-options-panel is-hidden" data-options-panel="true">' +
+                        '<div class="admin-survey-options-panel__head">' +
+                            '<strong>Cevap Şıkları</strong>' +
+                        '</div>' +
+                        '<p class="admin-survey-options-panel__hint">Çoktan seçmeli sorularda en fazla 10 seçenek olabilir.</p>' +
+                        '<div class="admin-survey-options-list" data-options-list="true"></div>' +
+                        '<div class="admin-survey-options-actions">' +
+                            '<button type="button" class="home-link-pill" data-add-option="true">Seçenek ekle</button>' +
+                        '</div>' +
+                    '</div>';
+
+                const optionsList = card.querySelector("[data-options-list='true']");
+                optionsList.appendChild(createOptionRow(0, 0, ""));
+                optionsList.appendChild(createOptionRow(0, 1, ""));
+                return card;
+            };
+
+            const renderValidationErrors = (messages) => {
+                if (!validationSummary) {
+                    return;
+                }
+
+                if (!messages.length) {
+                    validationSummary.innerHTML = "";
+                    validationSummary.classList.add("is-hidden");
+                    return;
+                }
+
+                validationSummary.classList.remove("is-hidden");
+                validationSummary.innerHTML = messages.map(message => "<div>" + message + "</div>").join("");
+                validationSummary.scrollIntoView({ behavior: "smooth", block: "center" });
+            };
+
+            const renumberQuestionCard = (card, questionIndex, questionCount) => {
+                const eyebrow = card.querySelector(".admin-slider-upload-card__eyebrow");
+                if (eyebrow) {
+                    eyebrow.textContent = "Soru " + (questionIndex + 1);
+                }
+
+                const typeSelect = card.querySelector("[data-question-type='true']");
+                if (typeSelect) {
+                    typeSelect.name = "Questions[" + questionIndex + "].Type";
+                }
+
+                const questionText = card.querySelector("textarea");
+                if (questionText) {
+                    questionText.name = "Questions[" + questionIndex + "].QuestionText";
+                }
+
+                const removeQuestionButton = card.querySelector("[data-remove-question='true']");
+                if (removeQuestionButton) {
+                    removeQuestionButton.disabled = questionCount === 1;
+                }
+
+                const optionsList = card.querySelector("[data-options-list='true']");
+                if (!optionsList) {
+                    return;
+                }
+
+                Array.from(optionsList.querySelectorAll("[data-option-row='true']")).forEach((row, optionIndex) => {
+                    const label = row.querySelector(".admin-survey-option-row__label");
+                    const input = row.querySelector("input");
+                    const removeButton = row.querySelector("[data-remove-option='true']");
+
+                    if (label) {
+                        label.textContent = "Şık " + (optionIndex + 1);
+                    }
+
+                    if (input) {
+                        input.name = "Questions[" + questionIndex + "].Options[" + optionIndex + "].Text";
+                    }
+
+                    if (removeButton) {
+                        removeButton.disabled = optionsList.querySelectorAll("[data-option-row='true']").length <= 2;
+                    }
+                });
+            };
+
+            const syncOptionsPanel = (card) => {
+                const typeSelect = card.querySelector("[data-question-type='true']");
+                const optionsPanel = card.querySelector("[data-options-panel='true']");
+                const optionsList = card.querySelector("[data-options-list='true']");
+                const addOptionButton = card.querySelector("[data-add-option='true']");
+
+                if (!typeSelect || !optionsPanel || !optionsList || !addOptionButton) {
+                    return;
+                }
+
+                const isMultipleChoice = typeSelect.value === multipleChoiceTypeValue;
+                optionsPanel.classList.toggle("is-hidden", !isMultipleChoice);
+
+                if (!isMultipleChoice) {
+                    return;
+                }
+
+                while (optionsList.querySelectorAll("[data-option-row='true']").length < 2) {
+                    optionsList.appendChild(createOptionRow(0, optionsList.querySelectorAll("[data-option-row='true']").length, ""));
+                }
+
+                addOptionButton.disabled = optionsList.querySelectorAll("[data-option-row='true']").length >= maxOptions;
+            };
+
+            const syncQuestionCards = () => {
+                const cards = getQuestionCards();
+                cards.forEach((card, index) => {
+                    renumberQuestionCard(card, index, cards.length);
+                    syncOptionsPanel(card);
+                });
+
+                if (addQuestionRow) {
+                    addQuestionRow.classList.toggle("is-hidden", cards.length === 0);
+                }
+            };
+
+            const collectClientErrors = () => {
+                const errors = [];
+                const titleInput = form.querySelector("input[name='Title']");
+
+                if (titleInput && !titleInput.value.trim()) {
+                    errors.push("Anket başlığı zorunludur.");
+                }
+
+                const cards = getQuestionCards();
+                if (!cards.length) {
+                    errors.push("En az 1 soru giriniz.");
+                }
+
+                cards.forEach((card, index) => {
+                    const questionText = card.querySelector("textarea[name^='Questions[']");
+                    if (!questionText || !questionText.value.trim()) {
+                        errors.push("Soru " + (index + 1) + " için soru metni zorunludur.");
+                    }
+
+                    const typeSelect = card.querySelector("[data-question-type='true']");
+                    if (!typeSelect || typeSelect.value !== multipleChoiceTypeValue) {
+                        return;
+                    }
+
+                    const options = Array.from(card.querySelectorAll("[data-option-row='true'] input"))
+                        .map(input => input.value.trim())
+                        .filter(Boolean);
+
+                    if (options.length < 2) {
+                        errors.push("Soru " + (index + 1) + " için en az 2 seçenek giriniz.");
+                    }
+                });
+
+                return errors;
+            };
+
+            form.addEventListener("click", function (event) {
+                const target = event.target;
+                if (!(target instanceof HTMLElement)) {
+                    return;
+                }
+
+                const addQuestionButton = target.closest("[data-add-question='true']");
+                if (addQuestionButton) {
+                    questionsRoot.appendChild(createQuestionCard());
+                    syncQuestionCards();
+                    return;
+                }
+
+                const removeQuestionButton = target.closest("[data-remove-question='true']");
+                if (removeQuestionButton) {
+                    const cards = getQuestionCards();
+                    if (cards.length <= 1) {
+                        return;
+                    }
+
+                    const card = removeQuestionButton.closest("[data-question-card='true']");
+                    if (card) {
+                        card.remove();
+                        syncQuestionCards();
+                    }
+                    return;
+                }
+
+                const addOptionButton = target.closest("[data-add-option='true']");
+                if (addOptionButton) {
+                    const card = addOptionButton.closest("[data-question-card='true']");
+                    const optionsList = card?.querySelector("[data-options-list='true']");
+                    if (!card || !optionsList) {
+                        return;
+                    }
+
+                    const optionCount = optionsList.querySelectorAll("[data-option-row='true']").length;
+                    if (optionCount >= maxOptions) {
+                        return;
+                    }
+
+                    optionsList.appendChild(createOptionRow(0, optionCount, ""));
+                    syncQuestionCards();
+                    return;
+                }
+
+                const removeOptionButton = target.closest("[data-remove-option='true']");
+                if (removeOptionButton) {
+                    const optionsList = removeOptionButton.closest("[data-options-list='true']");
+                    if (!optionsList || optionsList.querySelectorAll("[data-option-row='true']").length <= 2) {
+                        return;
+                    }
+
+                    const optionRow = removeOptionButton.closest("[data-option-row='true']");
+                    if (optionRow) {
+                        optionRow.remove();
+                        syncQuestionCards();
+                    }
+                }
+            });
+
+            questionsRoot.addEventListener("change", function (event) {
+                const target = event.target;
+                if (!(target instanceof HTMLElement)) {
+                    return;
+                }
+
+                if (target.matches("[data-question-type='true']")) {
+                    const card = target.closest("[data-question-card='true']");
+                    if (card) {
+                        syncOptionsPanel(card);
+                        syncQuestionCards();
+                    }
+                }
+            });
+
+            submitButton?.addEventListener("click", function () {
+                const errors = collectClientErrors();
+                renderValidationErrors(errors);
+
+                if (errors.length) {
+                    return;
+                }
+
+                if (typeof form.requestSubmit === "function") {
+                    form.requestSubmit();
+                    return;
+                }
+
+                form.submit();
+            });
+
+            form.addEventListener("submit", function () {
+                renderValidationErrors([]);
+                if (submitButton instanceof HTMLButtonElement) {
+                    submitButton.disabled = true;
+                }
+            });
+
+            syncQuestionCards();
+        });
+    </script>
+}

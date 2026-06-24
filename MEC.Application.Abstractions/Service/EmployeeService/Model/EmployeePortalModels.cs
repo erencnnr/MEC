@@ -1,4 +1,5 @@
 using MEC.Application.Abstractions.Common.Models;
+using MEC.Domain.Common.Enum;
 using MEC.Domain.Entity.Employee;
 
 namespace MEC.Application.Abstractions.Service.EmployeeService.Model
@@ -30,6 +31,12 @@ namespace MEC.Application.Abstractions.Service.EmployeeService.Model
         public string Status { get; set; } = "active";
     }
 
+    public class PortalUserChildEditModel
+    {
+        public ChildGenderType? Gender { get; set; }
+        public DateTime? BirthDate { get; set; }
+    }
+
     public class PortalUserEditModel
     {
         public int Id { get; set; }
@@ -44,6 +51,30 @@ namespace MEC.Application.Abstractions.Service.EmployeeService.Model
         public decimal LeaveDays { get; set; }
         public bool IsAdmin { get; set; }
         public bool IsDeleted { get; set; }
+        public string? AddressText { get; set; }
+        public MaritalStatusType? MaritalStatus { get; set; }
+        public string? EducationUniversity { get; set; }
+        public string? EducationFaculty { get; set; }
+        public string? EducationDepartment { get; set; }
+        public List<PortalUserChildEditModel> Children { get; set; } = new();
+    }
+
+    public class PortalSelfEditModel
+    {
+        public int Id { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public DateTime HireDate { get; set; }
+        public DateTime BirthDate { get; set; }
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string? AddressText { get; set; }
+        public MaritalStatusType? MaritalStatus { get; set; }
+        public string? EducationUniversity { get; set; }
+        public string? EducationFaculty { get; set; }
+        public string? EducationDepartment { get; set; }
+        public List<PortalUserChildEditModel> Children { get; set; } = new();
     }
 
     public class LocationOptionModel

@@ -19,6 +19,7 @@ using MEC.Application.Service.ServiceHistoryService;
 using MEC.DAL.Config.Abstractions.Common;
 using MEC.DAL.Config.Applicaiton.EntityFramework;
 using MEC.DAL.Config.Contexts;
+using MEC.Portal.Middleware;
 using MEC.Portal.Options;
 using MEC.Portal.Services;
 using MEC.Portal.Services.Notifications;
@@ -72,6 +73,7 @@ try
     builder.Services.AddScoped<ISliderService, SliderService>();
     builder.Services.AddScoped<IBirthdayPopupService, BirthdayPopupService>();
     builder.Services.AddScoped<IFoodMenuService, FoodMenuService>();
+    builder.Services.AddScoped<ISurveyService, SurveyService>();
     builder.Services.AddScoped<IWorkflowNotificationService, SmtpWorkflowNotificationService>();
     builder.Services.AddScoped<ILeaveService, LeaveService>();
     builder.Services.AddScoped<IOvertimeService, OvertimeService>();
@@ -120,6 +122,7 @@ try
 
     app.UseRouting();
     app.UseAuthentication();
+    app.UseMiddleware<ProfileCompletionMiddleware>();
     app.UseAuthorization();
 
     app.MapControllerRoute(

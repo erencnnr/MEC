@@ -1,0 +1,79 @@
+@using System.Globalization
+@model MEC.Portal.Models.AdminSurveyListViewModel
+
+@{
+    ViewData["Title"] = "Anket Yönetimi";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<section class="leave-history-page admin-surveys-page">
+    <div class="leave-history-shell">
+        <div class="leave-history-topbar">
+            <div>
+                <span class="leave-history-topbar__eyebrow">Yönetici işlemleri</span>
+                <h1>Anket Yönetimi</h1>
+                <p>Aktif ve pasif anketleri yönetin ve cevap durumlarını detay ekranından inceleyin.</p>
+            </div>
+
+            <div class="admin-page-topbar__actions">
+                <a asp-controller="Admin" asp-action="SurveyCreate" class="leave-history-topbar__action">Yeni Anket</a>
+            </div>
+        </div>
+
+        @if (TempData["SurveySuccess"] is string successMessage && !string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="admin-slider-alert admin-slider-alert--success">@successMessage</div>
+        }
+
+        @if (TempData["SurveyError"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="admin-slider-alert admin-slider-alert--error">@errorMessage</div>
+        }
+
+        <div class="admin-portal-users-controls">
+            <div class="announcement-board-filters admin-portal-users-filters">
+                <a asp-action="Surveys" asp-route-status="all" class="@(Model.Status == "all" ? "announcement-board-filter is-active" : "announcement-board-filter")">Hepsi</a>
+                <a asp-action="Surveys" asp-route-status="active" class="@(Model.Status == "active" ? "announcement-board-filter is-active" : "announcement-board-filter")">Aktif</a>
+                <a asp-action="Surveys" asp-route-status="passive" class="@(Model.Status == "passive" ? "announcement-board-filter is-active" : "announcement-board-filter")">Pasif</a>
+            </div>
+        </div>
+
+        @if (!Model.Items.Any())
+        {
+            <div class="leave-history-empty admin-slider-empty">
+                <h2>Anket bulunamadı</h2>
+                <p>Seçili filtre için görüntülenecek anket kaydı yok.</p>
+            </div>
+        }
+        else
+        {
+            <div class="admin-survey-list">
+                @foreach (var item in Model.Items)
+                {
+                    <a class="admin-survey-list-card" asp-controller="Admin" asp-action="SurveyDetail" asp-route-id="@item.Id">
+                        <div class="admin-survey-list-card__head">
+                            <div>
+                                <span class="admin-food-menu-status admin-food-menu-status--@(item.IsActive ? "success" : "draft")">@item.StatusLabel</span>
+                                <h3>@item.Title</h3>
+                            </div>
+                            <span class="admin-survey-count-badge">@item.QuestionCount soru</span>
+                        </div>
+
+                        <p class="admin-survey-list-card__question">@item.QuestionPreview</p>
+
+                        @if (!string.IsNullOrWhiteSpace(item.Description))
+                        {
+                            <p class="admin-survey-list-card__description">@item.Description</p>
+                        }
+
+                        <div class="admin-survey-list-card__meta">
+                            <span>@item.AnswerCount cevap</span>
+                            <span>%@item.ParticipationRate.ToString("0.#", CultureInfo.GetCultureInfo("tr-TR")) katılım</span>
+                            <span>@(item.CreatedDate?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-")</span>
+                        </div>
+                    </a>
+                }
+            </div>
+        }
+    </div>
+</section>

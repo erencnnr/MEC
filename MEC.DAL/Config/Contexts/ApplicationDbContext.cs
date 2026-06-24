@@ -40,6 +40,7 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<EmployeeType> EmployeeTypes { get; set; }
         public DbSet<Location> Locations { get; set; }
         public DbSet<EmployeePortal> EmployeePortals { get; set; }
+        public DbSet<EmployeePortalChild> EmployeePortalChildren { get; set; }
         public DbSet<Announcement> Announcement { get; set; }
         public DbSet<AnnouncementAttachment> AnnouncementAttachments { get; set; }
         public DbSet<AnnouncementImage> AnnouncementImages { get; set; }
@@ -50,6 +51,11 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<BirthdayPopupView> BirthdayPopupViews { get; set; }
         public DbSet<FoodMenuMonth> FoodMenuMonths { get; set; }
         public DbSet<FoodMenuDay> FoodMenuDays { get; set; }
+        public DbSet<Survey> Surveys { get; set; }
+        public DbSet<SurveyQuestion> SurveyQuestions { get; set; }
+        public DbSet<SurveyQuestionOption> SurveyQuestionOptions { get; set; }
+        public DbSet<SurveyResponse> SurveyResponses { get; set; }
+        public DbSet<SurveyResponseAnswer> SurveyResponseAnswers { get; set; }
         public DbSet<ApiLog> ApiLogs { get; set; }
         public DbSet<UserActionLog> UserActionLogs { get; set; }
         public DbSet<LeaveType> LeaveTypes { get; set; }
@@ -101,10 +107,31 @@ namespace MEC.DAL.Config.Contexts
                 .HasIndex(x => x.LocationId);
 
             modelBuilder.Entity<EmployeePortal>()
+                .Property(x => x.AddressText)
+                .HasColumnType("text");
+
+            modelBuilder.Entity<EmployeePortal>()
                 .HasOne(x => x.Location)
                 .WithMany()
                 .HasForeignKey(x => x.LocationId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<EmployeePortalChild>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<EmployeePortalChild>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<EmployeePortalChild>()
+                .HasIndex(x => x.EmployeePortalId);
+
+            modelBuilder.Entity<EmployeePortalChild>()
+                .HasOne(x => x.EmployeePortal)
+                .WithMany(x => x.Children)
+                .HasForeignKey(x => x.EmployeePortalId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Holiday>()
                 .Property(x => x.CreatedDate)
@@ -287,6 +314,110 @@ namespace MEC.DAL.Config.Contexts
                 .HasOne(x => x.FoodMenuMonth)
                 .WithMany(x => x.Days)
                 .HasForeignKey(x => x.FoodMenuMonthId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Survey>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<Survey>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<Survey>()
+                .Property(x => x.Description)
+                .HasColumnType("text");
+
+            modelBuilder.Entity<SurveyQuestion>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<SurveyQuestion>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<SurveyQuestion>()
+                .Property(x => x.QuestionText)
+                .HasColumnType("text");
+
+            modelBuilder.Entity<SurveyQuestion>()
+                .HasIndex(x => new { x.SurveyId, x.DisplayOrder });
+
+            modelBuilder.Entity<SurveyQuestion>()
+                .HasOne(x => x.Survey)
+                .WithMany(x => x.Questions)
+                .HasForeignKey(x => x.SurveyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SurveyQuestionOption>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<SurveyQuestionOption>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<SurveyQuestionOption>()
+                .HasIndex(x => new { x.SurveyQuestionId, x.DisplayOrder });
+
+            modelBuilder.Entity<SurveyQuestionOption>()
+                .HasOne(x => x.SurveyQuestion)
+                .WithMany(x => x.Options)
+                .HasForeignKey(x => x.SurveyQuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SurveyResponse>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<SurveyResponse>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<SurveyResponse>()
+                .HasIndex(x => new { x.SurveyId, x.EmployeePortalId })
+                .IsUnique();
+
+            modelBuilder.Entity<SurveyResponse>()
+                .HasOne(x => x.Survey)
+                .WithMany(x => x.Responses)
+                .HasForeignKey(x => x.SurveyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SurveyResponse>()
+                .HasOne(x => x.EmployeePortal)
+                .WithMany()
+                .HasForeignKey(x => x.EmployeePortalId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<SurveyResponseAnswer>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<SurveyResponseAnswer>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<SurveyResponseAnswer>()
+                .HasIndex(x => new { x.SurveyResponseId, x.SurveyQuestionId })
+                .IsUnique();
+
+            modelBuilder.Entity<SurveyResponseAnswer>()
+                .HasOne(x => x.SurveyResponse)
+                .WithMany(x => x.Answers)
+                .HasForeignKey(x => x.SurveyResponseId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SurveyResponseAnswer>()
+                .HasOne(x => x.SurveyQuestion)
+                .WithMany(x => x.ResponseAnswers)
+                .HasForeignKey(x => x.SurveyQuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<SurveyResponseAnswer>()
+                .HasOne(x => x.SurveyQuestionOption)
+                .WithMany(x => x.ResponseAnswers)
+                .HasForeignKey(x => x.SurveyQuestionOptionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             base.OnModelCreating(modelBuilder);

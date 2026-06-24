@@ -28,7 +28,12 @@ namespace MEC.Portal.Models
     {
         public DateTime MenuDate { get; set; }
         public string RawItemsText { get; set; } = string.Empty;
-        public List<string> MenuItems { get; set; } = new();
-        public int PreviewPageNumber { get; set; } = 1;
+        public List<FoodListMenuLineViewModel> MenuItems { get; set; } = new();
+    }
+
+    public class FoodListMenuLineViewModel
+    {
+        public string Text { get; set; } = string.Empty;
+        public bool IsSectionHeading { get; set; }
     }
 }

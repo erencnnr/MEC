@@ -1,0 +1,197 @@
+@using MEC.Domain.Common.Enum
+@using System.Globalization
+@model MEC.Portal.Models.SurveyDetailViewModel
+
+@{
+    ViewData["Title"] = "Anket Detayı";
+}
+
+<section class="survey-page">
+    <div class="food-list-shell survey-page-shell">
+        <div class="survey-page-header survey-page-header--detail survey-page-header--with-actions">
+            <div>
+                <span class="survey-page-header__eyebrow">Anket detayı</span>
+                <h1>@Model.Title</h1>
+                <p>@Model.Questions.Count soru içeren anket</p>
+            </div>
+
+            <div class="survey-page-header__actions">
+                <a class="home-link-pill" asp-controller="Surveys" asp-action="Index">Geri</a>
+            </div>
+        </div>
+
+        @if (TempData["SurveySuccess"] is string successMessage && !string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="admin-slider-alert admin-slider-alert--success">@successMessage</div>
+        }
+
+        @if (TempData["SurveyError"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="admin-slider-alert admin-slider-alert--error">@errorMessage</div>
+        }
+
+        <div class="survey-detail-card">
+            @if (!string.IsNullOrWhiteSpace(Model.Description))
+            {
+                <p class="survey-detail-card__description">@Model.Description</p>
+            }
+
+            @if (Model.HasAnswered)
+            {
+                <div class="home-empty-state home-empty-state--compact survey-detail-card__answered">
+                    <h3>Bu anketi cevapladınız.</h3>
+                    <p>@(Model.AnsweredAt?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-")</p>
+                </div>
+
+                <div class="survey-answered-list">
+                    @foreach (var answer in Model.AnsweredQuestions)
+                    {
+                        <article class="survey-answered-card">
+                            <h3>@answer.QuestionText</h3>
+                            @if (answer.SelectedRatingValue.HasValue)
+                            {
+                                <p>Cevabınız: <strong>@answer.SelectedRatingValue / 5</strong></p>
+                            }
+                            else
+                            {
+                                <p>Cevabınız: <strong>@answer.SelectedOptionText</strong></p>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+            else
+            {
+                <form asp-controller="Surveys" asp-action="Answer" asp-route-id="@Model.Id" method="post" class="survey-answer-form" id="surveyAnswerWizardForm">
+                    @Html.AntiForgeryToken()
+
+                    <div class="survey-wizard" id="surveyWizard">
+                        @for (var index = 0; index < Model.Questions.Count; index++)
+                        {
+                            var question = Model.Questions[index];
+                            <section class="@(index == 0 ? "survey-step-card" : "survey-step-card is-hidden")" data-survey-step="true">
+                                <div class="survey-step-card__head">
+                                    <span class="admin-survey-count-badge">Soru @(index + 1) / @Model.Questions.Count</span>
+                                </div>
+
+                                <h2>@question.QuestionText</h2>
+
+                                <input type="hidden" name="answers[@index].SurveyQuestionId" value="@question.Id" />
+
+                                @if (question.Type == SurveyType.Rating)
+                                {
+                                    <div class="survey-rating-grid">
+                                        @for (var rating = 1; rating <= 5; rating++)
+                                        {
+                                            <label class="survey-rating-option">
+                                                <input type="radio" name="answers[@index].RatingValue" value="@rating" />
+                                                <span>@rating</span>
+                                            </label>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="survey-option-list">
+                                        @foreach (var option in question.Options)
+                                        {
+                                            <label class="survey-choice-option">
+                                                <input type="radio" name="answers[@index].SurveyQuestionOptionId" value="@option.Id" />
+                                                <span>@option.Text</span>
+                                            </label>
+                                        }
+                                    </div>
+                                }
+
+                                <p class="survey-step-card__error" data-step-error="true" hidden>Bu soruyu cevaplamadan ilerleyemezsiniz.</p>
+
+                                <div class="survey-answer-form__actions">
+                                    @if (index > 0)
+                                    {
+                                        <button type="button" class="home-link-pill survey-answer-form__back" data-prev-step="true">Geri</button>
+                                    }
+                                    @if (index == Model.Questions.Count - 1)
+                                    {
+                                        <button type="submit" class="leave-history-topbar__action survey-answer-form__primary">Anketi Gönder</button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="leave-history-topbar__action survey-answer-form__primary" data-next-step="true">İleri</button>
+                                    }
+                                </div>
+                            </section>
+                        }
+                    </div>
+                </form>
+            }
+        </div>
+    </div>
+</section>
+
+@section Scripts
+{
+    @if (!Model.HasAnswered)
+    {
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const wizard = document.getElementById("surveyWizard");
+                if (!wizard) {
+                    return;
+                }
+
+                const steps = Array.from(wizard.querySelectorAll("[data-survey-step='true']"));
+                let activeIndex = 0;
+
+                const isStepAnswered = (step) => {
+                    const radios = Array.from(step.querySelectorAll("input[type='radio']"));
+                    return radios.some(radio => radio.checked);
+                };
+
+                const syncSteps = () => {
+                    steps.forEach((step, index) => {
+                        step.classList.toggle("is-hidden", index !== activeIndex);
+                    });
+                };
+
+                wizard.addEventListener("click", function (event) {
+                    const target = event.target;
+                    if (!(target instanceof HTMLElement)) {
+                        return;
+                    }
+
+                    const nextButton = target.closest("[data-next-step='true']");
+                    if (nextButton) {
+                        const currentStep = steps[activeIndex];
+                        const error = currentStep.querySelector("[data-step-error='true']");
+                        if (!isStepAnswered(currentStep)) {
+                            if (error) {
+                                error.hidden = false;
+                            }
+                            return;
+                        }
+
+                        if (error) {
+                            error.hidden = true;
+                        }
+
+                        activeIndex += 1;
+                        syncSteps();
+                        return;
+                    }
+
+                    const prevButton = target.closest("[data-prev-step='true']");
+                    if (prevButton) {
+                        const currentStep = steps[activeIndex];
+                        const error = currentStep.querySelector("[data-step-error='true']");
+                        if (error) {
+                            error.hidden = true;
+                        }
+
+                        activeIndex -= 1;
+                        syncSteps();
+                    }
+                });
+            });
+        </script>
+    }
+}

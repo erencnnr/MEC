@@ -1,0 +1,141 @@
+@using System.Globalization
+@using MEC.Domain.Common.Enum
+@model MEC.Portal.Models.AdminSurveyDetailViewModel
+
+@{
+    ViewData["Title"] = "Anket Detayı";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<section class="leave-history-page admin-survey-detail-page">
+    <div class="leave-history-shell">
+        <div class="leave-history-topbar">
+            <div>
+                <span class="leave-history-topbar__eyebrow">Yönetici işlemleri</span>
+                <h1>@Model.Title</h1>
+                <p>@Model.QuestionCount soru içeren anket</p>
+            </div>
+
+            <div class="admin-page-topbar__actions admin-page-topbar__actions--survey-detail">
+                @if (Model.IsActive)
+                {
+                    <form asp-controller="Admin" asp-action="DeactivateSurvey" asp-route-id="@Model.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="admin-slider-card__delete">Pasife Al</button>
+                    </form>
+                }
+                else
+                {
+                    <form asp-controller="Admin" asp-action="ActivateSurvey" asp-route-id="@Model.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="dashboard-hero__action">Aktif Hale Getir</button>
+                    </form>
+                }
+
+                <a class="home-link-pill" asp-controller="Admin" asp-action="Surveys">Geri</a>
+            </div>
+        </div>
+
+        @if (TempData["SurveySuccess"] is string successMessage && !string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="admin-slider-alert admin-slider-alert--success">@successMessage</div>
+        }
+
+        @if (TempData["SurveyError"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="admin-slider-alert admin-slider-alert--error">@errorMessage</div>
+        }
+
+        <div class="admin-survey-detail-meta">
+            <div class="admin-survey-stat-card">
+                <span>Durum</span>
+                <strong>@Model.StatusLabel</strong>
+            </div>
+            <div class="admin-survey-stat-card">
+                <span>Soru Sayısı</span>
+                <strong>@Model.QuestionCount</strong>
+            </div>
+            <div class="admin-survey-stat-card">
+                <span>Cevap Sayısı</span>
+                <strong>@Model.AnswerCount</strong>
+            </div>
+            <div class="admin-survey-stat-card">
+                <span>Katılım Oranı</span>
+                <strong>%@Model.ParticipationRate.ToString("0.#", CultureInfo.GetCultureInfo("tr-TR"))</strong>
+            </div>
+            <div class="admin-survey-stat-card">
+                <span>Aktif Kullanıcı</span>
+                <strong>@Model.ActivePortalUserCount</strong>
+            </div>
+        </div>
+
+        <div class="leave-history-table-card admin-survey-detail-card">
+            <div class="admin-survey-detail-card__head">
+                <span class="admin-food-menu-status admin-food-menu-status--@(Model.IsActive ? "success" : "draft")">@Model.StatusLabel</span>
+                <span>@(Model.CreatedDate?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-")</span>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.Description))
+            {
+                <p class="admin-survey-detail-card__description">@Model.Description</p>
+            }
+        </div>
+
+        <div class="admin-survey-question-results">
+            @foreach (var question in Model.Questions.OrderBy(x => x.DisplayOrder))
+            {
+                <div class="leave-history-table-card admin-survey-results-card">
+                    <div class="admin-survey-question-results__head">
+                        <div>
+                            <span class="admin-slider-upload-card__eyebrow">Soru @question.DisplayOrder</span>
+                            <h2>@question.QuestionText</h2>
+                        </div>
+                        <span class="admin-survey-count-badge">@question.TypeLabel</span>
+                    </div>
+
+                    @if (!Model.HasResponses)
+                    {
+                        <div class="leave-history-empty admin-slider-empty">
+                            <h3>Henüz cevap yok</h3>
+                            <p>Bu soru için istatistikler ilk cevap geldikten sonra görünecek.</p>
+                        </div>
+                    }
+                    else if (question.Type == SurveyType.Rating)
+                    {
+                        <div class="admin-survey-question-summary">
+                            <strong>Ortalama Puan: @(question.AverageRating?.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR")) ?? "-")</strong>
+                        </div>
+
+                        <div class="admin-survey-results-list">
+                            @foreach (var item in question.RatingDistribution)
+                            {
+                                <div class="admin-survey-results-row">
+                                    <div class="admin-survey-results-row__label">@item.RatingValue / 5</div>
+                                    <div class="admin-survey-results-row__bar">
+                                        <span style="width:@item.Percentage.ToString(CultureInfo.InvariantCulture)%"></span>
+                                    </div>
+                                    <div class="admin-survey-results-row__meta">@item.Count cevap, %@item.Percentage.ToString("0.#", CultureInfo.GetCultureInfo("tr-TR"))</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="admin-survey-results-list">
+                            @foreach (var item in question.OptionResults)
+                            {
+                                <div class="admin-survey-results-row">
+                                    <div class="admin-survey-results-row__label">@item.Text</div>
+                                    <div class="admin-survey-results-row__bar">
+                                        <span style="width:@item.Percentage.ToString(CultureInfo.InvariantCulture)%"></span>
+                                    </div>
+                                    <div class="admin-survey-results-row__meta">@item.Count cevap, %@item.Percentage.ToString("0.#", CultureInfo.GetCultureInfo("tr-TR"))</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</section>

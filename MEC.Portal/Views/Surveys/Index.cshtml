@@ -1,0 +1,50 @@
+@using System.Globalization
+@model MEC.Portal.Models.SurveyListViewModel
+
+@{
+    ViewData["Title"] = "Anketler";
+}
+
+<section class="survey-page">
+    <div class="food-list-shell survey-page-shell">
+        <div class="survey-page-header">
+            <div>
+                <span class="survey-page-header__eyebrow">Çalışan anketleri</span>
+                <h1>Anketler</h1>
+                <p>Aktif anketleri görüntüleyin ve henüz cevaplamadığınız anketleri tamamlayın.</p>
+            </div>
+        </div>
+
+        @if (!Model.Items.Any())
+        {
+            <div class="home-empty-state food-list-empty-state">
+                <h3>Şu anda aktif anket bulunmuyor.</h3>
+                <p>Yeni anket yayınlandığında burada listelenecek.</p>
+            </div>
+        }
+        else
+        {
+            <div class="survey-list-grid">
+                @foreach (var item in Model.Items)
+                {
+                    <a class="survey-list-card" asp-controller="Surveys" asp-action="Detail" asp-route-id="@item.Id">
+                        <div class="survey-list-card__head">
+                            <span class="admin-survey-count-badge">@item.QuestionCount soru</span>
+                            <span class="leave-history-status leave-history-status--@(item.HasAnswered ? "approved" : "pending")">@(item.HasAnswered ? "Cevaplandı" : "Bekliyor")</span>
+                        </div>
+                        <h2>@item.Title</h2>
+                        <p class="survey-list-card__question">@item.QuestionPreview</p>
+                        @if (!string.IsNullOrWhiteSpace(item.Description))
+                        {
+                            <p class="survey-list-card__description">@item.Description</p>
+                        }
+                        <div class="survey-list-card__footer">
+                            <span>@(item.HasAnswered ? item.AnsweredAt?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-" : "Henüz cevaplanmadı")</span>
+                            <span>@(item.HasAnswered ? "Detayı gör" : "Cevapla")</span>
+                        </div>
+                    </a>
+                }
+            </div>
+        }
+    </div>
+</section>

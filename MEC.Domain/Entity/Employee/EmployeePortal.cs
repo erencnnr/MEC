@@ -1,28 +1,46 @@
-﻿using MEC.Domain.Common;
+using MEC.Domain.Common;
+using MEC.Domain.Common.Enum;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MEC.Domain.Entity.Employee
 {
-    // BaseEntity'den miras alarak Id, CreatedDate gibi temel kolonları otomatik alır
     [Table("employee_portal")]
     public class EmployeePortal : BaseEntity
     {
-        public string FirstName { get; set; }       // Ad
-        public string LastName { get; set; }        // Soyad
-        public string PhoneNumber { get; set; }     // Telefon
-        public string Email { get; set; }           // Mail (Giriş yapılan mail ile eşleşecek)
-        
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
-        public DateTime HireDate { get; set; }      // İşe Giriş Tarihi
-        public DateTime BirthDate { get; set; }     // Doğum Günü
-        
+        public DateTime HireDate { get; set; }
+        public DateTime BirthDate { get; set; }
+
+        [Column("address_text")]
+        public string? AddressText { get; set; }
+
+        [Column("marital_status")]
+        public MaritalStatusType? MaritalStatus { get; set; }
+
+        [Column("education_university")]
+        public string? EducationUniversity { get; set; }
+
+        [Column("education_faculty")]
+        public string? EducationFaculty { get; set; }
+
+        [Column("education_department")]
+        public string? EducationDepartment { get; set; }
+
         public int? LocationId { get; set; }
+
         [Column(TypeName = "decimal(10,2)")]
-        public decimal LeaveDays { get; set; }      // İzin Gün Sayısı
+        public decimal LeaveDays { get; set; }
+
         public bool IsAdmin { get; set; }
         public bool IsDeleted { get; set; }
 
         [ForeignKey(nameof(LocationId))]
         public Location? Location { get; set; }
+
+        public ICollection<EmployeePortalChild> Children { get; set; } = new List<EmployeePortalChild>();
     }
 }

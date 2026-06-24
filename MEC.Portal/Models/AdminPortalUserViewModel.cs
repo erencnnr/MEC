@@ -1,3 +1,4 @@
+using MEC.Domain.Common.Enum;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System.ComponentModel.DataAnnotations;
 
@@ -43,6 +44,7 @@ namespace MEC.Portal.Models
         [EmailAddress]
         public string Email { get; set; } = string.Empty;
 
+        [Required(ErrorMessage = "Telefon alanı zorunludur.")]
         public string PhoneNumber { get; set; } = string.Empty;
 
         public string Title { get; set; } = string.Empty;
@@ -55,6 +57,17 @@ namespace MEC.Portal.Models
 
         public int? LocationId { get; set; }
 
+        [DataType(DataType.MultilineText)]
+        public string? AddressText { get; set; }
+
+        public MaritalStatusType? MaritalStatus { get; set; }
+
+        public string? EducationUniversity { get; set; }
+
+        public string? EducationFaculty { get; set; }
+
+        public string? EducationDepartment { get; set; }
+
         [Range(typeof(decimal), "0", "9999")]
         public decimal LeaveDays { get; set; }
 
@@ -62,6 +75,7 @@ namespace MEC.Portal.Models
 
         public bool IsDeleted { get; set; }
         public List<SelectListItem> LocationOptions { get; set; } = new();
+        public List<ProfileChildInputViewModel> Children { get; set; } = new();
         public string FullName => string.Join(" ", new[] { FirstName, LastName }.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
     }
 }

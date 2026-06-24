@@ -81,6 +81,11 @@ namespace MEC.Portal.Controllers
                     CookieAuthenticationDefaults.AuthenticationScheme,
                     new ClaimsPrincipal(claimsIdentity));
 
+                if (portalUser != null && await _employeePortalService.RequiresProfileCompletionAsync(model.Email))
+                {
+                    return RedirectToAction("Edit", "Profile", new { required = true });
+                }
+
                 return RedirectToAction("Index", "Home");
             }
 

@@ -1,0 +1,83 @@
+.pdks-body {
+  background: #f5f7fb;
+  color: #1f2937;
+}
+
+.pdks-hero,
+.pdks-page__head,
+.pdks-empty-state {
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid #dbe2ea;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+}
+
+.pdks-hero {
+  padding: 32px;
+  display: grid;
+  gap: 20px;
+}
+
+.pdks-hero__eyebrow,
+.pdks-page__eyebrow {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #e8eefc;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pdks-hero h1,
+.pdks-page__head h1 {
+  margin: 0 0 10px;
+  font-size: 32px;
+}
+
+.pdks-hero p,
+.pdks-page__head p,
+.pdks-empty-state p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.pdks-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pdks-page {
+  display: grid;
+  gap: 24px;
+}
+
+.pdks-page__head {
+  padding: 24px 28px;
+}
+
+.pdks-empty-state {
+  padding: 32px;
+  text-align: center;
+}
+
+.table > :not(caption) > * > * {
+  padding: 14px 16px;
+}
+
+@media (max-width: 768px) {
+  .pdks-hero,
+  .pdks-page__head,
+  .pdks-empty-state {
+    padding: 20px;
+  }
+
+  .pdks-hero h1,
+  .pdks-page__head h1 {
+    font-size: 26px;
+  }
+}

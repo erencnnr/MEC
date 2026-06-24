@@ -1,0 +1,216 @@
+@using MEC.Domain.Common.Enum
+@model MEC.Portal.Models.ProfileEditViewModel
+
+@{
+    ViewData["Title"] = "Profil Bilgilerimi Güncelle";
+}
+
+<section class="leave-detail-page profile-edit-page">
+    <div class="leave-detail-shell">
+        <div class="leave-detail-header">
+            @if (!Model.RequireCompletion)
+            {
+                <a class="leave-detail-back" asp-controller="Profile" asp-action="Index">Profile Geri Dön</a>
+            }
+
+            <div class="leave-detail-title">
+                <span class="leave-detail-title__eyebrow">Profil</span>
+                <h1>Bilgilerimi Güncelle</h1>
+            </div>
+        </div>
+
+        @if (Model.RequireCompletion)
+        {
+            <div class="profile-alert">
+                <div>
+                    <strong>Profilinizi tamamlamadan devam edemezsiniz.</strong>
+                    <p>Telefon alanı zorunludur. Kaydettikten sonra portalı normal şekilde kullanabilirsiniz.</p>
+                </div>
+            </div>
+        }
+
+        <div class="leave-detail-card profile-edit-card">
+            <form method="post" class="profile-edit-form" data-child-editor="true">
+                @Html.AntiForgeryToken()
+                <input asp-for="Id" type="hidden" />
+                <input asp-for="RequireCompletion" type="hidden" />
+
+                <div asp-validation-summary="ModelOnly" class="announcement-form-alert announcement-form-alert--error"></div>
+
+                <div class="profile-edit-section">
+                    <div class="profile-card__header">
+                        <span class="profile-card__eyebrow">Kimlik</span>
+                        <h2>Temel Bilgiler</h2>
+                    </div>
+
+                    <div class="leave-detail-grid profile-edit-grid">
+                        <div class="leave-detail-field">
+                            <span>Ad Soyad</span>
+                            <strong>@Model.FullName</strong>
+                        </div>
+
+                        <div class="leave-detail-field">
+                            <span>E-Posta</span>
+                            <strong>@Model.Email</strong>
+                        </div>
+
+                        <div class="leave-detail-field">
+                            <span>Ünvan</span>
+                            <strong>@(!string.IsNullOrWhiteSpace(Model.Title) ? Model.Title : "-")</strong>
+                        </div>
+
+                        <div class="leave-detail-field">
+                            <span>İşe Giriş Tarihi</span>
+                            <strong>@Model.HireDate.ToString("dd.MM.yyyy")</strong>
+                        </div>
+
+                        <div class="leave-detail-field">
+                            <span>Doğum Tarihi</span>
+                            <strong>@Model.BirthDate.ToString("dd.MM.yyyy")</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-edit-section">
+                    <div class="profile-card__header">
+                        <span class="profile-card__eyebrow">İletişim</span>
+                        <h2>Zorunlu ve Temel Bilgiler</h2>
+                    </div>
+
+                    <div class="leave-detail-grid profile-edit-grid">
+                        <div class="leave-detail-field">
+                            <span>Telefon</span>
+                            <input asp-for="PhoneNumber" class="announcement-form-input" />
+                            <span asp-validation-for="PhoneNumber" class="announcement-form-validation"></span>
+                        </div>
+
+                        <div class="leave-detail-field">
+                            <span>Medeni Durum</span>
+                            <select asp-for="MaritalStatus" class="announcement-form-input" asp-items="Html.GetEnumSelectList<MaritalStatusType>()">
+                                <option value="">Seçiniz</option>
+                            </select>
+                        </div>
+
+                        <div class="leave-detail-field leave-detail-field--full">
+                            <span>Adres</span>
+                            <textarea asp-for="AddressText" class="announcement-form-input profile-edit-textarea" rows="4"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-edit-section">
+                    <div class="profile-card__header">
+                        <span class="profile-card__eyebrow">Eğitim</span>
+                        <h2>Eğitim Bilgileri</h2>
+                    </div>
+
+                    <div class="leave-detail-grid profile-edit-grid">
+                        <div class="leave-detail-field">
+                            <span>Üniversite</span>
+                            <input asp-for="EducationUniversity" class="announcement-form-input" />
+                        </div>
+
+                        <div class="leave-detail-field">
+                            <span>Fakülte</span>
+                            <input asp-for="EducationFaculty" class="announcement-form-input" />
+                        </div>
+
+                        <div class="leave-detail-field leave-detail-field--full">
+                            <span>Bölüm</span>
+                            <input asp-for="EducationDepartment" class="announcement-form-input" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-edit-section">
+                    <div class="profile-card__header">
+                        <span class="profile-card__eyebrow">Aile</span>
+                        <h2>Çocuk Bilgileri</h2>
+                    </div>
+
+                    <div class="profile-children-editor">
+                        <div class="profile-children-list" data-child-list="true">
+                            @for (var index = 0; index < Model.Children.Count; index++)
+                            {
+                                <div class="profile-child-row" data-child-row="true">
+                                    <div class="profile-child-row__head">
+                                        <strong data-child-label="true">Çocuk @(index + 1)</strong>
+                                        <button type="button" class="home-link-pill" data-remove-child="true">Kaldır</button>
+                                    </div>
+
+                                    <div class="leave-detail-grid profile-edit-grid">
+                                        <div class="leave-detail-field">
+                                            <span>Cinsiyet</span>
+                                            <select class="announcement-form-input" data-field="Gender">
+                                                <option value="">Seçiniz</option>
+                                                @foreach (var option in Html.GetEnumSelectList<ChildGenderType>())
+                                                {
+                                                    if (option.Value == ((int?)Model.Children[index].Gender)?.ToString())
+                                                    {
+                                                        <option value="@option.Value" selected="selected">@option.Text</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="@option.Value">@option.Text</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
+
+                                        <div class="leave-detail-field">
+                                            <span>Doğum Tarihi</span>
+                                            <input type="date" class="announcement-form-input" data-field="BirthDate" value="@Model.Children[index].BirthDate?.ToString("yyyy-MM-dd")" />
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <template data-child-template="true">
+                            <div class="profile-child-row" data-child-row="true">
+                                <div class="profile-child-row__head">
+                                    <strong data-child-label="true">Çocuk</strong>
+                                    <button type="button" class="home-link-pill" data-remove-child="true">Kaldır</button>
+                                </div>
+
+                                <div class="leave-detail-grid profile-edit-grid">
+                                    <div class="leave-detail-field">
+                                        <span>Cinsiyet</span>
+                                        <select class="announcement-form-input" data-field="Gender">
+                                            <option value="">Seçiniz</option>
+                                            @foreach (var option in Html.GetEnumSelectList<ChildGenderType>())
+                                            {
+                                                <option value="@option.Value">@option.Text</option>
+                                            }
+                                        </select>
+                                    </div>
+
+                                    <div class="leave-detail-field">
+                                        <span>Doğum Tarihi</span>
+                                        <input type="date" class="announcement-form-input" data-field="BirthDate" value="" />
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div class="profile-children-actions">
+                            <button type="button" class="leave-history-topbar__action" data-add-child="true">Çocuk Ekle +</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-leave-detail-actions">
+                    <button type="submit" class="announcement-form-actions__save">Kaydet</button>
+                    @if (!Model.RequireCompletion)
+                    {
+                        <a asp-controller="Profile" asp-action="Index" class="announcement-form-actions__cancel">İptal</a>
+                    }
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

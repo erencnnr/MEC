@@ -1,0 +1,55 @@
+@model MEC.PDKS.Models.PdksUserListViewModel
+
+@{
+    ViewData["Title"] = "PDKS Kullanıcıları";
+}
+
+<section class="pdks-page">
+    <div class="pdks-page__head">
+        <div>
+            <span class="pdks-page__eyebrow">Liste</span>
+            <h1>PDKS Kullanıcıları</h1>
+            <p>Kayıtlı tüm PDKS kullanıcılarını görüntüleyin.</p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            @if (!Model.Items.Any())
+            {
+                <div class="pdks-empty-state">
+                    <h2>Kayıt bulunamadı</h2>
+                    <p>Listelenecek PDKS kullanıcısı yok.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Sicil No</th>
+                                <th>Ad Soyad</th>
+                                <th>Aktif Mi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td>@item.SicilNo</td>
+                                    <td>@item.AdSoyad</td>
+                                    <td>
+                                        <span class="badge @(item.AktifMi ? "text-bg-success" : "text-bg-secondary")">
+                                            @(item.AktifMi ? "Evet" : "Hayır")
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</section>

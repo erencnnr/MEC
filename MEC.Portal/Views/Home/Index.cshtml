@@ -92,92 +92,6 @@
         </section>
     }
 
-    <section class="home-announcements">
-        <div class="home-section-head home-section-head--spaced">
-            <div>
-                <span class="home-section-head__eyebrow">Duyurular & Haberler</span>
-            </div>
-        </div>
-
-        <div class="home-dual-feed">
-            <section class="home-feed-column">
-                <div class="home-feed-column__head">
-                    <span class="home-feed-column__label">Son Duyurular</span>
-                    <a class="home-link-pill" asp-controller="Home" asp-action="Announcements">T&#252;m&#252;n&#252; g&#246;r</a>
-                </div>
-
-                @if (announcements.Any())
-                {
-                    <div class="home-feed-list">
-                        @foreach (var item in announcements.Take(2))
-                        {
-                            <a asp-controller="Announcement" asp-action="Detail" asp-route-id="@item.Id" class="home-announcement-card-link">
-                                <article class="home-announcement-card home-announcement-card--compact">
-                                    <div class="home-announcement-card__head">
-                                        <span class="announcement-board-card__date-badge" aria-hidden="true">
-                                            <strong>@GetDay(item.CreatedDate)</strong>
-                                            <small>@GetMonth(item.CreatedDate)</small>
-                                        </span>
-                                        <div class="home-announcement-card__title-wrap">
-                                            <span class="home-announcement-card__type-badge">Duyuru</span>
-                                            <h3 class="home-announcement-card__title">@item.Title</h3>
-                                            <div class="home-announcement-card__content">@GetContentPreview(item.Content)</div>
-                                        </div>
-                                    </div>
-                                </article>
-                            </a>
-                        }
-                    </div>
-                }
-                else
-                {
-                    <div class="home-empty-state home-empty-state--compact">
-                        <h3>Hen&#252;z duyuru yok.</h3>
-                        <p>Yeni duyurular yay&#305;nland&#305;&#287;&#305;nda burada listelenecek.</p>
-                    </div>
-                }
-            </section>
-
-            <section class="home-feed-column">
-                <div class="home-feed-column__head">
-                    <span class="home-feed-column__label">Son Haberler</span>
-                    <a class="home-link-pill" asp-controller="Home" asp-action="News">T&#252;m&#252;n&#252; g&#246;r</a>
-                </div>
-
-                @if (news.Any())
-                {
-                    <div class="home-feed-list">
-                        @foreach (var item in news.Take(2))
-                        {
-                            <a asp-controller="News" asp-action="Detail" asp-route-id="@item.Id" class="home-announcement-card-link">
-                                <article class="home-announcement-card home-announcement-card--compact">
-                                    <div class="home-announcement-card__head">
-                                        <span class="announcement-board-card__date-badge" aria-hidden="true">
-                                            <strong>@GetDay(item.CreatedDate)</strong>
-                                            <small>@GetMonth(item.CreatedDate)</small>
-                                        </span>
-                                        <div class="home-announcement-card__title-wrap">
-                                            <span class="home-announcement-card__type-badge home-announcement-card__type-badge--news">Haber</span>
-                                            <h3 class="home-announcement-card__title">@item.Title</h3>
-                                            <div class="home-announcement-card__content">@GetContentPreview(item.Content)</div>
-                                        </div>
-                                    </div>
-                                </article>
-                            </a>
-                        }
-                    </div>
-                }
-                else
-                {
-                    <div class="home-empty-state home-empty-state--compact">
-                        <h3>Hen&#252;z haber yok.</h3>
-                        <p>Yeni haberler yay&#305;nland&#305;&#287;&#305;nda burada listelenecek.</p>
-                    </div>
-                }
-            </section>
-        </div>
-    </section>
-
     <section class="home-hero">
         <div class="home-hero__content">
             <span class="home-hero__eyebrow">MEC okul portal&#305;</span>
@@ -212,19 +126,116 @@
                         </span>
                         <span>Mesai Giri&#351;i</span>
                     </a>
-                    <a class="home-quick-link" asp-controller="Library" asp-action="Index">
+                    <a class="home-quick-link" asp-controller="FoodList" asp-action="Index">
                         <span class="home-quick-link__icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" fill="none">
-                                <path d="M4.25 6.5A2.25 2.25 0 0 1 6.5 4.25h11.25v14.5H6.5A2.25 2.25 0 0 0 4.25 21V6.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
-                                <path d="M17.75 4.25V18.75" stroke="currentColor" stroke-width="1.7" />
-                                <path d="M6.75 7.75h7.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                                <path d="M7 4.75V19.25" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                                <path d="M10.25 4.75V10.5C10.25 11.7426 11.2574 12.75 12.5 12.75C13.7426 12.75 14.75 11.7426 14.75 10.5V4.75" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M16.75 4.75C18.2688 6.19193 19 8.01737 19 10.25C19 12.4826 18.2688 14.3081 16.75 15.75V19.25" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                         </span>
-                        <span>K&#252;t&#252;phane</span>
+                        <span>Yemek Men&#252;s&#252;</span>
+                    </a>
+                    <a class="home-quick-link" asp-controller="Surveys" asp-action="Index">
+                        <span class="home-quick-link__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M7 5.25h10A1.75 1.75 0 0 1 18.75 7v10A1.75 1.75 0 0 1 17 18.75H7A1.75 1.75 0 0 1 5.25 17V7A1.75 1.75 0 0 1 7 5.25Z" stroke="currentColor" stroke-width="1.7" />
+                                <path d="M8.75 9.25h6.5M8.75 12h6.5M8.75 14.75h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                            </svg>
+                        </span>
+                        <span>Anketler</span>
                     </a>
                 </div>
             </div>
         </aside>
+    </section>
+
+    <section class="home-announcements">
+        <div class="home-section-head home-section-head--spaced">
+            <div>
+                <span class="home-section-head__eyebrow">Duyurular & Haberler</span>
+            </div>
+        </div>
+
+        <div class="home-dual-feed">
+            <section class="home-feed-column">
+                <div class="home-feed-column__head">
+                    <span class="home-feed-column__label">Son Duyurular</span>
+                </div>
+
+                <div class="home-feed-column__body">
+                    @if (announcements.Any())
+                    {
+                        <div class="home-feed-list">
+                            @foreach (var item in announcements.Take(2))
+                            {
+                                <a asp-controller="Announcement" asp-action="Detail" asp-route-id="@item.Id" class="home-announcement-card-link">
+                                    <article class="home-announcement-card home-announcement-card--compact">
+                                        <div class="home-announcement-card__head">
+                                            <span class="announcement-board-card__date-badge" aria-hidden="true">
+                                                <strong>@GetDay(item.CreatedDate)</strong>
+                                                <small>@GetMonth(item.CreatedDate)</small>
+                                            </span>
+                                            <div class="home-announcement-card__title-wrap">
+                                                <span class="home-announcement-card__type-badge">Duyuru</span>
+                                                <h3 class="home-announcement-card__title">@item.Title</h3>
+                                                <div class="home-announcement-card__content">@GetContentPreview(item.Content)</div>
+                                            </div>
+                                        </div>
+                                    </article>
+                                </a>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="home-empty-state home-empty-state--compact">
+                            <h3>Hen&#252;z duyuru yok.</h3>
+                            <p>Yeni duyurular yay&#305;nland&#305;&#287;&#305;nda burada listelenecek.</p>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <section class="home-feed-column">
+                <div class="home-feed-column__head">
+                    <span class="home-feed-column__label">Son Haberler</span>
+                </div>
+
+                <div class="home-feed-column__body">
+                    @if (news.Any())
+                    {
+                        <div class="home-feed-list">
+                            @foreach (var item in news.Take(2))
+                            {
+                                <a asp-controller="News" asp-action="Detail" asp-route-id="@item.Id" class="home-announcement-card-link">
+                                    <article class="home-announcement-card home-announcement-card--compact">
+                                        <div class="home-announcement-card__head">
+                                            <span class="announcement-board-card__date-badge" aria-hidden="true">
+                                                <strong>@GetDay(item.CreatedDate)</strong>
+                                                <small>@GetMonth(item.CreatedDate)</small>
+                                            </span>
+                                            <div class="home-announcement-card__title-wrap">
+                                                <span class="home-announcement-card__type-badge home-announcement-card__type-badge--news">Haber</span>
+                                                <h3 class="home-announcement-card__title">@item.Title</h3>
+                                                <div class="home-announcement-card__content">@GetContentPreview(item.Content)</div>
+                                            </div>
+                                        </div>
+                                    </article>
+                                </a>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="home-empty-state home-empty-state--compact">
+                            <h3>Hen&#252;z haber yok.</h3>
+                            <p>Yeni haberler yay&#305;nland&#305;&#287;&#305;nda burada listelenecek.</p>
+                        </div>
+                    }
+                </div>
+            </section>
+        </div>
     </section>
 
     <section class="home-directory">

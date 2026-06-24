@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using MEC.Application.Abstractions.Service.SchoolService;
 using MEC.Portal.Models;
 using MEC.Portal.Services;
@@ -67,12 +68,7 @@ namespace MEC.Portal.Controllers
                     {
                         MenuDate = selectedDay.MenuDate,
                         RawItemsText = selectedDay.ItemsText,
-                        MenuItems = selectedDay.ItemsText
-                            .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                            .ToList(),
-                        PreviewPageNumber = selectedDay.SourcePageNumber.GetValueOrDefault(1) > 0
-                            ? selectedDay.SourcePageNumber.GetValueOrDefault(1)
-                            : 1
+                        MenuItems = BuildMenuItems(selectedDay.ItemsText)
                     }
             });
         }
@@ -117,6 +113,65 @@ namespace MEC.Portal.Controllers
         private static string BuildMonthLabel(int year, int month)
         {
             return new DateTime(year, month, 1).ToString("MMMM yyyy", new CultureInfo("tr-TR"));
+        }
+
+        private static List<FoodListMenuLineViewModel> BuildMenuItems(string? itemsText)
+        {
+            if (string.IsNullOrWhiteSpace(itemsText))
+            {
+                return new List<FoodListMenuLineViewModel>();
+            }
+
+            var culture = new CultureInfo("tr-TR");
+            return itemsText
+                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(line => line.Trim())
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .Select(line => new FoodListMenuLineViewModel
+                {
+                    Text = line.ToUpper(culture),
+                    IsSectionHeading = IsSectionHeading(line)
+                })
+                .ToList();
+        }
+
+        private static bool IsSectionHeading(string line)
+        {
+            var normalized = NormalizeForMatch(line);
+            return normalized is "kahvalti" or "ogle yemegi" or "salata bar" or "ikindi";
+        }
+
+        private static string NormalizeForMatch(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return string.Empty;
+            }
+
+            var normalized = text.Trim().Normalize(NormalizationForm.FormD);
+            var builder = new StringBuilder(normalized.Length);
+
+            foreach (var character in normalized)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+                {
+                    continue;
+                }
+
+                var lower = char.ToLowerInvariant(character);
+                builder.Append(lower switch
+                {
+                    'ı' => 'i',
+                    _ => lower
+                });
+            }
+
+            return builder.ToString()
+                .Replace("ğ", "g")
+                .Replace("ü", "u")
+                .Replace("ö", "o")
+                .Replace("ş", "s")
+                .Replace("ç", "c");
         }
     }
 }

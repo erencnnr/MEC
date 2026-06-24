@@ -1,3 +1,4 @@
+@using MEC.Domain.Common.Enum
 @using System.Globalization
 @model MEC.Portal.Models.ProfileViewModel
 
@@ -5,11 +6,26 @@
     ViewData["Title"] = "Profilim";
     const decimal annualLeaveAllowance = 14m;
     var profile = Model?.Profile;
-    var fullName = profile == null ? "Kullanıcı" : $"{profile.FirstName} {profile.LastName}";
+    var fullName = profile == null ? "Kullanıcı" : $"{profile.FirstName} {profile.LastName}".Trim();
 
     string FormatLeaveDays(decimal value)
     {
         return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
+    }
+
+    string GetMaritalStatusLabel(MaritalStatusType? status)
+    {
+        return status switch
+        {
+            MaritalStatusType.Single => "Bekar",
+            MaritalStatusType.Married => "Evli",
+            _ => "-"
+        };
+    }
+
+    string GetChildGenderLabel(ChildGenderType gender)
+    {
+        return gender == ChildGenderType.Female ? "Kız" : "Erkek";
     }
 }
 
@@ -34,10 +50,20 @@
                 </div>
 
                 <div class="profile-hero__actions">
-                    <a asp-controller="Leave" asp-action="RequestLeave" class="profile-hero__action profile-hero__action--primary">İzin Talebi Oluştur</a>
-                    <a asp-controller="Leave" asp-action="History" class="profile-hero__action profile-hero__action--secondary">İzin Geçmişim</a>
+                    <a asp-controller="Profile" asp-action="Edit" class="profile-hero__action profile-hero__action--edit">Bilgilerimi Güncelle</a>
+                    <a asp-controller="Leave" asp-action="RequestLeave" class="profile-hero__action profile-hero__action--secondary">İzin Talebi Oluştur</a>
+                    <a asp-controller="Leave" asp-action="History" class="profile-hero__action profile-hero__action--history">İzin Geçmişim</a>
                 </div>
             </div>
+
+            @if (TempData["ProfileSuccess"] is string successMessage && !string.IsNullOrWhiteSpace(successMessage))
+            {
+                <div class="profile-alert">
+                    <div>
+                        <strong>@successMessage</strong>
+                    </div>
+                </div>
+            }
 
             @if (Model.PendingAnnualLeaveCount > 0)
             {
@@ -50,52 +76,122 @@
                 </div>
             }
 
-            <div class="profile-card">
-                <div class="profile-card__header">
-                    <span class="profile-card__eyebrow">Bilgiler</span>
-                    <h2>Kullanıcı Bilgileri</h2>
+            <div class="profile-card-stack">
+                <div class="profile-card">
+                    <div class="profile-card__header">
+                        <span class="profile-card__eyebrow">Bilgiler</span>
+                        <h2>Kullanıcı Bilgileri</h2>
+                    </div>
+
+                    <div class="profile-grid">
+                        <div class="profile-field">
+                            <span>Ad Soyad</span>
+                            <strong>@fullName</strong>
+                        </div>
+
+                        <div class="profile-field">
+                            <span>E-Posta</span>
+                            <strong>@profile.Email</strong>
+                        </div>
+
+                        <div class="profile-field">
+                            <span>Telefon</span>
+                            <strong>@(!string.IsNullOrWhiteSpace(profile.PhoneNumber) ? profile.PhoneNumber : "-")</strong>
+                        </div>
+
+                        <div class="profile-field">
+                            <span>Ünvan</span>
+                            <strong>@(!string.IsNullOrWhiteSpace(profile.Title) ? profile.Title : "-")</strong>
+                        </div>
+
+                        <div class="profile-field">
+                            <span>Lokasyon</span>
+                            <strong>@(profile.Location?.Name ?? "-")</strong>
+                        </div>
+
+                        <div class="profile-field">
+                            <span>İşe Giriş Tarihi</span>
+                            <strong>@profile.HireDate.ToString("dd.MM.yyyy")</strong>
+                        </div>
+
+                        <div class="profile-field">
+                            <span>Doğum Tarihi</span>
+                            <strong>@profile.BirthDate.ToString("dd.MM.yyyy")</strong>
+                        </div>
+
+                        <div class="profile-field">
+                            <span>Durum</span>
+                            <strong>Aktif Çalışan</strong>
+                        </div>
+
+                        <div class="profile-field">
+                            <span>Yıllık İzin Hakkı</span>
+                            <strong>@FormatLeaveDays(annualLeaveAllowance) Gün</strong>
+                        </div>
+
+                        <div class="profile-field">
+                            <span>Kalan İzin</span>
+                            <strong>@FormatLeaveDays(profile.LeaveDays) Gün</strong>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="profile-grid">
-                    <div class="profile-field">
-                        <span>Ad Soyad</span>
-                        <strong>@fullName</strong>
+                <div class="profile-card">
+                    <div class="profile-card__header">
+                        <span class="profile-card__eyebrow">Kişisel</span>
+                        <h2>Ek Bilgiler</h2>
                     </div>
 
-                    <div class="profile-field">
-                        <span>E-Posta</span>
-                        <strong>@profile.Email</strong>
+                    <div class="profile-grid">
+                        <div class="profile-field">
+                            <span>Adres</span>
+                            <strong>@(!string.IsNullOrWhiteSpace(profile.AddressText) ? profile.AddressText : "-")</strong>
+                        </div>
+
+                        <div class="profile-field">
+                            <span>Medeni Durum</span>
+                            <strong>@GetMaritalStatusLabel(profile.MaritalStatus)</strong>
+                        </div>
+
+                        <div class="profile-field">
+                            <span>Üniversite</span>
+                            <strong>@(!string.IsNullOrWhiteSpace(profile.EducationUniversity) ? profile.EducationUniversity : "-")</strong>
+                        </div>
+
+                        <div class="profile-field">
+                            <span>Fakülte</span>
+                            <strong>@(!string.IsNullOrWhiteSpace(profile.EducationFaculty) ? profile.EducationFaculty : "-")</strong>
+                        </div>
+
+                        <div class="profile-field">
+                            <span>Bölüm</span>
+                            <strong>@(!string.IsNullOrWhiteSpace(profile.EducationDepartment) ? profile.EducationDepartment : "-")</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-card">
+                    <div class="profile-card__header">
+                        <span class="profile-card__eyebrow">Aile</span>
+                        <h2>Çocuk Bilgileri</h2>
                     </div>
 
-                    <div class="profile-field">
-                        <span>Telefon</span>
-                        <strong>@profile.PhoneNumber</strong>
-                    </div>
-
-                    <div class="profile-field">
-                        <span>İşe Giriş Tarihi</span>
-                        <strong>@profile.HireDate.ToString("dd.MM.yyyy")</strong>
-                    </div>
-
-                    <div class="profile-field">
-                        <span>Doğum Tarihi</span>
-                        <strong>@profile.BirthDate.ToString("dd.MM.yyyy")</strong>
-                    </div>
-
-                    <div class="profile-field">
-                        <span>Durum</span>
-                        <strong>Aktif Çalışan</strong>
-                    </div>
-
-                    <div class="profile-field">
-                        <span>Yıllık İzin Hakkı</span>
-                        <strong>@FormatLeaveDays(annualLeaveAllowance) Gün</strong>
-                    </div>
-
-                    <div class="profile-field">
-                        <span>Kalan İzin</span>
-                        <strong>@FormatLeaveDays(profile.LeaveDays) Gün</strong>
-                    </div>
+                    @if (profile.Children.Any())
+                    {
+                        <div class="profile-child-list">
+                            @foreach (var child in profile.Children.OrderBy(x => x.BirthDate))
+                            {
+                                <div class="profile-child-summary">
+                                    <strong>@GetChildGenderLabel(child.Gender)</strong>
+                                    <span>@child.BirthDate.ToString("dd.MM.yyyy")</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="profile-card__empty">Henüz çocuk bilgisi eklenmemiş.</p>
+                    }
                 </div>
             </div>
         }
