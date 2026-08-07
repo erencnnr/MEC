@@ -40,6 +40,7 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<EmployeeType> EmployeeTypes { get; set; }
         public DbSet<Location> Locations { get; set; }
         public DbSet<EmployeePortal> EmployeePortals { get; set; }
+        public DbSet<EmployeePortalLocation> EmployeePortalLocations { get; set; }
         public DbSet<EmployeePortalChild> EmployeePortalChildren { get; set; }
         public DbSet<Announcement> Announcement { get; set; }
         public DbSet<AnnouncementAttachment> AnnouncementAttachments { get; set; }
@@ -104,15 +105,36 @@ namespace MEC.DAL.Config.Contexts
                 .IsUnique();
 
             modelBuilder.Entity<EmployeePortal>()
-                .HasIndex(x => x.LocationId);
-
-            modelBuilder.Entity<EmployeePortal>()
                 .Property(x => x.AddressText)
                 .HasColumnType("text");
 
-            modelBuilder.Entity<EmployeePortal>()
+            modelBuilder.Entity<EmployeePortalLocation>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<EmployeePortalLocation>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<EmployeePortalLocation>()
+                .HasIndex(x => x.EmployeePortalId);
+
+            modelBuilder.Entity<EmployeePortalLocation>()
+                .HasIndex(x => x.LocationId);
+
+            modelBuilder.Entity<EmployeePortalLocation>()
+                .HasIndex(x => new { x.EmployeePortalId, x.LocationId })
+                .IsUnique();
+
+            modelBuilder.Entity<EmployeePortalLocation>()
+                .HasOne(x => x.EmployeePortal)
+                .WithMany(x => x.EmployeePortalLocations)
+                .HasForeignKey(x => x.EmployeePortalId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<EmployeePortalLocation>()
                 .HasOne(x => x.Location)
-                .WithMany()
+                .WithMany(x => x.EmployeePortalLocations)
                 .HasForeignKey(x => x.LocationId)
                 .OnDelete(DeleteBehavior.Restrict);
 

@@ -100,7 +100,7 @@
                                     <td>@item.Email</td>
                                     <td>@(string.IsNullOrWhiteSpace(item.PhoneNumber) ? "-" : item.PhoneNumber)</td>
                                     <td>@(string.IsNullOrWhiteSpace(item.Title) ? "-" : item.Title)</td>
-                                    <td>@(string.IsNullOrWhiteSpace(item.LocationName) ? "-" : item.LocationName)</td>
+                                    <td>@(string.IsNullOrWhiteSpace(item.LocationNames) ? "-" : item.LocationNames)</td>
                                     <td class="admin-portal-users-table__leave-days" data-user-email="@item.Email">@FormatLeaveDays(item.LeaveDays) Gün</td>
                                     <td>@item.HireDate.ToString("dd.MM.yyyy")</td>
                                     <td>

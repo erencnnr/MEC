@@ -80,8 +80,9 @@
 
                     <div class="leave-detail-field">
                         <span>Lokasyon</span>
-                        <select asp-for="LocationId" asp-items="Model.LocationOptions" class="announcement-form-input"></select>
-                        <span asp-validation-for="LocationId" class="announcement-form-validation"></span>
+                        <select asp-for="LocationIds" asp-items="Model.LocationOptions" class="announcement-form-input" multiple="multiple" size="4"></select>
+                        <small class="admin-portal-user-field-note">Birden fazla lokasyon seçebilirsiniz.</small>
+                        <span asp-validation-for="LocationIds" class="announcement-form-validation"></span>
                     </div>
 
                     <div class="leave-detail-field leave-detail-field--full">

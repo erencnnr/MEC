@@ -13,38 +13,45 @@ namespace MEC.Application.Service.EmployeeService
     {
         private readonly IGenericRepository<EmployeePortal> _repository;
         private readonly IGenericRepository<EmployeePortalChild> _childRepository;
+        private readonly IGenericRepository<EmployeePortalLocation> _employeePortalLocationRepository;
         private readonly IGenericRepository<Location> _locationRepository;
         private readonly IGenericRepository<Leave> _leaveRepository;
 
         public EmployeePortalService(
             IGenericRepository<EmployeePortal> repository,
             IGenericRepository<EmployeePortalChild> childRepository,
+            IGenericRepository<EmployeePortalLocation> employeePortalLocationRepository,
             IGenericRepository<Location> locationRepository,
             IGenericRepository<Leave> leaveRepository)
         {
             _repository = repository;
             _childRepository = childRepository;
+            _employeePortalLocationRepository = employeePortalLocationRepository;
             _locationRepository = locationRepository;
             _leaveRepository = leaveRepository;
         }
 
         public async Task<EmployeePortal> GetProfileByEmailAsync(string email)
         {
-            var results = await _repository.GetAllAsync(
+            var results = (await _repository.GetAllAsync(
                 x => x.Email == email && !x.IsDeleted,
-                x => x.Location!,
-                x => x.Children);
+                x => x.Children))
+                .ToList();
 
+            await HydrateLocationAssignmentsAsync(results);
             return results.FirstOrDefault();
         }
 
         public async Task<List<EmployeePortal>> GetActivePortalUsersAsync()
         {
-            return (await _repository.GetAllAsync(x => !x.IsDeleted, x => x.Location!))
+            var portalUsers = (await _repository.GetAllAsync(x => !x.IsDeleted))
                 .OrderBy(x => x.FirstName)
                 .ThenBy(x => x.LastName)
                 .ThenBy(x => x.Email)
                 .ToList();
+
+            await HydrateLocationAssignmentsAsync(portalUsers);
+            return portalUsers;
         }
 
         public async Task<EmployeePortal?> GetActivePortalUserByEmailAsync(string email)
@@ -54,7 +61,9 @@ namespace MEC.Application.Service.EmployeeService
                 return null;
             }
 
-            return (await _repository.GetAllAsync(x => !x.IsDeleted && x.Email == email, x => x.Location!)).FirstOrDefault();
+            var portalUsers = (await _repository.GetAllAsync(x => !x.IsDeleted && x.Email == email)).ToList();
+            await HydrateLocationAssignmentsAsync(portalUsers);
+            return portalUsers.FirstOrDefault();
         }
 
         public async Task<ProfileSummaryModel> GetProfileSummaryByEmailAsync(string email)
@@ -91,12 +100,14 @@ namespace MEC.Application.Service.EmployeeService
             var currentPage = query.Page < 1 ? 1 : query.Page;
             var pageSize = query.PageSize <= 0 ? 10 : query.PageSize;
 
-            var portalUsers = (await _repository.GetAllAsync(null, x => x.Location!))
+            var portalUsers = (await _repository.GetAllAsync())
                 .Where(x => normalizedStatus == "passive" ? x.IsDeleted : !x.IsDeleted)
                 .OrderBy(x => x.FirstName)
                 .ThenBy(x => x.LastName)
                 .ThenBy(x => x.Email)
                 .ToList();
+
+            await HydrateLocationAssignmentsAsync(portalUsers);
 
             var totalCount = portalUsers.Count;
             var totalPages = totalCount == 0 ? 1 : (int)Math.Ceiling(totalCount / (double)pageSize);
@@ -121,8 +132,13 @@ namespace MEC.Application.Service.EmployeeService
         {
             var portalUser = (await _repository.GetAllAsync(
                 x => x.Id == id,
-                x => x.Location!,
-                x => x.Children)).FirstOrDefault();
+                x => x.Children))
+                .FirstOrDefault();
+
+            if (portalUser != null)
+            {
+                await HydrateLocationAssignmentsAsync(new[] { portalUser });
+            }
 
             return portalUser == null ? null : MapPortalUserEditModel(portalUser);
         }
@@ -136,8 +152,13 @@ namespace MEC.Application.Service.EmployeeService
 
             var portalUser = (await _repository.GetAllAsync(
                 x => !x.IsDeleted && x.Email == email,
-                x => x.Location!,
-                x => x.Children)).FirstOrDefault();
+                x => x.Children))
+                .FirstOrDefault();
+
+            if (portalUser != null)
+            {
+                await HydrateLocationAssignmentsAsync(new[] { portalUser });
+            }
 
             return portalUser == null ? null : MapSelfProfileEditModel(portalUser);
         }
@@ -146,7 +167,7 @@ namespace MEC.Application.Service.EmployeeService
         {
             if (string.IsNullOrWhiteSpace(model.PhoneNumber))
             {
-                return OperationResultModel.Fail("Telefon alanı zorunludur.");
+                return OperationResultModel.Fail("Telefon alanÄ± zorunludur.");
             }
 
             var childValidation = NormalizeChildren(model.Children);
@@ -155,10 +176,12 @@ namespace MEC.Application.Service.EmployeeService
                 return OperationResultModel.Fail(childValidation.Message);
             }
 
+            var normalizedLocationIds = NormalizeLocationIds(model.LocationIds);
+
             var portalUser = await _repository.GetByIdAsync(model.Id);
             if (portalUser == null)
             {
-                return OperationResultModel.Fail("Portal kullanıcısı bulunamadı.");
+                return OperationResultModel.Fail("Portal kullanÄ±cÄ±sÄ± bulunamadÄ±.");
             }
 
             portalUser.FirstName = model.FirstName.Trim();
@@ -168,7 +191,6 @@ namespace MEC.Application.Service.EmployeeService
             portalUser.Title = model.Title.Trim();
             portalUser.HireDate = model.HireDate;
             portalUser.BirthDate = model.BirthDate;
-            portalUser.LocationId = model.LocationId;
             portalUser.LeaveDays = model.LeaveDays;
             portalUser.IsAdmin = model.IsAdmin;
             portalUser.IsDeleted = model.IsDeleted;
@@ -180,20 +202,21 @@ namespace MEC.Application.Service.EmployeeService
             portalUser.UpdateDate = DateTime.Now;
 
             _repository.Update(portalUser);
+            await ReplaceLocationsAsync(model.Id, normalizedLocationIds);
             await ReplaceChildrenAsync(model.Id, childValidation.Children);
-            return OperationResultModel.Success("Portal kullanıcısı güncellendi.");
+            return OperationResultModel.Success("Portal kullanÄ±cÄ±sÄ± gÃ¼ncellendi.");
         }
 
         public async Task<OperationResultModel> UpdateSelfProfileAsync(string email, PortalSelfEditModel model)
         {
             if (string.IsNullOrWhiteSpace(email))
             {
-                return OperationResultModel.Fail("Aktif portal kullanıcısı bulunamadı.");
+                return OperationResultModel.Fail("Aktif portal kullanÄ±cÄ±sÄ± bulunamadÄ±.");
             }
 
             if (string.IsNullOrWhiteSpace(model.PhoneNumber))
             {
-                return OperationResultModel.Fail("Telefon alanı zorunludur.");
+                return OperationResultModel.Fail("Telefon alanÄ± zorunludur.");
             }
 
             var childValidation = NormalizeChildren(model.Children);
@@ -205,7 +228,7 @@ namespace MEC.Application.Service.EmployeeService
             var portalUser = await GetActivePortalUserByEmailAsync(email);
             if (portalUser == null)
             {
-                return OperationResultModel.Fail("Aktif portal kullanıcısı bulunamadı.");
+                return OperationResultModel.Fail("Aktif portal kullanÄ±cÄ±sÄ± bulunamadÄ±.");
             }
 
             portalUser.PhoneNumber = model.PhoneNumber.Trim();
@@ -218,7 +241,7 @@ namespace MEC.Application.Service.EmployeeService
 
             _repository.Update(portalUser);
             await ReplaceChildrenAsync(portalUser.Id, childValidation.Children);
-            return OperationResultModel.Success("Profil bilgileriniz güncellendi.");
+            return OperationResultModel.Success("Profil bilgileriniz gÃ¼ncellendi.");
         }
 
         public async Task<bool> RequiresProfileCompletionAsync(string email)
@@ -261,6 +284,61 @@ namespace MEC.Application.Service.EmployeeService
             }
         }
 
+        private async Task ReplaceLocationsAsync(int employeePortalId, List<int> locationIds)
+        {
+            var existingLocations = (await _employeePortalLocationRepository.GetAllAsync(x => x.EmployeePortalId == employeePortalId)).ToList();
+            foreach (var existingLocation in existingLocations)
+            {
+                _employeePortalLocationRepository.Delete(existingLocation);
+            }
+
+            foreach (var locationId in locationIds)
+            {
+                await _employeePortalLocationRepository.AddAsync(new EmployeePortalLocation
+                {
+                    EmployeePortalId = employeePortalId,
+                    LocationId = locationId,
+                    CreatedDate = DateTime.Now,
+                    UpdateDate = DateTime.Now
+                });
+            }
+        }
+
+        private async Task HydrateLocationAssignmentsAsync(IEnumerable<EmployeePortal> portalUsers)
+        {
+            var portalUserList = portalUsers
+                .Where(x => x != null)
+                .ToList();
+
+            if (!portalUserList.Any())
+            {
+                return;
+            }
+
+            var portalUserIds = portalUserList
+                .Select(x => x.Id)
+                .Distinct()
+                .ToList();
+
+            var locationAssignments = (await _employeePortalLocationRepository.GetAllAsync(
+                x => portalUserIds.Contains(x.EmployeePortalId),
+                x => x.Location!))
+                .GroupBy(x => x.EmployeePortalId)
+                .ToDictionary(
+                    x => x.Key,
+                    x => (ICollection<EmployeePortalLocation>)x
+                        .OrderBy(item => item.Location!.Name)
+                        .ThenBy(item => item.LocationId)
+                        .ToList());
+
+            foreach (var portalUser in portalUserList)
+            {
+                portalUser.EmployeePortalLocations = locationAssignments.TryGetValue(portalUser.Id, out var assignments)
+                    ? assignments
+                    : new List<EmployeePortalLocation>();
+            }
+        }
+
         private static ChildNormalizationResult NormalizeChildren(IEnumerable<PortalUserChildEditModel>? children)
         {
             var normalizedChildren = new List<PortalUserChildEditModel>();
@@ -276,7 +354,7 @@ namespace MEC.Application.Service.EmployeeService
 
                 if (!hasGender || !hasBirthDate)
                 {
-                    return ChildNormalizationResult.Fail("Her çocuk kaydında cinsiyet ve doğum tarihi birlikte girilmelidir.");
+                    return ChildNormalizationResult.Fail("Her Ã§ocuk kaydÄ±nda cinsiyet ve doÄŸum tarihi birlikte girilmelidir.");
                 }
 
                 normalizedChildren.Add(new PortalUserChildEditModel
@@ -292,6 +370,14 @@ namespace MEC.Application.Service.EmployeeService
         private static string? NormalizeOptionalText(string? value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private static List<int> NormalizeLocationIds(IEnumerable<int>? locationIds)
+        {
+            return (locationIds ?? Enumerable.Empty<int>())
+                .Where(x => x > 0)
+                .Distinct()
+                .ToList();
         }
 
         private static bool IsAnnualLeave(Leave leave)
@@ -323,6 +409,19 @@ namespace MEC.Application.Service.EmployeeService
                 : portal.Email;
         }
 
+        private static string BuildLocationNames(EmployeePortal portalUser)
+        {
+            var names = portalUser.EmployeePortalLocations
+                .Select(x => x.Location?.Name)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct()
+                .ToList();
+
+            return names.Any()
+                ? string.Join(", ", names)
+                : string.Empty;
+        }
+
         private static PortalUserListItemModel MapPortalUserListItem(EmployeePortal portalUser)
         {
             return new PortalUserListItemModel
@@ -332,8 +431,11 @@ namespace MEC.Application.Service.EmployeeService
                 Email = portalUser.Email,
                 PhoneNumber = portalUser.PhoneNumber,
                 Title = portalUser.Title,
-                LocationId = portalUser.LocationId,
-                LocationName = portalUser.Location?.Name ?? string.Empty,
+                LocationIds = portalUser.EmployeePortalLocations
+                    .Select(x => x.LocationId)
+                    .Distinct()
+                    .ToList(),
+                LocationNames = BuildLocationNames(portalUser),
                 LeaveDays = portalUser.LeaveDays,
                 HireDate = portalUser.HireDate,
                 IsAdmin = portalUser.IsAdmin,
@@ -353,7 +455,10 @@ namespace MEC.Application.Service.EmployeeService
                 Title = portalUser.Title,
                 HireDate = portalUser.HireDate,
                 BirthDate = portalUser.BirthDate,
-                LocationId = portalUser.LocationId,
+                LocationIds = portalUser.EmployeePortalLocations
+                    .Select(x => x.LocationId)
+                    .Distinct()
+                    .ToList(),
                 LeaveDays = portalUser.LeaveDays,
                 IsAdmin = portalUser.IsAdmin,
                 IsDeleted = portalUser.IsDeleted,

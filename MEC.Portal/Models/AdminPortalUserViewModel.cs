@@ -21,7 +21,7 @@ namespace MEC.Portal.Models
         public string Email { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
-        public string LocationName { get; set; } = string.Empty;
+        public string LocationNames { get; set; } = string.Empty;
         public decimal LeaveDays { get; set; }
         public DateTime HireDate { get; set; }
         public bool IsAdmin { get; set; }
@@ -55,7 +55,7 @@ namespace MEC.Portal.Models
         [DataType(DataType.Date)]
         public DateTime BirthDate { get; set; }
 
-        public int? LocationId { get; set; }
+        public List<int> LocationIds { get; set; } = new();
 
         [DataType(DataType.MultilineText)]
         public string? AddressText { get; set; }

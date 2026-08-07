@@ -6,6 +6,13 @@
     ViewData["Title"] = "Profilim";
     const decimal annualLeaveAllowance = 14m;
     var profile = Model?.Profile;
+    var pendingAnnualLeaveCount = Model?.PendingAnnualLeaveCount ?? 0;
+    var pendingAnnualLeaveDays = Model?.PendingAnnualLeaveDays ?? 0m;
+    var locationNames = profile?.EmployeePortalLocations
+        .Select(x => x.Location?.Name ?? string.Empty)
+        .Where(x => !string.IsNullOrWhiteSpace(x))
+        .Distinct()
+        .ToList() ?? new List<string>();
     var fullName = profile == null ? "Kullanıcı" : $"{profile.FirstName} {profile.LastName}".Trim();
 
     string FormatLeaveDays(decimal value)
@@ -65,14 +72,14 @@
                 </div>
             }
 
-            @if (Model.PendingAnnualLeaveCount > 0)
+            @if (pendingAnnualLeaveCount > 0)
             {
                 <div class="profile-alert">
                     <div>
                         <strong>Bekleyen yıllık izin talebiniz bulunuyor.</strong>
                         <p>Yönetici onayı bekleyen taleplerinizi izin geçmişi ekranından takip edebilirsiniz.</p>
                     </div>
-                    <span>@Model.PendingAnnualLeaveCount Talep / @FormatLeaveDays(Model.PendingAnnualLeaveDays) Gün</span>
+                    <span>@pendingAnnualLeaveCount Talep / @FormatLeaveDays(pendingAnnualLeaveDays) Gün</span>
                 </div>
             }
 
@@ -106,7 +113,7 @@
 
                         <div class="profile-field">
                             <span>Lokasyon</span>
-                            <strong>@(profile.Location?.Name ?? "-")</strong>
+                            <strong>@(locationNames.Any() ? string.Join(", ", locationNames) : "-")</strong>
                         </div>
 
                         <div class="profile-field">

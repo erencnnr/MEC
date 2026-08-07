@@ -8,5 +8,7 @@ namespace MEC.Domain.Entity.Employee
     {
         [Column("name")]
         public string Name { get; set; } = string.Empty;
+
+        public ICollection<EmployeePortalLocation> EmployeePortalLocations { get; set; } = new List<EmployeePortalLocation>();
     }
 }

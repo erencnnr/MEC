@@ -108,7 +108,6 @@ namespace MEC.Application.Service.LdapService
                             Title = string.Empty,
                             HireDate = MySqlMinimumDate,
                             BirthDate = MySqlMinimumDate,
-                            LocationId = null,
                             LeaveDays = 0,
                             CreatedDate = DateTime.Now,
                             IsDeleted = false

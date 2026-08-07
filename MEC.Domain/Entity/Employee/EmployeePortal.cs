@@ -30,17 +30,13 @@ namespace MEC.Domain.Entity.Employee
         [Column("education_department")]
         public string? EducationDepartment { get; set; }
 
-        public int? LocationId { get; set; }
-
         [Column(TypeName = "decimal(10,2)")]
         public decimal LeaveDays { get; set; }
 
         public bool IsAdmin { get; set; }
         public bool IsDeleted { get; set; }
 
-        [ForeignKey(nameof(LocationId))]
-        public Location? Location { get; set; }
-
         public ICollection<EmployeePortalChild> Children { get; set; } = new List<EmployeePortalChild>();
+        public ICollection<EmployeePortalLocation> EmployeePortalLocations { get; set; } = new List<EmployeePortalLocation>();
     }
 }

@@ -442,7 +442,7 @@ namespace MEC.Portal.Controllers
                 Title = model.Title,
                 HireDate = model.HireDate,
                 BirthDate = model.BirthDate,
-                LocationId = model.LocationId,
+                LocationIds = model.LocationIds,
                 AddressText = model.AddressText,
                 MaritalStatus = model.MaritalStatus,
                 EducationUniversity = model.EducationUniversity,
@@ -1212,11 +1212,6 @@ namespace MEC.Portal.Controllers
                 })
                 .ToList();
 
-            model.LocationOptions.Insert(0, new SelectListItem
-            {
-                Value = string.Empty,
-                Text = "Konum seçiniz"
-            });
         }
 
         private static AdminPortalUserListItemViewModel MapPortalUserListItem(PortalUserListItemModel portalUser)
@@ -1228,7 +1223,7 @@ namespace MEC.Portal.Controllers
                 Email = portalUser.Email,
                 PhoneNumber = portalUser.PhoneNumber,
                 Title = portalUser.Title,
-                LocationName = portalUser.LocationName,
+                LocationNames = portalUser.LocationNames,
                 LeaveDays = portalUser.LeaveDays,
                 HireDate = portalUser.HireDate,
                 IsAdmin = portalUser.IsAdmin,
@@ -1248,7 +1243,7 @@ namespace MEC.Portal.Controllers
                 Title = portalUser.Title,
                 HireDate = portalUser.HireDate,
                 BirthDate = portalUser.BirthDate,
-                LocationId = portalUser.LocationId,
+                LocationIds = portalUser.LocationIds,
                 AddressText = portalUser.AddressText,
                 MaritalStatus = portalUser.MaritalStatus,
                 EducationUniversity = portalUser.EducationUniversity,
