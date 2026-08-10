@@ -163,15 +163,15 @@ namespace MEC.Portal.Controllers
             return await _employeePortalService.GetActivePortalUserByEmailAsync(email);
         }
 
-        private static bool IsBirthdayToday(DateTime birthDate)
+        private static bool IsBirthdayToday(DateTime? birthDate)
         {
-            if (birthDate.Year <= 1000)
+            if (!birthDate.HasValue || birthDate.Value.Year <= 1000)
             {
                 return false;
             }
 
             var today = DateTime.Today;
-            return birthDate.Month == today.Month && birthDate.Day == today.Day;
+            return birthDate.Value.Month == today.Month && birthDate.Value.Day == today.Day;
         }
     }
 }

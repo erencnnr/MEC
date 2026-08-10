@@ -1,0 +1,87 @@
+@using System.Globalization
+@model MEC.Portal.Models.AdminPortalUserListViewModel
+
+@{
+    string FormatLeaveDays(decimal value)
+    {
+        return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
+    }
+}
+
+@if (!Model.Items.Any())
+{
+    <div class="leave-history-empty">
+        <h2>Kayıt bulunamadı</h2>
+        @if (!string.IsNullOrWhiteSpace(Model.SearchTerm))
+        {
+            <p>“@Model.SearchTerm” aramasıyla eşleşen portal kullanıcısı bulunmuyor.</p>
+        }
+        else
+        {
+            <p>Seçili filtre için görüntülenecek portal kullanıcısı bulunmuyor.</p>
+        }
+    </div>
+}
+else
+{
+    <div class="leave-history-table-card admin-portal-users-table-card">
+        <div class="leave-history-table-card__meta">
+            <span>@Model.TotalCount kayıt</span>
+            <span>Sayfa @Model.CurrentPage / @Model.TotalPages</span>
+        </div>
+
+        <div class="table-responsive admin-portal-users-table-wrap">
+            <table class="table leave-history-table admin-portal-users-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Kullanıcı</th>
+                        <th>E-posta</th>
+                        <th>Telefon</th>
+                        <th>Ünvan</th>
+                        <th>Lokasyon</th>
+                        <th>İzin Hakkı</th>
+                        <th>İşe Giriş</th>
+                        <th>Durum</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr class="leave-history-table__row" data-href="/Admin/PortalUsers/@item.Id" data-user-email="@item.Email" tabindex="0">
+                            <td data-label="Kullanıcı">
+                                <div class="admin-portal-users-table__identity">
+                                    <span>@item.FullName</span>
+                                </div>
+                            </td>
+                            <td data-label="E-posta">@item.Email</td>
+                            <td data-label="Telefon">@(string.IsNullOrWhiteSpace(item.PhoneNumber) ? "-" : item.PhoneNumber)</td>
+                            <td data-label="Ünvan">@(string.IsNullOrWhiteSpace(item.Title) ? "-" : item.Title)</td>
+                            <td data-label="Lokasyon">@(string.IsNullOrWhiteSpace(item.LocationNames) ? "-" : item.LocationNames)</td>
+                            <td data-label="İzin Hakkı" class="admin-portal-users-table__leave-days" data-user-email="@item.Email">@FormatLeaveDays(item.LeaveDays) Gün</td>
+                            <td data-label="İşe Giriş">@(item.HireDate.HasValue ? item.HireDate.Value.ToString("dd.MM.yyyy") : "Belirsiz")</td>
+                            <td data-label="Durum">
+                                <span class="leave-history-status leave-history-status--@item.StatusTone">@item.StatusLabel</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (Model.TotalPages > 1)
+    {
+        <nav class="leave-history-pagination" aria-label="Portal kullanıcıları sayfaları">
+            @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+            {
+                <a class="leave-history-pagination__item @(pageNumber == Model.CurrentPage ? "is-active" : string.Empty)"
+                   asp-action="PortalUsers"
+                   asp-route-status="@Model.Status"
+                   asp-route-search="@Model.SearchTerm"
+                   asp-route-page="@pageNumber">
+                    @pageNumber
+                </a>
+            }
+        </nav>
+    }
+}

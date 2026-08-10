@@ -16,6 +16,9 @@ namespace MEC.Domain.Entity.Employee
         [Column("birth_date")]
         public DateTime BirthDate { get; set; }
 
+        [Column("education_status")]
+        public ChildEducationStatusType? EducationStatus { get; set; }
+
         [ForeignKey(nameof(EmployeePortalId))]
         public EmployeePortal? EmployeePortal { get; set; }
     }

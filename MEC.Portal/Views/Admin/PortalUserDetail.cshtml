@@ -10,6 +10,8 @@
     {
         return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
     }
+
+    var currentYear = DateTime.Today.Year;
 }
 
 <section class="leave-detail-page admin-portal-user-detail-page">
@@ -50,13 +52,19 @@
 
                     <div class="leave-detail-field">
                         <span>E-posta</span>
-                        <input asp-for="Email" class="announcement-form-input" />
+                        <input asp-for="Email" type="email" inputmode="email" autocomplete="email" class="announcement-form-input" placeholder="ornek@firma.com" />
                         <span asp-validation-for="Email" class="announcement-form-validation"></span>
                     </div>
 
                     <div class="leave-detail-field">
                         <span>Telefon</span>
-                        <input asp-for="PhoneNumber" class="announcement-form-input" />
+                        <input asp-for="PhoneNumber"
+                               type="tel"
+                               inputmode="numeric"
+                               autocomplete="tel-national"
+                               placeholder="0xxx xxx xx xx"
+                               data-phone-input="true"
+                               class="announcement-form-input" />
                         <span asp-validation-for="PhoneNumber" class="announcement-form-validation"></span>
                     </div>
 
@@ -68,13 +76,29 @@
 
                     <div class="leave-detail-field">
                         <span>İşe Giriş Tarihi</span>
-                        <input asp-for="HireDate" type="date" class="announcement-form-input" />
+                        <input asp-for="HireDate" type="date" min="1900-01-01" class="announcement-form-input" />
+                        <select class="announcement-form-input" data-date-year-select="true" data-date-year-target="HireDate" aria-label="İşe giriş yılına hızlı git">
+                            <option value="">Hızlı yıl seçin</option>
+                            @for (var year = currentYear; year >= 1900; year--)
+                            {
+                                <option value="@year">@year</option>
+                            }
+                        </select>
+                        <small class="admin-portal-user-field-note">Yılı listeden seçip gün ve ayı tamamlayabilir veya tarihi klavyeden yazabilirsiniz. Boş bırakırsanız “Belirsiz” görünür.</small>
                         <span asp-validation-for="HireDate" class="announcement-form-validation"></span>
                     </div>
 
                     <div class="leave-detail-field">
                         <span>Doğum Tarihi</span>
-                        <input asp-for="BirthDate" type="date" class="announcement-form-input" />
+                        <input asp-for="BirthDate" type="date" min="1900-01-01" max="@DateTime.Today.ToString("yyyy-MM-dd")" class="announcement-form-input" />
+                        <select class="announcement-form-input" data-date-year-select="true" data-date-year-target="BirthDate" aria-label="Doğum yılına hızlı git">
+                            <option value="">Hızlı yıl seçin</option>
+                            @for (var year = currentYear; year >= 1900; year--)
+                            {
+                                <option value="@year">@year</option>
+                            }
+                        </select>
+                        <small class="admin-portal-user-field-note">Yılı listeden seçip gün ve ayı tamamlayabilir veya tarihi klavyeden yazabilirsiniz. Boş bırakırsanız “Belirsiz” görünür.</small>
                         <span asp-validation-for="BirthDate" class="announcement-form-validation"></span>
                     </div>
 
@@ -182,6 +206,24 @@
                                             <span>Doğum Tarihi</span>
                                             <input type="date" class="announcement-form-input" data-field="BirthDate" value="@Model.Children[index].BirthDate?.ToString("yyyy-MM-dd")" />
                                         </div>
+
+                                        <div class="leave-detail-field">
+                                            <span>Eğitim Durumu</span>
+                                            <select class="announcement-form-input" data-field="EducationStatus">
+                                                <option value="">Seçiniz</option>
+                                                @foreach (var option in Html.GetEnumSelectList<ChildEducationStatusType>())
+                                                {
+                                                    if (option.Value == ((int?)Model.Children[index].EducationStatus)?.ToString())
+                                                    {
+                                                        <option value="@option.Value" selected="selected">@option.Text</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="@option.Value">@option.Text</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             }
@@ -209,6 +251,17 @@
                                     <div class="leave-detail-field">
                                         <span>Doğum Tarihi</span>
                                         <input type="date" class="announcement-form-input" data-field="BirthDate" value="" />
+                                    </div>
+
+                                    <div class="leave-detail-field">
+                                        <span>Eğitim Durumu</span>
+                                        <select class="announcement-form-input" data-field="EducationStatus">
+                                            <option value="">Seçiniz</option>
+                                            @foreach (var option in Html.GetEnumSelectList<ChildEducationStatusType>())
+                                            {
+                                                <option value="@option.Value">@option.Text</option>
+                                            }
+                                        </select>
                                     </div>
                                 </div>
                             </div>

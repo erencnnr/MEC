@@ -3384,8 +3384,101 @@ body.admin-leave-confirm-open {
     gap: 12px;
 }
 
+.admin-portal-users-search {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 18px;
+    padding: 18px 20px;
+    border: 1px solid var(--border-1);
+    border-radius: 20px;
+    background: var(--surface-1);
+}
+
+.admin-portal-users-search > label {
+    flex: 0 0 auto;
+    color: var(--brand-1);
+    font-weight: 700;
+}
+
+.admin-portal-users-search__controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+}
+
+.admin-portal-users-search__input {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1px solid var(--border-1);
+    border-radius: 14px;
+    background: #ffffff;
+    color: var(--text-1);
+}
+
+.admin-portal-users-search__input:focus {
+    border-color: var(--border-2);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(6, 198, 247, 0.14);
+}
+
+.admin-portal-users-search__button,
+.admin-portal-users-search__clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 14px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.admin-portal-users-search__button {
+    border: 1px solid var(--brand-1);
+    background: var(--brand-1);
+    color: #ffffff;
+}
+
+.admin-portal-users-search__button:hover,
+.admin-portal-users-search__button:focus-visible {
+    border-color: var(--brand-2);
+    background: var(--brand-2);
+}
+
+.admin-portal-users-search__clear {
+    border: 1px solid var(--border-1);
+    background: #ffffff;
+    color: var(--brand-1);
+}
+
+.admin-portal-users-search__clear:hover,
+.admin-portal-users-search__clear:focus-visible {
+    border-color: var(--border-2);
+    background: var(--accent-soft);
+    color: var(--brand-1);
+}
+
+.admin-portal-users-search__clear.is-hidden {
+    display: none;
+}
+
+.admin-portal-users-results {
+    transition: opacity 0.15s ease;
+}
+
+.admin-portal-users-results.is-loading {
+    opacity: 0.55;
+    pointer-events: none;
+}
+
 .admin-portal-users-table__identity {
-    min-width: 220px;
+    min-width: 0;
 }
 
 .admin-portal-users-table__identity span {
@@ -3395,6 +3488,104 @@ body.admin-leave-confirm-open {
 
 .admin-portal-users-table-card {
     gap: 18px;
+}
+
+.admin-portal-users-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.admin-portal-users-table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+.admin-portal-users-table thead th,
+.admin-portal-users-table tbody td {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+.admin-portal-users-table thead th:nth-child(1) { width: 15%; }
+.admin-portal-users-table thead th:nth-child(2) { width: 18%; }
+.admin-portal-users-table thead th:nth-child(3) { width: 12%; }
+.admin-portal-users-table thead th:nth-child(4) { width: 12%; }
+.admin-portal-users-table thead th:nth-child(5) { width: 13%; }
+.admin-portal-users-table thead th:nth-child(6) { width: 10%; }
+.admin-portal-users-table thead th:nth-child(7) { width: 10%; }
+.admin-portal-users-table thead th:nth-child(8) { width: 10%; }
+
+@media (max-width: 1199.98px) {
+    .admin-portal-users-table-wrap {
+        overflow: visible;
+    }
+
+    .admin-portal-users-table,
+    .admin-portal-users-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .admin-portal-users-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .admin-portal-users-table tbody {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        padding: 0 18px 18px;
+    }
+
+    .admin-portal-users-table tbody tr {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid var(--border-1);
+        border-radius: 18px;
+        background: var(--surface-1);
+    }
+
+    .admin-portal-users-table tbody td,
+    .admin-portal-users-table tbody tr:last-child td {
+        display: grid;
+        grid-template-columns: minmax(110px, 0.42fr) minmax(0, 1fr);
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 12px 14px;
+        border-bottom: 1px solid #edf1f6;
+        text-align: left;
+    }
+
+    .admin-portal-users-table tbody td:last-child,
+    .admin-portal-users-table tbody tr:last-child td:last-child {
+        border-bottom: 0;
+    }
+
+    .admin-portal-users-table tbody td::before {
+        content: attr(data-label);
+        color: var(--brand-1);
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .admin-portal-users-table tbody {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 .admin-portal-users-bulk-button,
@@ -3622,6 +3813,22 @@ body.admin-leave-confirm-open {
     }
 
     .admin-portal-users-actions {
+        width: 100%;
+    }
+
+    .admin-portal-users-search {
+        align-items: stretch;
+        flex-direction: column;
+        padding: 16px;
+    }
+
+    .admin-portal-users-search__controls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .admin-portal-users-search__button,
+    .admin-portal-users-search__clear {
         width: 100%;
     }
 

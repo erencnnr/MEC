@@ -7,6 +7,7 @@ namespace MEC.Application.Abstractions.Service.EmployeeService.Model
     public class PortalUserListQueryModel
     {
         public string? Status { get; set; } = "active";
+        public string? SearchTerm { get; set; }
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
     }
@@ -21,7 +22,7 @@ namespace MEC.Application.Abstractions.Service.EmployeeService.Model
         public List<int> LocationIds { get; set; } = new();
         public string LocationNames { get; set; } = string.Empty;
         public decimal LeaveDays { get; set; }
-        public DateTime HireDate { get; set; }
+        public DateTime? HireDate { get; set; }
         public bool IsAdmin { get; set; }
         public bool IsDeleted { get; set; }
     }
@@ -29,12 +30,14 @@ namespace MEC.Application.Abstractions.Service.EmployeeService.Model
     public class PortalUserListResultModel : PagedResultModel<PortalUserListItemModel>
     {
         public string Status { get; set; } = "active";
+        public string SearchTerm { get; set; } = string.Empty;
     }
 
     public class PortalUserChildEditModel
     {
         public ChildGenderType? Gender { get; set; }
         public DateTime? BirthDate { get; set; }
+        public ChildEducationStatusType? EducationStatus { get; set; }
     }
 
     public class PortalUserEditModel
@@ -45,8 +48,8 @@ namespace MEC.Application.Abstractions.Service.EmployeeService.Model
         public string Email { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
-        public DateTime HireDate { get; set; }
-        public DateTime BirthDate { get; set; }
+        public DateTime? HireDate { get; set; }
+        public DateTime? BirthDate { get; set; }
         public List<int> LocationIds { get; set; } = new();
         public decimal LeaveDays { get; set; }
         public bool IsAdmin { get; set; }
@@ -66,8 +69,8 @@ namespace MEC.Application.Abstractions.Service.EmployeeService.Model
         public string LastName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
-        public DateTime HireDate { get; set; }
-        public DateTime BirthDate { get; set; }
+        public DateTime? HireDate { get; set; }
+        public DateTime? BirthDate { get; set; }
         public string PhoneNumber { get; set; } = string.Empty;
         public string? AddressText { get; set; }
         public MaritalStatusType? MaritalStatus { get; set; }

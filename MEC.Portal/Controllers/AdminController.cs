@@ -349,11 +349,12 @@ namespace MEC.Portal.Controllers
         }
 
         [HttpGet("/Admin/PortalUsers")]
-        public async Task<IActionResult> PortalUsers(string? status = "active", int page = 1)
+        public async Task<IActionResult> PortalUsers(string? status = "active", string? search = null, int page = 1)
         {
             var result = await _employeePortalService.GetPortalUsersAsync(new PortalUserListQueryModel
             {
                 Status = status,
+                SearchTerm = search,
                 Page = page,
                 PageSize = PortalUsersPageSize
             });
@@ -361,12 +362,18 @@ namespace MEC.Portal.Controllers
             var model = new AdminPortalUserListViewModel
             {
                 Status = result.Status,
+                SearchTerm = result.SearchTerm,
                 CurrentPage = result.CurrentPage,
                 TotalPages = result.TotalPages,
                 TotalCount = result.TotalCount,
                 PageSize = result.PageSize,
                 Items = result.Items.Select(MapPortalUserListItem).ToList()
             };
+
+            if (string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase))
+            {
+                return PartialView("_PortalUserResults", model);
+            }
 
             return View(model);
         }
@@ -451,7 +458,8 @@ namespace MEC.Portal.Controllers
                 Children = model.Children.Select(x => new PortalUserChildEditModel
                 {
                     Gender = x.Gender,
-                    BirthDate = x.BirthDate
+                    BirthDate = x.BirthDate,
+                    EducationStatus = x.EducationStatus
                 }).ToList(),
                 LeaveDays = model.LeaveDays,
                 IsAdmin = model.IsAdmin,
@@ -1252,7 +1260,8 @@ namespace MEC.Portal.Controllers
                 Children = portalUser.Children.Select(x => new ProfileChildInputViewModel
                 {
                     Gender = x.Gender,
-                    BirthDate = x.BirthDate
+                    BirthDate = x.BirthDate,
+                    EducationStatus = x.EducationStatus
                 }).ToList(),
                 LeaveDays = portalUser.LeaveDays,
                 IsAdmin = portalUser.IsAdmin,
@@ -1268,7 +1277,8 @@ namespace MEC.Portal.Controllers
                 .Select(x => new ProfileChildInputViewModel
                 {
                     Gender = x.Gender,
-                    BirthDate = x.BirthDate
+                    BirthDate = x.BirthDate,
+                    EducationStatus = x.EducationStatus
                 })
                 .ToList();
 

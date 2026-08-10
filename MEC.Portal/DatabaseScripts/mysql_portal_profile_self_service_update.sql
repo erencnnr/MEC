@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS `employee_portal_child` (
     `employee_portal_id` INT NOT NULL,
     `gender` INT NOT NULL,
     `birth_date` DATE NOT NULL,
+    `education_status` INT NULL,
     `created_date` DATETIME(6) NULL,
     `update_date` DATETIME(6) NULL,
     PRIMARY KEY (`id`),

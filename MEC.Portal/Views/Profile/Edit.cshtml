@@ -61,12 +61,12 @@
 
                         <div class="leave-detail-field">
                             <span>İşe Giriş Tarihi</span>
-                            <strong>@Model.HireDate.ToString("dd.MM.yyyy")</strong>
+                            <strong>@(Model.HireDate.HasValue && Model.HireDate.Value.Year > 1000 ? Model.HireDate.Value.ToString("dd.MM.yyyy") : "Belirsiz")</strong>
                         </div>
 
                         <div class="leave-detail-field">
                             <span>Doğum Tarihi</span>
-                            <strong>@Model.BirthDate.ToString("dd.MM.yyyy")</strong>
+                            <strong>@(Model.BirthDate.HasValue && Model.BirthDate.Value.Year > 1000 ? Model.BirthDate.Value.ToString("dd.MM.yyyy") : "Belirsiz")</strong>
                         </div>
                     </div>
                 </div>
@@ -80,7 +80,13 @@
                     <div class="leave-detail-grid profile-edit-grid">
                         <div class="leave-detail-field">
                             <span>Telefon</span>
-                            <input asp-for="PhoneNumber" class="announcement-form-input" />
+                            <input asp-for="PhoneNumber"
+                                   type="tel"
+                                   inputmode="numeric"
+                                   autocomplete="tel-national"
+                                   placeholder="0xxx xxx xx xx"
+                                   data-phone-input="true"
+                                   class="announcement-form-input" />
                             <span asp-validation-for="PhoneNumber" class="announcement-form-validation"></span>
                         </div>
 
@@ -161,6 +167,24 @@
                                             <span>Doğum Tarihi</span>
                                             <input type="date" class="announcement-form-input" data-field="BirthDate" value="@Model.Children[index].BirthDate?.ToString("yyyy-MM-dd")" />
                                         </div>
+
+                                        <div class="leave-detail-field">
+                                            <span>Eğitim Durumu</span>
+                                            <select class="announcement-form-input" data-field="EducationStatus">
+                                                <option value="">Seçiniz</option>
+                                                @foreach (var option in Html.GetEnumSelectList<ChildEducationStatusType>())
+                                                {
+                                                    if (option.Value == ((int?)Model.Children[index].EducationStatus)?.ToString())
+                                                    {
+                                                        <option value="@option.Value" selected="selected">@option.Text</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="@option.Value">@option.Text</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                             }
@@ -188,6 +212,17 @@
                                     <div class="leave-detail-field">
                                         <span>Doğum Tarihi</span>
                                         <input type="date" class="announcement-form-input" data-field="BirthDate" value="" />
+                                    </div>
+
+                                    <div class="leave-detail-field">
+                                        <span>Eğitim Durumu</span>
+                                        <select class="announcement-form-input" data-field="EducationStatus">
+                                            <option value="">Seçiniz</option>
+                                            @foreach (var option in Html.GetEnumSelectList<ChildEducationStatusType>())
+                                            {
+                                                <option value="@option.Value">@option.Text</option>
+                                            }
+                                        </select>
                                     </div>
                                 </div>
                             </div>

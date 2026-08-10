@@ -9,8 +9,6 @@ namespace MEC.Application.Service.LdapService
 {
     public class LdapService : ILdapService
     {
-        private static readonly DateTime MySqlMinimumDate = new(1000, 1, 1);
-
         private readonly IGenericRepository<Employee> _employeeRepository;
         private readonly IGenericRepository<EmployeePortal> _employeePortalRepository;
         private readonly IConfiguration _configuration;
@@ -106,8 +104,8 @@ namespace MEC.Application.Service.LdapService
                             PhoneNumber = ldapUser.Phone,
                             Email = ldapUser.EffectiveEmail,
                             Title = string.Empty,
-                            HireDate = MySqlMinimumDate,
-                            BirthDate = MySqlMinimumDate,
+                            HireDate = null,
+                            BirthDate = null,
                             LeaveDays = 0,
                             CreatedDate = DateTime.Now,
                             IsDeleted = false

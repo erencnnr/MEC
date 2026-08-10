@@ -121,7 +121,8 @@ namespace MEC.Portal.Controllers
             return new ProfileChildInputViewModel
             {
                 Gender = child.Gender,
-                BirthDate = child.BirthDate
+                BirthDate = child.BirthDate,
+                EducationStatus = child.EducationStatus
             };
         }
 
@@ -130,7 +131,8 @@ namespace MEC.Portal.Controllers
             return new PortalUserChildEditModel
             {
                 Gender = child.Gender,
-                BirthDate = child.BirthDate
+                BirthDate = child.BirthDate,
+                EducationStatus = child.EducationStatus
             };
         }
 
@@ -142,7 +144,8 @@ namespace MEC.Portal.Controllers
                 .Select(x => new ProfileChildInputViewModel
                 {
                     Gender = x.Gender,
-                    BirthDate = x.BirthDate
+                    BirthDate = x.BirthDate,
+                    EducationStatus = x.EducationStatus
                 })
                 .ToList();
         }

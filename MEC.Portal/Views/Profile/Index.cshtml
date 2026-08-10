@@ -34,6 +34,24 @@
     {
         return gender == ChildGenderType.Female ? "Kız" : "Erkek";
     }
+
+    string GetChildEducationStatusLabel(ChildEducationStatusType? status)
+    {
+        return status switch
+        {
+            ChildEducationStatusType.NotInEducation => "Eğitim Almıyor",
+            ChildEducationStatusType.Preschool => "Okul Öncesi",
+            ChildEducationStatusType.PrimarySchool => "İlkokul",
+            ChildEducationStatusType.MiddleSchool => "Ortaokul",
+            ChildEducationStatusType.HighSchool => "Lise",
+            ChildEducationStatusType.AssociateDegree => "Ön Lisans",
+            ChildEducationStatusType.Undergraduate => "Lisans",
+            ChildEducationStatusType.Graduate => "Yüksek Lisans",
+            ChildEducationStatusType.Doctorate => "Doktora",
+            ChildEducationStatusType.Graduated => "Mezun",
+            _ => "Eğitim durumu belirtilmemiş"
+        };
+    }
 }
 
 <section class="profile-page">
@@ -118,12 +136,12 @@
 
                         <div class="profile-field">
                             <span>İşe Giriş Tarihi</span>
-                            <strong>@profile.HireDate.ToString("dd.MM.yyyy")</strong>
+                            <strong>@(profile.HireDate.HasValue && profile.HireDate.Value.Year > 1000 ? profile.HireDate.Value.ToString("dd.MM.yyyy") : "Belirsiz")</strong>
                         </div>
 
                         <div class="profile-field">
                             <span>Doğum Tarihi</span>
-                            <strong>@profile.BirthDate.ToString("dd.MM.yyyy")</strong>
+                            <strong>@(profile.BirthDate.HasValue && profile.BirthDate.Value.Year > 1000 ? profile.BirthDate.Value.ToString("dd.MM.yyyy") : "Belirsiz")</strong>
                         </div>
 
                         <div class="profile-field">
@@ -190,7 +208,7 @@
                             {
                                 <div class="profile-child-summary">
                                     <strong>@GetChildGenderLabel(child.Gender)</strong>
-                                    <span>@child.BirthDate.ToString("dd.MM.yyyy")</span>
+                                    <span>@child.BirthDate.ToString("dd.MM.yyyy") / @GetChildEducationStatusLabel(child.EducationStatus)</span>
                                 </div>
                             }
                         </div>

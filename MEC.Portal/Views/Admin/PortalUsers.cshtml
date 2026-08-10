@@ -1,14 +1,8 @@
-@using System.Globalization
 @model MEC.Portal.Models.AdminPortalUserListViewModel
 
 @{
     ViewData["Title"] = "Portal Kullanıcıları";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
-
-    string FormatLeaveDays(decimal value)
-    {
-        return value.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"));
-    }
 }
 
 <section class="leave-history-page admin-portal-users-page">
@@ -25,8 +19,8 @@
 
         <div class="admin-portal-users-controls">
             <div class="announcement-board-filters admin-portal-users-filters">
-                <a asp-action="PortalUsers" asp-route-status="active" class="@(Model.Status == "active" ? "announcement-board-filter is-active" : "announcement-board-filter")">Aktif</a>
-                <a asp-action="PortalUsers" asp-route-status="passive" class="@(Model.Status == "passive" ? "announcement-board-filter is-active" : "announcement-board-filter")">Pasif</a>
+                <a asp-action="PortalUsers" asp-route-status="active" asp-route-search="@Model.SearchTerm" data-portal-users-status-filter="true" class="@(Model.Status == "active" ? "announcement-board-filter is-active" : "announcement-board-filter")">Aktif</a>
+                <a asp-action="PortalUsers" asp-route-status="passive" asp-route-search="@Model.SearchTerm" data-portal-users-status-filter="true" class="@(Model.Status == "passive" ? "announcement-board-filter is-active" : "announcement-board-filter")">Pasif</a>
             </div>
 
             <div class="admin-portal-users-actions">
@@ -59,73 +53,27 @@
             </div>
         </div>
 
-        @if (!Model.Items.Any())
-        {
-            <div class="leave-history-empty">
-                <h2>Kayıt bulunamadı</h2>
-                <p>Seçili filtre için görüntülenecek portal kullanıcısı bulunmuyor.</p>
+        <form method="get" asp-action="PortalUsers" class="admin-portal-users-search" role="search">
+            <input type="hidden" name="status" value="@Model.Status" />
+            <label for="portalUserSearch">Kullanıcı ara</label>
+            <div class="admin-portal-users-search__controls">
+                <input id="portalUserSearch"
+                       name="search"
+                       value="@Model.SearchTerm"
+                       type="search"
+                       class="admin-portal-users-search__input"
+                       placeholder="Ad soyad, e-posta veya telefon"
+                       autocomplete="off" />
+                <button type="submit" class="admin-portal-users-search__button">Ara</button>
+                <button type="button"
+                        class="admin-portal-users-search__clear @(string.IsNullOrWhiteSpace(Model.SearchTerm) ? "is-hidden" : string.Empty)"
+                        data-portal-users-search-clear="true">Temizle</button>
             </div>
-        }
-        else
-        {
-            <div class="leave-history-table-card admin-portal-users-table-card">
-                <div class="leave-history-table-card__meta">
-                    <span>@Model.TotalCount kayıt</span>
-                    <span>Sayfa @Model.CurrentPage / @Model.TotalPages</span>
-                </div>
+        </form>
 
-                <div class="table-responsive">
-                    <table class="table leave-history-table admin-portal-users-table align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>Kullanıcı</th>
-                                <th>E-posta</th>
-                                <th>Telefon</th>
-                                <th>Ünvan</th>
-                                <th>Lokasyon</th>
-                                <th>İzin Hakkı</th>
-                                <th>İşe Giriş</th>
-                                <th>Durum</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var item in Model.Items)
-                            {
-                                <tr class="leave-history-table__row" data-href="/Admin/PortalUsers/@item.Id" data-user-email="@item.Email" tabindex="0">
-                                    <td>
-                                        <div class="admin-portal-users-table__identity">
-                                            <span>@item.FullName</span>
-                                        </div>
-                                    </td>
-                                    <td>@item.Email</td>
-                                    <td>@(string.IsNullOrWhiteSpace(item.PhoneNumber) ? "-" : item.PhoneNumber)</td>
-                                    <td>@(string.IsNullOrWhiteSpace(item.Title) ? "-" : item.Title)</td>
-                                    <td>@(string.IsNullOrWhiteSpace(item.LocationNames) ? "-" : item.LocationNames)</td>
-                                    <td class="admin-portal-users-table__leave-days" data-user-email="@item.Email">@FormatLeaveDays(item.LeaveDays) Gün</td>
-                                    <td>@item.HireDate.ToString("dd.MM.yyyy")</td>
-                                    <td>
-                                        <span class="leave-history-status leave-history-status--@item.StatusTone">@item.StatusLabel</span>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            @if (Model.TotalPages > 1)
-            {
-                <nav class="leave-history-pagination" aria-label="Portal kullanıcıları sayfaları">
-                    @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
-                    {
-                        <a class="leave-history-pagination__item @(pageNumber == Model.CurrentPage ? "is-active" : string.Empty)"
-                           href="/Admin/PortalUsers?status=@Model.Status&page=@pageNumber">
-                            @pageNumber
-                        </a>
-                    }
-                </nav>
-            }
-        }
+        <div id="portalUsersResults" class="admin-portal-users-results" aria-live="polite">
+            <partial name="_PortalUserResults" model="Model" />
+        </div>
     </div>
 
     <div class="modal fade bulk-leave-upload-modal" id="bulkLeaveUploadModal" tabindex="-1" aria-labelledby="bulkLeaveUploadModalLabel" aria-hidden="true">
@@ -169,24 +117,143 @@
 
 @section Scripts {
     <script>
-        document.querySelectorAll(".leave-history-table__row").forEach(function (row) {
-            row.addEventListener("click", function () {
-                var href = row.getAttribute("data-href");
-                if (href) {
-                    window.location.href = href;
-                }
-            });
-
-            row.addEventListener("keydown", function (event) {
-                if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
+        function initializePortalUserRows(root) {
+            (root || document).querySelectorAll(".leave-history-table__row").forEach(function (row) {
+                row.addEventListener("click", function () {
                     var href = row.getAttribute("data-href");
                     if (href) {
                         window.location.href = href;
                     }
-                }
+                });
+
+                row.addEventListener("keydown", function (event) {
+                    if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        var href = row.getAttribute("data-href");
+                        if (href) {
+                            window.location.href = href;
+                        }
+                    }
+                });
             });
-        });
+        }
+
+        initializePortalUserRows(document);
+
+        (function () {
+            var form = document.querySelector(".admin-portal-users-search");
+            var input = document.getElementById("portalUserSearch");
+            var results = document.getElementById("portalUsersResults");
+            var clearButton = document.querySelector("[data-portal-users-search-clear='true']");
+            var statusLinks = Array.from(document.querySelectorAll("[data-portal-users-status-filter='true']"));
+            var debounceTimer = null;
+            var activeRequest = null;
+
+            if (!form || !input || !results) {
+                return;
+            }
+
+            function updateSearchControls() {
+                var searchTerm = input.value.trim();
+
+                if (clearButton) {
+                    clearButton.classList.toggle("is-hidden", !searchTerm);
+                }
+
+                statusLinks.forEach(function (link) {
+                    var linkUrl = new URL(link.href, window.location.origin);
+                    if (searchTerm) {
+                        linkUrl.searchParams.set("search", searchTerm);
+                    } else {
+                        linkUrl.searchParams.delete("search");
+                    }
+                    linkUrl.searchParams.delete("page");
+                    link.href = linkUrl.pathname + linkUrl.search;
+                });
+            }
+
+            function buildSearchUrl() {
+                var url = new URL(form.action, window.location.origin);
+                var formData = new FormData(form);
+                var searchTerm = input.value.trim();
+
+                formData.set("search", searchTerm);
+                formData.set("page", "1");
+                url.search = new URLSearchParams(formData).toString();
+                return url;
+            }
+
+            async function refreshResults(fallbackToNavigation) {
+                var requestUrl = buildSearchUrl();
+
+                if (activeRequest) {
+                    activeRequest.abort();
+                }
+
+                var requestController = new AbortController();
+                activeRequest = requestController;
+                results.setAttribute("aria-busy", "true");
+                results.classList.add("is-loading");
+
+                try {
+                    var response = await fetch(requestUrl, {
+                        headers: {
+                            "X-Requested-With": "XMLHttpRequest"
+                        },
+                        signal: requestController.signal
+                    });
+
+                    if (!response.ok) {
+                        throw new Error("Arama sonuçları alınamadı.");
+                    }
+
+                    var html = await response.text();
+                    if (activeRequest !== requestController) {
+                        return;
+                    }
+
+                    results.innerHTML = html;
+                    initializePortalUserRows(results);
+                    window.history.replaceState(null, "", requestUrl.pathname + requestUrl.search);
+                } catch (error) {
+                    if (error.name !== "AbortError" && fallbackToNavigation) {
+                        window.location.href = requestUrl.pathname + requestUrl.search;
+                    }
+                } finally {
+                    if (activeRequest === requestController) {
+                        activeRequest = null;
+                        results.removeAttribute("aria-busy");
+                        results.classList.remove("is-loading");
+                    }
+                }
+            }
+
+            input.addEventListener("input", function () {
+                window.clearTimeout(debounceTimer);
+                updateSearchControls();
+                debounceTimer = window.setTimeout(function () {
+                    refreshResults(false);
+                }, 200);
+            });
+
+            form.addEventListener("submit", function (event) {
+                event.preventDefault();
+                window.clearTimeout(debounceTimer);
+                updateSearchControls();
+                refreshResults(true);
+            });
+
+            if (clearButton) {
+                clearButton.addEventListener("click", function () {
+                    input.value = "";
+                    updateSearchControls();
+                    refreshResults(false);
+                    input.focus();
+                });
+            }
+
+            updateSearchControls();
+        })();
 
         function renderPortalUsersAlert(target, level, message, reportUrl) {
             if (!target) {

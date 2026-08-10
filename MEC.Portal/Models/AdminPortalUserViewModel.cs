@@ -8,6 +8,7 @@ namespace MEC.Portal.Models
     {
         public List<AdminPortalUserListItemViewModel> Items { get; set; } = new();
         public string Status { get; set; } = "active";
+        public string SearchTerm { get; set; } = string.Empty;
         public int CurrentPage { get; set; }
         public int TotalPages { get; set; }
         public int TotalCount { get; set; }
@@ -23,7 +24,7 @@ namespace MEC.Portal.Models
         public string Title { get; set; } = string.Empty;
         public string LocationNames { get; set; } = string.Empty;
         public decimal LeaveDays { get; set; }
-        public DateTime HireDate { get; set; }
+        public DateTime? HireDate { get; set; }
         public bool IsAdmin { get; set; }
         public bool IsDeleted { get; set; }
         public string StatusLabel => IsDeleted ? "Pasif" : "Aktif";
@@ -41,19 +42,20 @@ namespace MEC.Portal.Models
         public string LastName { get; set; } = string.Empty;
 
         [Required]
-        [EmailAddress]
+        [EmailAddress(ErrorMessage = "Geçerli bir e-posta adresi giriniz.")]
         public string Email { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Telefon alanı zorunludur.")]
+        [RegularExpression(@"^(?:0\d{10}|0\d{3} \d{3} \d{2} \d{2})$", ErrorMessage = "Telefon numarası 0 ile başlayan 11 haneli olmalıdır.")]
         public string PhoneNumber { get; set; } = string.Empty;
 
         public string Title { get; set; } = string.Empty;
 
         [DataType(DataType.Date)]
-        public DateTime HireDate { get; set; }
+        public DateTime? HireDate { get; set; }
 
         [DataType(DataType.Date)]
-        public DateTime BirthDate { get; set; }
+        public DateTime? BirthDate { get; set; }
 
         public List<int> LocationIds { get; set; } = new();
 

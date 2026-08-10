@@ -97,11 +97,13 @@ namespace MEC.Application.Service.EmployeeService
         public async Task<PortalUserListResultModel> GetPortalUsersAsync(PortalUserListQueryModel query)
         {
             var normalizedStatus = NormalizePortalUserStatus(query.Status);
+            var normalizedSearchTerm = NormalizeOptionalText(query.SearchTerm) ?? string.Empty;
             var currentPage = query.Page < 1 ? 1 : query.Page;
             var pageSize = query.PageSize <= 0 ? 10 : query.PageSize;
 
             var portalUsers = (await _repository.GetAllAsync())
                 .Where(x => normalizedStatus == "passive" ? x.IsDeleted : !x.IsDeleted)
+                .Where(x => string.IsNullOrEmpty(normalizedSearchTerm) || MatchesPortalUserSearch(x, normalizedSearchTerm))
                 .OrderBy(x => x.FirstName)
                 .ThenBy(x => x.LastName)
                 .ThenBy(x => x.Email)
@@ -116,6 +118,7 @@ namespace MEC.Application.Service.EmployeeService
             return new PortalUserListResultModel
             {
                 Status = normalizedStatus,
+                SearchTerm = normalizedSearchTerm,
                 CurrentPage = currentPage,
                 TotalPages = totalPages,
                 TotalCount = totalCount,
@@ -187,10 +190,10 @@ namespace MEC.Application.Service.EmployeeService
             portalUser.FirstName = model.FirstName.Trim();
             portalUser.LastName = model.LastName.Trim();
             portalUser.Email = model.Email.Trim();
-            portalUser.PhoneNumber = model.PhoneNumber.Trim();
+            portalUser.PhoneNumber = NormalizePhoneNumber(model.PhoneNumber);
             portalUser.Title = model.Title.Trim();
-            portalUser.HireDate = model.HireDate;
-            portalUser.BirthDate = model.BirthDate;
+            portalUser.HireDate = NormalizeOptionalDate(model.HireDate);
+            portalUser.BirthDate = NormalizeOptionalDate(model.BirthDate);
             portalUser.LeaveDays = model.LeaveDays;
             portalUser.IsAdmin = model.IsAdmin;
             portalUser.IsDeleted = model.IsDeleted;
@@ -231,7 +234,7 @@ namespace MEC.Application.Service.EmployeeService
                 return OperationResultModel.Fail("Aktif portal kullanÄ±cÄ±sÄ± bulunamadÄ±.");
             }
 
-            portalUser.PhoneNumber = model.PhoneNumber.Trim();
+            portalUser.PhoneNumber = NormalizePhoneNumber(model.PhoneNumber);
             portalUser.AddressText = NormalizeOptionalText(model.AddressText);
             portalUser.MaritalStatus = model.MaritalStatus;
             portalUser.EducationUniversity = NormalizeOptionalText(model.EducationUniversity);
@@ -278,6 +281,7 @@ namespace MEC.Application.Service.EmployeeService
                     EmployeePortalId = employeePortalId,
                     Gender = child.Gender!.Value,
                     BirthDate = child.BirthDate!.Value.Date,
+                    EducationStatus = child.EducationStatus,
                     CreatedDate = DateTime.Now,
                     UpdateDate = DateTime.Now
                 });
@@ -346,21 +350,23 @@ namespace MEC.Application.Service.EmployeeService
             {
                 var hasGender = child.Gender.HasValue;
                 var hasBirthDate = child.BirthDate.HasValue;
+                var hasEducationStatus = child.EducationStatus.HasValue;
 
-                if (!hasGender && !hasBirthDate)
+                if (!hasGender && !hasBirthDate && !hasEducationStatus)
                 {
                     continue;
                 }
 
-                if (!hasGender || !hasBirthDate)
+                if (!hasGender || !hasBirthDate || !hasEducationStatus)
                 {
-                    return ChildNormalizationResult.Fail("Her Ã§ocuk kaydÄ±nda cinsiyet ve doÄŸum tarihi birlikte girilmelidir.");
+                    return ChildNormalizationResult.Fail("Her çocuk kaydında cinsiyet, doğum tarihi ve eğitim durumu birlikte girilmelidir.");
                 }
 
                 normalizedChildren.Add(new PortalUserChildEditModel
                 {
                     Gender = child.Gender,
-                    BirthDate = child.BirthDate.Value.Date
+                    BirthDate = child.BirthDate.Value.Date,
+                    EducationStatus = child.EducationStatus
                 });
             }
 
@@ -370,6 +376,18 @@ namespace MEC.Application.Service.EmployeeService
         private static string? NormalizeOptionalText(string? value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private static string NormalizePhoneNumber(string value)
+        {
+            return new string(value.Where(char.IsDigit).ToArray());
+        }
+
+        private static DateTime? NormalizeOptionalDate(DateTime? value)
+        {
+            return value.HasValue && value.Value.Year > 1000
+                ? value.Value.Date
+                : null;
         }
 
         private static List<int> NormalizeLocationIds(IEnumerable<int>? locationIds)
@@ -397,6 +415,33 @@ namespace MEC.Application.Service.EmployeeService
             return string.Equals(status, "passive", StringComparison.OrdinalIgnoreCase)
                 ? "passive"
                 : "active";
+        }
+
+        private static bool MatchesPortalUserSearch(EmployeePortal portalUser, string searchTerm)
+        {
+            var fullName = BuildPortalName(portalUser);
+            if (fullName.Contains(searchTerm, StringComparison.CurrentCultureIgnoreCase) ||
+                ContainsSearchTerm(portalUser.FirstName, searchTerm, StringComparison.CurrentCultureIgnoreCase) ||
+                ContainsSearchTerm(portalUser.LastName, searchTerm, StringComparison.CurrentCultureIgnoreCase) ||
+                ContainsSearchTerm(portalUser.Email, searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                ContainsSearchTerm(portalUser.PhoneNumber, searchTerm, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var searchDigits = new string(searchTerm.Where(char.IsDigit).ToArray());
+            if (string.IsNullOrEmpty(searchDigits))
+            {
+                return false;
+            }
+
+            var phoneDigits = new string((portalUser.PhoneNumber ?? string.Empty).Where(char.IsDigit).ToArray());
+            return phoneDigits.Contains(searchDigits, StringComparison.Ordinal);
+        }
+
+        private static bool ContainsSearchTerm(string? value, string searchTerm, StringComparison comparison)
+        {
+            return !string.IsNullOrWhiteSpace(value) && value.Contains(searchTerm, comparison);
         }
 
         private static string BuildPortalName(EmployeePortal portal)
@@ -437,7 +482,7 @@ namespace MEC.Application.Service.EmployeeService
                     .ToList(),
                 LocationNames = BuildLocationNames(portalUser),
                 LeaveDays = portalUser.LeaveDays,
-                HireDate = portalUser.HireDate,
+                HireDate = NormalizeOptionalDate(portalUser.HireDate),
                 IsAdmin = portalUser.IsAdmin,
                 IsDeleted = portalUser.IsDeleted
             };
@@ -453,8 +498,8 @@ namespace MEC.Application.Service.EmployeeService
                 Email = portalUser.Email,
                 PhoneNumber = portalUser.PhoneNumber,
                 Title = portalUser.Title,
-                HireDate = portalUser.HireDate,
-                BirthDate = portalUser.BirthDate,
+                HireDate = NormalizeOptionalDate(portalUser.HireDate),
+                BirthDate = NormalizeOptionalDate(portalUser.BirthDate),
                 LocationIds = portalUser.EmployeePortalLocations
                     .Select(x => x.LocationId)
                     .Distinct()
@@ -483,8 +528,8 @@ namespace MEC.Application.Service.EmployeeService
                 LastName = portalUser.LastName,
                 Email = portalUser.Email,
                 Title = portalUser.Title,
-                HireDate = portalUser.HireDate,
-                BirthDate = portalUser.BirthDate,
+                HireDate = NormalizeOptionalDate(portalUser.HireDate),
+                BirthDate = NormalizeOptionalDate(portalUser.BirthDate),
                 PhoneNumber = portalUser.PhoneNumber,
                 AddressText = portalUser.AddressText,
                 MaritalStatus = portalUser.MaritalStatus,
@@ -503,7 +548,8 @@ namespace MEC.Application.Service.EmployeeService
             return new PortalUserChildEditModel
             {
                 Gender = child.Gender,
-                BirthDate = child.BirthDate
+                BirthDate = child.BirthDate,
+                EducationStatus = child.EducationStatus
             };
         }
 
