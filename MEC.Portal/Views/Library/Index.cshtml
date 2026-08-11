@@ -11,11 +11,75 @@
                 <span class="library-topbar__eyebrow">Kütüphane</span>
                 <h1>Doküman merkezi</h1>
             </div>
+
+            <form method="get" asp-controller="Library" asp-action="Index" class="library-document-search" role="search">
+                @if (Model.SelectedFolderId.HasValue)
+                {
+                    <input type="hidden" name="folderId" value="@Model.SelectedFolderId.Value" />
+                }
+                <label class="visually-hidden" for="libraryDocumentSearch">Doküman ara</label>
+                <div class="library-document-search__controls">
+                    <input id="libraryDocumentSearch"
+                           name="search"
+                           value="@Model.SearchTerm"
+                           type="search"
+                           maxlength="100"
+                           autocomplete="off"
+                           placeholder="Doküman veya klasör ara..." />
+                    <button type="submit">Ara</button>
+                    @if (Model.IsSearching)
+                    {
+                        <a asp-controller="Library"
+                           asp-action="Index"
+                           asp-route-folderId="@Model.SelectedFolderId">Temizle</a>
+                    }
+                </div>
+            </form>
         </div>
 
         @if (TempData["LibraryError"] is string errorMessage && !string.IsNullOrWhiteSpace(errorMessage))
         {
             <div class="library-alert library-alert--error">@errorMessage</div>
+        }
+
+        @if (Model.IsSearching)
+        {
+            <section class="library-card library-search-results-card" aria-live="polite">
+                <div class="library-card__head library-card__head--split">
+                    <div>
+                        <span class="library-card__eyebrow">Arama sonuçları</span>
+                        <h2>“@Model.SearchTerm”</h2>
+                    </div>
+                    <span class="library-card__meta">@Model.SearchResults.Count doküman</span>
+                </div>
+
+                @if (Model.SearchResults.Any())
+                {
+                    <div class="library-search-results">
+                        @foreach (var result in Model.SearchResults)
+                        {
+                            <a class="library-search-result"
+                               href="@result.OpenUrl"
+                               target="_blank"
+                               rel="noopener noreferrer">
+                                <span class="library-search-result__type">@(result.IsPdf ? "PDF" : "Dosya")</span>
+                                <span class="library-search-result__body">
+                                    <strong>@result.Name</strong>
+                                    <span>@(string.IsNullOrWhiteSpace(result.FolderPath) ? "Kütüphane" : result.FolderPath)</span>
+                                </span>
+                                <span class="library-search-result__meta">@result.MetaText</span>
+                            </a>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="library-empty library-empty--compact">
+                        <h3>Doküman bulunamadı</h3>
+                        <p>Arama ifadesini değiştirerek tekrar deneyin.</p>
+                    </div>
+                }
+            </section>
         }
 
         <div class="library-layout">

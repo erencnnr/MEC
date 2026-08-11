@@ -5,7 +5,7 @@ namespace MEC.Application.Abstractions.Service.SchoolService
 {
     public interface ILibraryService
     {
-        Task<LibraryExplorerModel> GetExplorerAsync(int? folderId, int? documentId);
+        Task<LibraryExplorerModel> GetExplorerAsync(int? folderId, int? documentId, string? searchTerm = null);
         Task<LibraryDocumentModel?> GetDocumentAsync(int id);
         Task<OperationResultModel<int>> CreateFolderAsync(string? name, int? parentFolderId);
         Task<OperationResultModel> RenameFolderAsync(int id, string? name);

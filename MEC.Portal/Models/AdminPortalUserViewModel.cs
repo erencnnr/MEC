@@ -25,6 +25,7 @@ namespace MEC.Portal.Models
         public string LocationNames { get; set; } = string.Empty;
         public decimal LeaveDays { get; set; }
         public DateTime? HireDate { get; set; }
+        public DateTime? TerminationDate { get; set; }
         public bool IsAdmin { get; set; }
         public bool IsDeleted { get; set; }
         public string StatusLabel => IsDeleted ? "Pasif" : "Aktif";
@@ -55,6 +56,9 @@ namespace MEC.Portal.Models
         public DateTime? HireDate { get; set; }
 
         [DataType(DataType.Date)]
+        public DateTime? TerminationDate { get; set; }
+
+        [DataType(DataType.Date)]
         public DateTime? BirthDate { get; set; }
 
         public List<int> LocationIds { get; set; } = new();
@@ -76,8 +80,22 @@ namespace MEC.Portal.Models
         public bool IsAdmin { get; set; }
 
         public bool IsDeleted { get; set; }
+        public bool ActiveLoanWarningAccepted { get; set; }
+        public List<AdminPortalUserActiveLoanViewModel> ActiveLoans { get; set; } = new();
+        public int LoanRecordCount { get; set; }
+        public bool HasActiveLoans => ActiveLoans.Count > 0;
+        public bool HasLoanRecords => LoanRecordCount > 0;
+        public string PreferredLoanTab => HasActiveLoans ? "active" : "history";
         public List<SelectListItem> LocationOptions { get; set; } = new();
         public List<ProfileChildInputViewModel> Children { get; set; } = new();
         public string FullName => string.Join(" ", new[] { FirstName, LastName }.Where(x => !string.IsNullOrWhiteSpace(x))).Trim();
+    }
+
+    public class AdminPortalUserActiveLoanViewModel
+    {
+        public int LoanId { get; set; }
+        public int AssetId { get; set; }
+        public string AssetName { get; set; } = string.Empty;
+        public string SerialNumber { get; set; } = string.Empty;
     }
 }

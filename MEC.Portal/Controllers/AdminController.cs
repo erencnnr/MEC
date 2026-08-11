@@ -435,6 +435,7 @@ namespace MEC.Portal.Controllers
 
             if (!ModelState.IsValid)
             {
+                PopulateActiveLoans(model, existingPortalUser);
                 await PopulateLocationOptionsAsync(model);
                 return View(model);
             }
@@ -448,6 +449,7 @@ namespace MEC.Portal.Controllers
                 PhoneNumber = model.PhoneNumber,
                 Title = model.Title,
                 HireDate = model.HireDate,
+                TerminationDate = model.TerminationDate,
                 BirthDate = model.BirthDate,
                 LocationIds = model.LocationIds,
                 AddressText = model.AddressText,
@@ -463,12 +465,14 @@ namespace MEC.Portal.Controllers
                 }).ToList(),
                 LeaveDays = model.LeaveDays,
                 IsAdmin = model.IsAdmin,
-                IsDeleted = model.IsDeleted
+                IsDeleted = model.IsDeleted,
+                ActiveLoanWarningAccepted = model.ActiveLoanWarningAccepted
             });
 
             if (!result.IsSuccess)
             {
                 ModelState.AddModelError(string.Empty, result.Message);
+                PopulateActiveLoans(model, existingPortalUser);
                 await PopulateLocationOptionsAsync(model);
                 return View(model);
             }
@@ -1234,6 +1238,7 @@ namespace MEC.Portal.Controllers
                 LocationNames = portalUser.LocationNames,
                 LeaveDays = portalUser.LeaveDays,
                 HireDate = portalUser.HireDate,
+                TerminationDate = portalUser.TerminationDate,
                 IsAdmin = portalUser.IsAdmin,
                 IsDeleted = portalUser.IsDeleted
             };
@@ -1250,6 +1255,7 @@ namespace MEC.Portal.Controllers
                 PhoneNumber = portalUser.PhoneNumber,
                 Title = portalUser.Title,
                 HireDate = portalUser.HireDate,
+                TerminationDate = portalUser.TerminationDate,
                 BirthDate = portalUser.BirthDate,
                 LocationIds = portalUser.LocationIds,
                 AddressText = portalUser.AddressText,
@@ -1265,7 +1271,28 @@ namespace MEC.Portal.Controllers
                 }).ToList(),
                 LeaveDays = portalUser.LeaveDays,
                 IsAdmin = portalUser.IsAdmin,
-                IsDeleted = portalUser.IsDeleted
+                IsDeleted = portalUser.IsDeleted,
+                ActiveLoans = portalUser.ActiveLoans.Select(MapActiveLoan).ToList(),
+                LoanRecordCount = portalUser.LoanRecordCount
+            };
+        }
+
+        private static void PopulateActiveLoans(
+            AdminPortalUserEditViewModel model,
+            PortalUserEditModel portalUser)
+        {
+            model.ActiveLoans = portalUser.ActiveLoans.Select(MapActiveLoan).ToList();
+            model.LoanRecordCount = portalUser.LoanRecordCount;
+        }
+
+        private static AdminPortalUserActiveLoanViewModel MapActiveLoan(PortalUserActiveLoanModel loan)
+        {
+            return new AdminPortalUserActiveLoanViewModel
+            {
+                LoanId = loan.LoanId,
+                AssetId = loan.AssetId,
+                AssetName = loan.AssetName,
+                SerialNumber = loan.SerialNumber
             };
         }
 

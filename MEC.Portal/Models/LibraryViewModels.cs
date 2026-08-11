@@ -46,6 +46,17 @@ namespace MEC.Portal.Models
         public string PreviewUrl { get; set; } = string.Empty;
     }
 
+    public class LibraryDocumentSearchResultViewModel
+    {
+        public int DocumentId { get; set; }
+        public int FolderId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string FolderPath { get; set; } = string.Empty;
+        public string MetaText { get; set; } = string.Empty;
+        public bool IsPdf { get; set; }
+        public string OpenUrl { get; set; } = string.Empty;
+    }
+
     public class AdminContentManagementViewModel
     {
         public List<LibraryTreeNodeViewModel> FolderTree { get; set; } = new();
@@ -67,6 +78,9 @@ namespace MEC.Portal.Models
         public List<LibraryContentItemViewModel> Items { get; set; } = new();
         public int? SelectedFolderId { get; set; }
         public string SelectedFolderName { get; set; } = string.Empty;
+        public string SearchTerm { get; set; } = string.Empty;
+        public List<LibraryDocumentSearchResultViewModel> SearchResults { get; set; } = new();
+        public bool IsSearching => !string.IsNullOrWhiteSpace(SearchTerm);
         public bool HasFolders => FolderTree.Count > 0;
         public bool HasSelectedFolder => SelectedFolderId.HasValue;
     }

@@ -23,6 +23,7 @@ namespace MEC.Application.Abstractions.Service.EmployeeService.Model
         public string LocationNames { get; set; } = string.Empty;
         public decimal LeaveDays { get; set; }
         public DateTime? HireDate { get; set; }
+        public DateTime? TerminationDate { get; set; }
         public bool IsAdmin { get; set; }
         public bool IsDeleted { get; set; }
     }
@@ -40,6 +41,14 @@ namespace MEC.Application.Abstractions.Service.EmployeeService.Model
         public ChildEducationStatusType? EducationStatus { get; set; }
     }
 
+    public class PortalUserActiveLoanModel
+    {
+        public int LoanId { get; set; }
+        public int AssetId { get; set; }
+        public string AssetName { get; set; } = string.Empty;
+        public string SerialNumber { get; set; } = string.Empty;
+    }
+
     public class PortalUserEditModel
     {
         public int Id { get; set; }
@@ -49,11 +58,15 @@ namespace MEC.Application.Abstractions.Service.EmployeeService.Model
         public string PhoneNumber { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public DateTime? HireDate { get; set; }
+        public DateTime? TerminationDate { get; set; }
         public DateTime? BirthDate { get; set; }
         public List<int> LocationIds { get; set; } = new();
         public decimal LeaveDays { get; set; }
         public bool IsAdmin { get; set; }
         public bool IsDeleted { get; set; }
+        public bool ActiveLoanWarningAccepted { get; set; }
+        public List<PortalUserActiveLoanModel> ActiveLoans { get; set; } = new();
+        public int LoanRecordCount { get; set; }
         public string? AddressText { get; set; }
         public MaritalStatusType? MaritalStatus { get; set; }
         public string? EducationUniversity { get; set; }

@@ -1,5 +1,6 @@
 using MEC.Application.Abstractions.Service.LdapService;
 using MEC.DAL.Config.Abstractions.Common;
+using MEC.Domain.Common;
 using MEC.Domain.Entity.Employee;
 using Microsoft.Extensions.Configuration;
 using System.DirectoryServices.Protocols;
@@ -91,6 +92,7 @@ namespace MEC.Application.Service.LdapService
                         existingPortalUser.Email = ldapUser.EffectiveEmail;
                         existingPortalUser.Title ??= string.Empty;
                         existingPortalUser.IsDeleted = false;
+                        existingPortalUser.TerminationDate = null;
                         existingPortalUser.UpdateDate = DateTime.Now;
 
                         _employeePortalRepository.Update(existingPortalUser);
@@ -105,6 +107,7 @@ namespace MEC.Application.Service.LdapService
                             Email = ldapUser.EffectiveEmail,
                             Title = string.Empty,
                             HireDate = null,
+                            TerminationDate = null,
                             BirthDate = null,
                             LeaveDays = 0,
                             CreatedDate = DateTime.Now,
@@ -197,8 +200,8 @@ namespace MEC.Application.Service.LdapService
                 {
                     Username = username ?? string.Empty,
                     EffectiveEmail = effectiveEmail,
-                    FirstName = firstName ?? string.Empty,
-                    LastName = lastName,
+                    FirstName = TurkishNameFormatter.Format(firstName),
+                    LastName = TurkishNameFormatter.Format(lastName),
                     Phone = phone ?? string.Empty
                 });
             }

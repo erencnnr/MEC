@@ -37,6 +37,50 @@
 
                 <div asp-validation-summary="ModelOnly" class="announcement-form-alert announcement-form-alert--error"></div>
 
+                <div class="admin-portal-user-loan-actions">
+                    @if (Model.HasLoanRecords)
+                    {
+                        <a class="leave-history-topbar__action"
+                           asp-controller="Loans"
+                           asp-action="Index"
+                           asp-route-ActiveTab="@Model.PreferredLoanTab"
+                           asp-route-AssignedToIds="@Model.Id">Zimmetleri Görüntüle</a>
+                    }
+                    else
+                    {
+                        <button type="button"
+                                class="leave-history-topbar__action"
+                                data-bs-toggle="modal"
+                                data-bs-target="#noLoanRecordsModal">Zimmetleri Görüntüle</button>
+                    }
+                </div>
+
+                @if (Model.HasActiveLoans)
+                {
+                    <div class="admin-portal-user-loan-warning" id="activeLoanWarning" data-active-loan-warning="true">
+                        <strong>Aktif zimmet uyarısı</strong>
+                        <p>
+                            Bu kullanıcıya ait @Model.ActiveLoans.Count aktif zimmet bulunuyor. Kullanıcıyı pasife almadan önce zimmetleri kontrol edin.
+                        </p>
+                        <ul>
+                            @foreach (var loan in Model.ActiveLoans)
+                            {
+                                <li>
+                                    <a asp-controller="Assets" asp-action="AssetInfo" asp-route-id="@loan.AssetId">@loan.AssetName</a>
+                                    @if (!string.IsNullOrWhiteSpace(loan.SerialNumber))
+                                    {
+                                        <span>Seri no: @loan.SerialNumber</span>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                        <label class="admin-portal-user-loan-warning__confirmation">
+                            <input asp-for="ActiveLoanWarningAccepted" />
+                            <span>Aktif zimmetleri gördüm, kullanıcıyı pasife alma işlemine devam et.</span>
+                        </label>
+                    </div>
+                }
+
                 <div class="leave-detail-grid admin-portal-user-grid">
                     <div class="leave-detail-field">
                         <span>Ad</span>
@@ -86,6 +130,20 @@
                         </select>
                         <small class="admin-portal-user-field-note">Yılı listeden seçip gün ve ayı tamamlayabilir veya tarihi klavyeden yazabilirsiniz. Boş bırakırsanız “Belirsiz” görünür.</small>
                         <span asp-validation-for="HireDate" class="announcement-form-validation"></span>
+                    </div>
+
+                    <div class="leave-detail-field">
+                        <span>İşten Çıkış Tarihi</span>
+                        <input asp-for="TerminationDate" type="date" min="1900-01-01" class="announcement-form-input" />
+                        <select class="announcement-form-input" data-date-year-select="true" data-date-year-target="TerminationDate" aria-label="İşten çıkış yılına hızlı git">
+                            <option value="">Hızlı yıl seçin</option>
+                            @for (var year = currentYear + 5; year >= 1900; year--)
+                            {
+                                <option value="@year">@year</option>
+                            }
+                        </select>
+                        <small class="admin-portal-user-field-note">İşten çıkış tarihi girildiğinde kullanıcı durumu Pasif seçilmelidir.</small>
+                        <span asp-validation-for="TerminationDate" class="announcement-form-validation"></span>
                     </div>
 
                     <div class="leave-detail-field">
@@ -282,6 +340,46 @@
     </div>
 </section>
 
+@if (!Model.HasLoanRecords)
+{
+    <div class="modal fade" id="noLoanRecordsModal" tabindex="-1" aria-labelledby="noLoanRecordsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content admin-portal-user-no-loan-modal">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="noLoanRecordsModalLabel">Zimmet Bilgisi</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Bu kişide kayıtlı zimmet yok.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="announcement-form-actions__save" data-bs-dismiss="modal">Tamam</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function () {
+            var statusSelect = document.getElementById("IsDeleted");
+            var acknowledgement = document.getElementById("ActiveLoanWarningAccepted");
+            var warning = document.querySelector("[data-active-loan-warning='true']");
+
+            if (!statusSelect || !acknowledgement || !warning) {
+                return;
+            }
+
+            function syncLoanWarningRequirement() {
+                var isPassive = statusSelect.value === "true";
+                acknowledgement.required = isPassive;
+                warning.classList.toggle("is-required", isPassive);
+            }
+
+            statusSelect.addEventListener("change", syncLoanWarningRequirement);
+            syncLoanWarningRequirement();
+        })();
+    </script>
 }

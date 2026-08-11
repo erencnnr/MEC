@@ -61,6 +61,9 @@ namespace MEC.Application.Service.EmployeeService
 
         public async Task CreateEmployeeAsync(Employee employee)
         {
+            employee.FirstName = TurkishNameFormatter.Format(employee.FirstName);
+            employee.LastName = TurkishNameFormatter.Format(employee.LastName);
+
             var existingList = await _repository.GetAllAsync(x => x.Email == employee.Email);
             var existingEmployee = existingList.FirstOrDefault();
 

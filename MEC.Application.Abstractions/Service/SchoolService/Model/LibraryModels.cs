@@ -43,6 +43,16 @@ namespace MEC.Application.Abstractions.Service.SchoolService.Model
         public bool IsPdf { get; set; }
     }
 
+    public class LibraryDocumentSearchResultModel
+    {
+        public int DocumentId { get; set; }
+        public int FolderId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string FolderPath { get; set; } = string.Empty;
+        public string MetaText { get; set; } = string.Empty;
+        public bool IsPdf { get; set; }
+    }
+
     public class LibraryExplorerModel
     {
         public List<LibraryTreeNodeModel> FolderTree { get; set; } = new();
@@ -52,6 +62,8 @@ namespace MEC.Application.Abstractions.Service.SchoolService.Model
         public string SelectedFolderName { get; set; } = string.Empty;
         public int? SelectedDocumentId { get; set; }
         public LibraryDocumentModel? SelectedDocument { get; set; }
+        public string SearchTerm { get; set; } = string.Empty;
+        public List<LibraryDocumentSearchResultModel> SearchResults { get; set; } = new();
     }
 
     public class LibraryDocumentCreateModel : StoredFileModel

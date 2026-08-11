@@ -19,7 +19,7 @@ namespace MEC.Application.Service.SchoolService
             _libraryDocumentRepository = libraryDocumentRepository;
         }
 
-        public async Task<LibraryExplorerModel> GetExplorerAsync(int? folderId, int? documentId)
+        public async Task<LibraryExplorerModel> GetExplorerAsync(int? folderId, int? documentId, string? searchTerm = null)
         {
             var folders = (await _libraryFolderRepository.GetAllAsync())
                 .OrderBy(x => x.DisplayOrder)
@@ -38,6 +38,7 @@ namespace MEC.Application.Service.SchoolService
             var selectedDocument = documentId.HasValue
                 ? selectedDocuments.FirstOrDefault(x => x.Id == documentId.Value)
                 : null;
+            var normalizedSearchTerm = NormalizeSearchTerm(searchTerm);
 
             return new LibraryExplorerModel
             {
@@ -45,6 +46,10 @@ namespace MEC.Application.Service.SchoolService
                 SelectedFolderName = selectedFolder?.Name ?? string.Empty,
                 SelectedDocumentId = selectedDocument?.Id,
                 SelectedDocument = selectedDocument != null ? MapDocument(selectedDocument) : null,
+                SearchTerm = normalizedSearchTerm,
+                SearchResults = string.IsNullOrWhiteSpace(normalizedSearchTerm)
+                    ? new List<LibraryDocumentSearchResultModel>()
+                    : BuildSearchResults(normalizedSearchTerm, folders, documents),
                 FolderTree = BuildFolderTree(folders, documents, null, selectedFolderId, documentId),
                 Breadcrumbs = selectedFolder != null ? BuildBreadcrumbs(selectedFolder.Id, folders) : new List<LibraryBreadcrumbItemModel>(),
                 Items = selectedFolderId.HasValue
@@ -283,6 +288,31 @@ namespace MEC.Application.Service.SchoolService
             return folderItems.Concat(documentItems).ToList();
         }
 
+        private static List<LibraryDocumentSearchResultModel> BuildSearchResults(
+            string searchTerm,
+            IReadOnlyCollection<LibraryFolder> folders,
+            IReadOnlyCollection<LibraryDocument> documents)
+        {
+            return documents
+                .Where(x => !string.IsNullOrWhiteSpace(x.FileName))
+                .Select(x => new LibraryDocumentSearchResultModel
+                {
+                    DocumentId = x.Id,
+                    FolderId = x.FolderId,
+                    Name = x.OriginalFileName,
+                    FolderPath = string.Join(" / ", BuildBreadcrumbs(x.FolderId, folders).Select(folder => folder.Name)),
+                    MetaText = BuildDocumentMetaText(x),
+                    IsPdf = IsPdf(x)
+                })
+                .Where(x =>
+                    x.Name.Contains(searchTerm, StringComparison.CurrentCultureIgnoreCase) ||
+                    x.FolderPath.Contains(searchTerm, StringComparison.CurrentCultureIgnoreCase))
+                .OrderBy(x => x.Name)
+                .ThenBy(x => x.FolderPath)
+                .Take(50)
+                .ToList();
+        }
+
         private static List<LibraryTreeNodeModel> BuildFolderTree(
             IReadOnlyCollection<LibraryFolder> folders,
             IReadOnlyCollection<LibraryDocument> documents,
@@ -415,6 +445,16 @@ namespace MEC.Application.Service.SchoolService
         private static string NormalizeFolderName(string? name)
         {
             return (name ?? string.Empty).Trim();
+        }
+
+        private static string NormalizeSearchTerm(string? searchTerm)
+        {
+            var normalized = string.Join(' ', (searchTerm ?? string.Empty)
+                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+            return normalized.Length <= 100
+                ? normalized
+                : normalized[..100];
         }
 
         private static string NormalizeDocumentName(string? name, string currentFileName)

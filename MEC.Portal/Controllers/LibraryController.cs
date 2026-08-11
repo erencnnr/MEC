@@ -20,9 +20,9 @@ namespace MEC.Portal.Controllers
         }
 
         [HttpGet("/Library")]
-        public async Task<IActionResult> Index(int? folderId = null, int? documentId = null)
+        public async Task<IActionResult> Index(int? folderId = null, int? documentId = null, string? search = null)
         {
-            var explorer = await _libraryService.GetExplorerAsync(folderId, documentId);
+            var explorer = await _libraryService.GetExplorerAsync(folderId, documentId, search);
             return View(MapLibraryIndex(explorer));
         }
 
@@ -68,9 +68,27 @@ namespace MEC.Portal.Controllers
             {
                 SelectedFolderId = explorer.SelectedFolderId,
                 SelectedFolderName = explorer.SelectedFolderName,
+                SearchTerm = explorer.SearchTerm,
+                SearchResults = explorer.SearchResults.Select(MapSearchResult).ToList(),
                 FolderTree = explorer.FolderTree.Select(MapTreeNode).ToList(),
                 Breadcrumbs = explorer.Breadcrumbs.Select(MapBreadcrumb).ToList(),
                 Items = explorer.Items.Select(x => MapContentItem(x, explorer.SelectedFolderId)).ToList()
+            };
+        }
+
+        private LibraryDocumentSearchResultViewModel MapSearchResult(LibraryDocumentSearchResultModel result)
+        {
+            return new LibraryDocumentSearchResultViewModel
+            {
+                DocumentId = result.DocumentId,
+                FolderId = result.FolderId,
+                Name = result.Name,
+                FolderPath = result.FolderPath,
+                MetaText = result.MetaText,
+                IsPdf = result.IsPdf,
+                OpenUrl = result.IsPdf
+                    ? Url.Action(nameof(PreviewDocument), "Library", new { id = result.DocumentId }) ?? string.Empty
+                    : Url.Action(nameof(OpenDocument), "Library", new { id = result.DocumentId }) ?? string.Empty
             };
         }
 

@@ -6,6 +6,7 @@ using MEC.Domain.Common;
 using MEC.Domain.Common.Enum;
 using MEC.Domain.Entity.Employee;
 using MEC.Domain.Entity.Leave;
+using MEC.Domain.Entity.Loan;
 
 namespace MEC.Application.Service.EmployeeService
 {
@@ -16,19 +17,22 @@ namespace MEC.Application.Service.EmployeeService
         private readonly IGenericRepository<EmployeePortalLocation> _employeePortalLocationRepository;
         private readonly IGenericRepository<Location> _locationRepository;
         private readonly IGenericRepository<Leave> _leaveRepository;
+        private readonly IGenericRepository<Loan> _loanRepository;
 
         public EmployeePortalService(
             IGenericRepository<EmployeePortal> repository,
             IGenericRepository<EmployeePortalChild> childRepository,
             IGenericRepository<EmployeePortalLocation> employeePortalLocationRepository,
             IGenericRepository<Location> locationRepository,
-            IGenericRepository<Leave> leaveRepository)
+            IGenericRepository<Leave> leaveRepository,
+            IGenericRepository<Loan> loanRepository)
         {
             _repository = repository;
             _childRepository = childRepository;
             _employeePortalLocationRepository = employeePortalLocationRepository;
             _locationRepository = locationRepository;
             _leaveRepository = leaveRepository;
+            _loanRepository = loanRepository;
         }
 
         public async Task<EmployeePortal> GetProfileByEmailAsync(string email)
@@ -143,7 +147,13 @@ namespace MEC.Application.Service.EmployeeService
                 await HydrateLocationAssignmentsAsync(new[] { portalUser });
             }
 
-            return portalUser == null ? null : MapPortalUserEditModel(portalUser);
+            if (portalUser == null)
+            {
+                return null;
+            }
+
+            var loanSummary = await GetLoanSummaryAsync(portalUser.Id);
+            return MapPortalUserEditModel(portalUser, loanSummary.ActiveLoans, loanSummary.TotalCount);
         }
 
         public async Task<PortalSelfEditModel?> GetSelfProfileEditAsync(string email)
@@ -187,12 +197,36 @@ namespace MEC.Application.Service.EmployeeService
                 return OperationResultModel.Fail("Portal kullanÄ±cÄ±sÄ± bulunamadÄ±.");
             }
 
-            portalUser.FirstName = model.FirstName.Trim();
-            portalUser.LastName = model.LastName.Trim();
+            var hireDate = NormalizeOptionalDate(model.HireDate);
+            var terminationDate = NormalizeOptionalDate(model.TerminationDate);
+
+            if (hireDate.HasValue && terminationDate.HasValue && terminationDate.Value < hireDate.Value)
+            {
+                return OperationResultModel.Fail("İşten çıkış tarihi işe giriş tarihinden önce olamaz.");
+            }
+
+            if (!model.IsDeleted && terminationDate.HasValue)
+            {
+                return OperationResultModel.Fail("İşten çıkış tarihi girilen kullanıcı pasif durumda olmalıdır.");
+            }
+
+            if (model.IsDeleted && !model.ActiveLoanWarningAccepted)
+            {
+                var loanSummary = await GetLoanSummaryAsync(model.Id);
+                if (loanSummary.ActiveLoans.Count > 0)
+                {
+                    return OperationResultModel.Fail(
+                        $"Bu kullanıcıya ait {loanSummary.ActiveLoans.Count} aktif zimmet bulunuyor. Pasife alma işlemini onaylamak için zimmet uyarısını kabul edin.");
+                }
+            }
+
+            portalUser.FirstName = TurkishNameFormatter.Format(model.FirstName);
+            portalUser.LastName = TurkishNameFormatter.Format(model.LastName);
             portalUser.Email = model.Email.Trim();
             portalUser.PhoneNumber = NormalizePhoneNumber(model.PhoneNumber);
             portalUser.Title = model.Title.Trim();
-            portalUser.HireDate = NormalizeOptionalDate(model.HireDate);
+            portalUser.HireDate = hireDate;
+            portalUser.TerminationDate = terminationDate;
             portalUser.BirthDate = NormalizeOptionalDate(model.BirthDate);
             portalUser.LeaveDays = model.LeaveDays;
             portalUser.IsAdmin = model.IsAdmin;
@@ -343,6 +377,34 @@ namespace MEC.Application.Service.EmployeeService
             }
         }
 
+        private async Task<PortalUserLoanSummary> GetLoanSummaryAsync(int employeePortalId)
+        {
+            var loans = (await _loanRepository.GetAllAsync(
+                    x => x.AssignedToId == employeePortalId,
+                    x => x.Asset))
+                .ToList();
+
+            var activeLoans = loans
+                .Where(x => x.ReturnDate == null)
+                .OrderBy(x => x.Asset?.Name)
+                .ThenBy(x => x.Asset?.SerialNumber)
+                .ThenBy(x => x.Id)
+                .Select(x => new PortalUserActiveLoanModel
+                {
+                    LoanId = x.Id,
+                    AssetId = x.AssetId,
+                    AssetName = x.Asset?.Name ?? "Envanter",
+                    SerialNumber = x.Asset?.SerialNumber ?? string.Empty
+                })
+                .ToList();
+
+            return new PortalUserLoanSummary
+            {
+                TotalCount = loans.Count,
+                ActiveLoans = activeLoans
+            };
+        }
+
         private static ChildNormalizationResult NormalizeChildren(IEnumerable<PortalUserChildEditModel>? children)
         {
             var normalizedChildren = new List<PortalUserChildEditModel>();
@@ -483,12 +545,16 @@ namespace MEC.Application.Service.EmployeeService
                 LocationNames = BuildLocationNames(portalUser),
                 LeaveDays = portalUser.LeaveDays,
                 HireDate = NormalizeOptionalDate(portalUser.HireDate),
+                TerminationDate = NormalizeOptionalDate(portalUser.TerminationDate),
                 IsAdmin = portalUser.IsAdmin,
                 IsDeleted = portalUser.IsDeleted
             };
         }
 
-        private static PortalUserEditModel MapPortalUserEditModel(EmployeePortal portalUser)
+        private static PortalUserEditModel MapPortalUserEditModel(
+            EmployeePortal portalUser,
+            List<PortalUserActiveLoanModel>? activeLoans = null,
+            int loanRecordCount = 0)
         {
             return new PortalUserEditModel
             {
@@ -499,6 +565,7 @@ namespace MEC.Application.Service.EmployeeService
                 PhoneNumber = portalUser.PhoneNumber,
                 Title = portalUser.Title,
                 HireDate = NormalizeOptionalDate(portalUser.HireDate),
+                TerminationDate = NormalizeOptionalDate(portalUser.TerminationDate),
                 BirthDate = NormalizeOptionalDate(portalUser.BirthDate),
                 LocationIds = portalUser.EmployeePortalLocations
                     .Select(x => x.LocationId)
@@ -507,6 +574,8 @@ namespace MEC.Application.Service.EmployeeService
                 LeaveDays = portalUser.LeaveDays,
                 IsAdmin = portalUser.IsAdmin,
                 IsDeleted = portalUser.IsDeleted,
+                ActiveLoans = activeLoans ?? new List<PortalUserActiveLoanModel>(),
+                LoanRecordCount = loanRecordCount,
                 AddressText = portalUser.AddressText,
                 MaritalStatus = portalUser.MaritalStatus,
                 EducationUniversity = portalUser.EducationUniversity,
@@ -576,6 +645,12 @@ namespace MEC.Application.Service.EmployeeService
                     Message = message
                 };
             }
+        }
+
+        private sealed class PortalUserLoanSummary
+        {
+            public int TotalCount { get; init; }
+            public List<PortalUserActiveLoanModel> ActiveLoans { get; init; } = new();
         }
     }
 }

@@ -13,6 +13,7 @@ namespace MEC.Domain.Entity.Employee
         public string Email { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public DateTime? HireDate { get; set; }
+        public DateTime? TerminationDate { get; set; }
         public DateTime? BirthDate { get; set; }
 
         [Column("address_text")]

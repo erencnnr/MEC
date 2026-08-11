@@ -41,6 +41,7 @@ else
                         <th>Lokasyon</th>
                         <th>İzin Hakkı</th>
                         <th>İşe Giriş</th>
+                        <th>İşten Çıkış</th>
                         <th>Durum</th>
                     </tr>
                 </thead>
@@ -59,6 +60,7 @@ else
                             <td data-label="Lokasyon">@(string.IsNullOrWhiteSpace(item.LocationNames) ? "-" : item.LocationNames)</td>
                             <td data-label="İzin Hakkı" class="admin-portal-users-table__leave-days" data-user-email="@item.Email">@FormatLeaveDays(item.LeaveDays) Gün</td>
                             <td data-label="İşe Giriş">@(item.HireDate.HasValue ? item.HireDate.Value.ToString("dd.MM.yyyy") : "Belirsiz")</td>
+                            <td data-label="İşten Çıkış">@(item.TerminationDate.HasValue ? item.TerminationDate.Value.ToString("dd.MM.yyyy") : "-")</td>
                             <td data-label="Durum">
                                 <span class="leave-history-status leave-history-status--@item.StatusTone">@item.StatusLabel</span>
                             </td>
