@@ -54,7 +54,7 @@ else
                                     <span>@item.FullName</span>
                                 </div>
                             </td>
-                            <td data-label="E-posta">@item.Email</td>
+                            <td data-label="E-posta" class="admin-portal-users-table__email">@item.Email</td>
                             <td data-label="Telefon">@(string.IsNullOrWhiteSpace(item.PhoneNumber) ? "-" : item.PhoneNumber)</td>
                             <td data-label="Ünvan">@(string.IsNullOrWhiteSpace(item.Title) ? "-" : item.Title)</td>
                             <td data-label="Lokasyon">@(string.IsNullOrWhiteSpace(item.LocationNames) ? "-" : item.LocationNames)</td>

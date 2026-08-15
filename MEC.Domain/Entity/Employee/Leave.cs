@@ -22,6 +22,10 @@ namespace MEC.Domain.Entity.Leave
         public string? DecisionBy { get; set; }
         [Column("decision_date")]
         public DateTime? DecisionDate { get; set; }
+        [Column("manager_decision_by")]
+        public string? ManagerDecisionBy { get; set; }
+        [Column("manager_decision_date")]
+        public DateTime? ManagerDecisionDate { get; set; }
         public LeaveType? LeaveType { get; set; }
     }
 }

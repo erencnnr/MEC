@@ -11,7 +11,7 @@ namespace MEC.Application.Abstractions.Service.OvertimeService
         Task<OvertimeHistoryResultModel> GetOvertimeHistoryAsync(OvertimeHistoryQueryModel query);
         Task<OvertimeHistoryItemModel?> GetOvertimeHistoryDetailAsync(string userEmail, int overtimeRequestId);
         Task<PagedResultModel<AdminOvertimeRequestItemModel>> GetAdminOvertimeRequestsAsync(AdminOvertimeRequestListQueryModel query);
-        Task<AdminOvertimeRequestItemModel?> GetAdminOvertimeRequestDetailAsync(int id);
+        Task<AdminOvertimeRequestItemModel?> GetAdminOvertimeRequestDetailAsync(int id, string currentUserEmail);
         Task<AdminOvertimeReportResultModel> GetAdminOvertimeReportAsync(AdminOvertimeReportQueryModel query);
         Task<OvertimeReportExportModel> ExportAdminOvertimeReportAsync(AdminOvertimeReportQueryModel query);
         Task<OperationResultModel> UpdateOvertimeStatusAsync(OvertimeStatusUpdateRequestModel request);

@@ -33,5 +33,11 @@ namespace MEC.Domain.Entity.Overtime
 
         [Column("decision_date")]
         public DateTime? DecisionDate { get; set; }
+
+        [Column("manager_decision_by")]
+        public string? ManagerDecisionBy { get; set; }
+
+        [Column("manager_decision_date")]
+        public DateTime? ManagerDecisionDate { get; set; }
     }
 }

@@ -25,6 +25,7 @@ namespace MEC.Application.Abstractions.Service.EmployeeService.Model
         public DateTime? HireDate { get; set; }
         public DateTime? TerminationDate { get; set; }
         public bool IsAdmin { get; set; }
+        public bool IsManager { get; set; }
         public bool IsDeleted { get; set; }
     }
 
@@ -63,6 +64,7 @@ namespace MEC.Application.Abstractions.Service.EmployeeService.Model
         public List<int> LocationIds { get; set; } = new();
         public decimal LeaveDays { get; set; }
         public bool IsAdmin { get; set; }
+        public bool IsManager { get; set; }
         public bool IsDeleted { get; set; }
         public bool ActiveLoanWarningAccepted { get; set; }
         public List<PortalUserActiveLoanModel> ActiveLoans { get; set; } = new();

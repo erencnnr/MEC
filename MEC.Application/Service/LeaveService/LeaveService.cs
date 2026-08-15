@@ -3,6 +3,8 @@ using System.IO;
 using System.Net.Mail;
 using ClosedXML.Excel;
 using MEC.Application.Abstractions.Common.Models;
+using MEC.Application.Abstractions.Service.ApprovalWorkflowService;
+using MEC.Application.Abstractions.Service.ApprovalWorkflowService.Model;
 using MEC.Application.Abstractions.Service.LeaveService;
 using MEC.Application.Abstractions.Service.LeaveService.Model;
 using MEC.Application.Abstractions.Service.LoggingService;
@@ -26,6 +28,7 @@ public class LeaveService : ILeaveService
     private readonly IAnnouncementService _announcementService;
     private readonly IUserActionLogService _userActionLogService;
     private readonly IWorkflowNotificationService _workflowNotificationService;
+    private readonly IApprovalWorkflowService _approvalWorkflowService;
 
     public LeaveService(
         IGenericRepository<Leave> leaveRepository,
@@ -35,7 +38,8 @@ public class LeaveService : ILeaveService
         IGenericRepository<LeaveAgreement> leaveAgreementRepository,
         IAnnouncementService announcementService,
         IUserActionLogService userActionLogService,
-        IWorkflowNotificationService workflowNotificationService)
+        IWorkflowNotificationService workflowNotificationService,
+        IApprovalWorkflowService approvalWorkflowService)
     {
         _leaveRepository = leaveRepository;
         _employeePortalRepository = employeePortalRepository;
@@ -45,6 +49,7 @@ public class LeaveService : ILeaveService
         _announcementService = announcementService;
         _userActionLogService = userActionLogService;
         _workflowNotificationService = workflowNotificationService;
+        _approvalWorkflowService = approvalWorkflowService;
     }
 
     public async Task<List<Leave>> GetAllLeavesAsync()
@@ -222,6 +227,13 @@ public class LeaveService : ILeaveService
             return OperationResultModel<LeaveRequestCreateResultModel>.Fail("Seçilen tarih ve saat aralığı için kullanılabilir izin günü hesaplanamadı.");
         }
 
+        var approvalRoute = await _approvalWorkflowService.ResolveRouteAsync(employeePortal.Id);
+        var routeValidationError = ValidateApprovalRoute(approvalRoute);
+        if (!string.IsNullOrWhiteSpace(routeValidationError))
+        {
+            return OperationResultModel<LeaveRequestCreateResultModel>.Fail(routeValidationError);
+        }
+
         var leaveRequest = new Leave
         {
             EmployeeId = employeePortal.Id,
@@ -231,7 +243,9 @@ public class LeaveService : ILeaveService
             RequestedDays = requestedDays,
             RemainingLeaveDays = employeePortal.LeaveDays,
             Reason = request.Reason.Trim(),
-            Status = (int)LeaveStatus.Pending,
+            Status = approvalRoute!.RequiresManagerApproval
+                ? (int)LeaveStatus.Pending
+                : (int)LeaveStatus.PendingFinalApproval,
             CreatedDate = DateTime.Now
         };
 
@@ -265,6 +279,17 @@ public class LeaveService : ILeaveService
             return;
         }
 
+        var approvalRoute = await _approvalWorkflowService.ResolveRouteAsync(employeePortal.Id);
+        if (approvalRoute == null)
+        {
+            return;
+        }
+
+        var isFinalApprovalStage = leave.Status == (int)LeaveStatus.PendingFinalApproval;
+        var approvers = isFinalApprovalStage
+            ? new List<ApprovalRecipientModel> { approvalRoute.FinalApprover }
+            : approvalRoute.ManagerApprovers;
+
         await _workflowNotificationService.NotifyLeaveRequestCreatedAsync(new LeaveRequestCreatedNotificationModel
         {
             LeaveId = leave.Id,
@@ -273,6 +298,11 @@ public class LeaveService : ILeaveService
             StartDate = leave.StartDate,
             EndDate = leave.EndDate,
             Reason = leave.Reason,
+            LocationNames = approvalRoute.LocationNames,
+            ApprovalTarget = isFinalApprovalStage
+                ? $"Genel Müdürlüğe ({approvalRoute.FinalApprover.DisplayName})"
+                : $"{approvalRoute.LocationNames} okul müdürüne",
+            Approvers = ToNotificationRecipients(approvers),
             TriggeredByUser = string.IsNullOrWhiteSpace(request.UserEmail) ? BuildPortalName(employeePortal) : request.UserEmail,
             IpAddress = string.IsNullOrWhiteSpace(request.IpAddress) ? "unknown" : request.IpAddress
         });
@@ -301,7 +331,7 @@ public class LeaveService : ILeaveService
             return OperationResultModel.Fail("İzin talebi bulunamadı.");
         }
 
-        if (leave.Status != (int)LeaveStatus.Pending)
+        if (!IsPendingApproval(leave.Status))
         {
             return OperationResultModel.Fail("Sadece onay bekleyen izin talepleri iptal edilebilir.");
         }
@@ -309,6 +339,7 @@ public class LeaveService : ILeaveService
         var employeeName = BuildPortalName(employeePortal);
         var cancelledBy = string.IsNullOrWhiteSpace(request.CancelledBy) ? employeeName : request.CancelledBy;
         var currentUser = string.IsNullOrWhiteSpace(request.CurrentUser) ? request.UserEmail : request.CurrentUser;
+        var approvalRoute = await _approvalWorkflowService.ResolveRouteAsync(employeePortal.Id);
 
         try
         {
@@ -340,6 +371,7 @@ public class LeaveService : ILeaveService
                 EndDate = leave.EndDate,
                 Reason = leave.Reason,
                 CancelledBy = cancelledBy,
+                Approvers = ToNotificationRecipients(GetCurrentApprovers(leave.Status, approvalRoute)),
                 TriggeredByUser = currentUser,
                 IpAddress = string.IsNullOrWhiteSpace(request.IpAddress) ? "unknown" : request.IpAddress
             });
@@ -457,13 +489,35 @@ public class LeaveService : ILeaveService
         var currentPage = query.Page < 1 ? 1 : query.Page;
         var pageSize = query.PageSize <= 0 ? 10 : query.PageSize;
         var leaves = await GetAllLeavesAsync();
+        var actor = await _approvalWorkflowService.GetActorAsync(query.CurrentUserEmail);
+        if (actor == null)
+        {
+            return new PagedResultModel<AdminLeaveRequestItemModel>
+            {
+                CurrentPage = 1,
+                TotalPages = 1,
+                PageSize = pageSize
+            };
+        }
+
+        var routes = await ResolveRoutesAsync(leaves.Select(x => x.EmployeeId));
+        leaves = leaves
+            .Where(x => routes.TryGetValue(x.EmployeeId, out var route) && CanViewRequest(actor, route))
+            .ToList();
+
         if (query.Status.HasValue && Enum.IsDefined(typeof(LeaveStatus), query.Status.Value))
         {
             leaves = leaves.Where(x => x.Status == query.Status.Value).ToList();
         }
 
         var portalUserNames = await GetPortalUserNamesAsync();
-        var mappedItems = leaves.Select(x => MapAdminLeaveRequestItem(x, portalUserNames)).ToList();
+        var mappedItems = leaves
+            .Select(x => MapAdminLeaveRequestItem(
+                x,
+                portalUserNames,
+                routes.GetValueOrDefault(x.EmployeeId),
+                CanTakeAction(x.Status, actor, routes.GetValueOrDefault(x.EmployeeId))))
+            .ToList();
 
         var totalCount = mappedItems.Count;
         var totalPages = totalCount == 0 ? 1 : (int)Math.Ceiling(totalCount / (double)pageSize);
@@ -479,7 +533,7 @@ public class LeaveService : ILeaveService
         };
     }
 
-    public async Task<AdminLeaveRequestItemModel?> GetAdminLeaveRequestDetailAsync(int id)
+    public async Task<AdminLeaveRequestItemModel?> GetAdminLeaveRequestDetailAsync(int id, string currentUserEmail)
     {
         var leave = (await _leaveRepository.GetAllAsync(x => x.Id == id, x => x.LeaveType)).FirstOrDefault();
         if (leave == null)
@@ -488,9 +542,18 @@ public class LeaveService : ILeaveService
         }
 
         var employeePortal = await _employeePortalRepository.GetByIdAsync(leave.EmployeeId);
+        var actor = await _approvalWorkflowService.GetActorAsync(currentUserEmail);
+        var route = await _approvalWorkflowService.ResolveRouteAsync(leave.EmployeeId);
+        if (actor == null || !CanViewRequest(actor, route))
+        {
+            return null;
+        }
+
         return MapAdminLeaveRequestItem(
             leave,
-            new Dictionary<int, string> { [leave.EmployeeId] = BuildPortalName(employeePortal, leave.EmployeeId) });
+            new Dictionary<int, string> { [leave.EmployeeId] = BuildPortalName(employeePortal, leave.EmployeeId) },
+            route,
+            CanTakeAction(leave.Status, actor, route));
     }
 
     public async Task<PagedResultModel<AdminLeaveAgreementItemModel>> GetAdminLeaveAgreementsAsync(AdminLeaveAgreementListQueryModel query)
@@ -863,7 +926,7 @@ public class LeaveService : ILeaveService
 
     public async Task<OperationResultModel> UpdateLeaveStatusWithLogAsync(LeaveStatusUpdateRequestModel request)
     {
-        var leave = await _leaveRepository.GetByIdAsync(request.LeaveId);
+        var leave = (await _leaveRepository.GetAllAsync(x => x.Id == request.LeaveId, x => x.LeaveType)).FirstOrDefault();
         var employeePortal = leave != null ? await _employeePortalRepository.GetByIdAsync(leave.EmployeeId) : null;
         var employeeName = BuildPortalName(employeePortal, leave?.EmployeeId);
         var currentUser = string.IsNullOrWhiteSpace(request.CurrentUser) ? "anonymous" : request.CurrentUser;
@@ -871,8 +934,66 @@ public class LeaveService : ILeaveService
 
         try
         {
+            if (leave == null || employeePortal == null)
+            {
+                return OperationResultModel.Fail("İzin talebi bulunamadı.");
+            }
+
+            if (request.Status != (int)LeaveStatus.Approved && request.Status != (int)LeaveStatus.Rejected)
+            {
+                return OperationResultModel.Fail("Bu işlem için yalnızca onay veya ret kararı verilebilir.");
+            }
+
+            var actor = await _approvalWorkflowService.GetActorAsync(currentUser);
+            var approvalRoute = await _approvalWorkflowService.ResolveRouteAsync(leave.EmployeeId);
+            if (actor == null || approvalRoute == null)
+            {
+                return OperationResultModel.Fail("Onay yetkiniz doğrulanamadı.");
+            }
+
             var decisionBy = string.IsNullOrWhiteSpace(request.DecisionBy) ? currentUser : request.DecisionBy;
-            var result = await UpdateLeaveStatusAsync(request.LeaveId, request.Status, decisionBy);
+            var isManagerStage = leave.Status == (int)LeaveStatus.Pending;
+            var isFinalStage = leave.Status == (int)LeaveStatus.PendingFinalApproval;
+
+            if (isManagerStage && !CanTakeManagerAction(actor, approvalRoute))
+            {
+                return OperationResultModel.Fail("Bu izin talebi için okul müdürü onay yetkiniz bulunmuyor.");
+            }
+
+            if (isFinalStage && !actor.IsFinalApprover)
+            {
+                return OperationResultModel.Fail("Bu izin talebi Genel Müdürlük onayı bekliyor.");
+            }
+
+            if (!isManagerStage && !isFinalStage)
+            {
+                return OperationResultModel.Fail("Bu izin talebi daha önce sonuçlandırılmış.");
+            }
+
+            bool result;
+            if (isManagerStage)
+            {
+                leave.ManagerDecisionBy = decisionBy;
+                leave.ManagerDecisionDate = DateTime.UtcNow;
+                leave.Status = request.Status == (int)LeaveStatus.Approved
+                    ? (int)LeaveStatus.PendingFinalApproval
+                    : (int)LeaveStatus.Rejected;
+                leave.UpdateDate = DateTime.Now;
+
+                if (request.Status == (int)LeaveStatus.Rejected)
+                {
+                    leave.DecisionBy = decisionBy;
+                    leave.DecisionDate = DateTime.UtcNow;
+                }
+
+                _leaveRepository.Update(leave);
+                result = true;
+            }
+            else
+            {
+                result = await UpdateLeaveStatusAsync(request.LeaveId, request.Status, decisionBy);
+            }
+
             if (result)
             {
                 await TryLogLeaveStatusChangeAsync(
@@ -892,12 +1013,24 @@ public class LeaveService : ILeaveService
                         Reason = leave.Reason,
                         DecisionBy = decisionBy,
                         DecisionLabel = targetStatus,
+                        LocationNames = approvalRoute.LocationNames,
+                        IsManagerDecision = isManagerStage,
+                        RegionalManagers = ToNotificationRecipients(approvalRoute.ManagerApprovers),
+                        NextApprovers = isManagerStage && request.Status == (int)LeaveStatus.Approved
+                            ? ToNotificationRecipients(new[] { approvalRoute.FinalApprover })
+                            : new List<WorkflowNotificationRecipientModel>(),
                         TriggeredByUser = currentUser,
                         IpAddress = string.IsNullOrWhiteSpace(request.IpAddress) ? "unknown" : request.IpAddress
                     });
                 }
 
-                return OperationResultModel.Success("Durum güncellendi.");
+                var successMessage = isManagerStage && request.Status == (int)LeaveStatus.Approved
+                    ? "Okul müdürü onayı tamamlandı; izin talebi Genel Müdürlüğe iletildi."
+                    : request.Status == (int)LeaveStatus.Approved
+                        ? "İzin talebi onaylandı."
+                        : "İzin talebi reddedildi.";
+
+                return OperationResultModel.Success(successMessage);
             }
 
             await TryLogLeaveStatusChangeAsync(
@@ -933,7 +1066,7 @@ public class LeaveService : ILeaveService
         {
             AdminName = string.IsNullOrWhiteSpace(adminName) ? "Admin" : adminName,
             GeneratedAt = DateTime.Now,
-            PendingLeaveCount = leaves.Count(x => x.Status == (int)LeaveStatus.Pending),
+            PendingLeaveCount = leaves.Count(x => IsPendingApproval(x.Status)),
             TotalAnnouncementCount = announcements.Count,
             TodayAnnouncementCount = announcements.Count(x => x.CreatedDate.HasValue && x.CreatedDate.Value.Date == today),
             NegativeLeaveBalanceCount = employeePortals.Count(x => x.LeaveDays < 0),
@@ -1115,7 +1248,8 @@ public class LeaveService : ILeaveService
     {
         return new List<LeaveStatusOptionModel>
         {
-            new() { Value = (int)LeaveStatus.Pending, Label = "Onay Bekliyor" },
+            new() { Value = (int)LeaveStatus.Pending, Label = "Okul Müdürü Onayı Bekliyor" },
+            new() { Value = (int)LeaveStatus.PendingFinalApproval, Label = "Genel Müdürlük Onayı Bekliyor" },
             new() { Value = (int)LeaveStatus.Approved, Label = "Onaylandı" },
             new() { Value = (int)LeaveStatus.Rejected, Label = "Reddedildi" },
             new() { Value = (int)LeaveStatus.Cancelled, Label = "İptal" }
@@ -1139,11 +1273,15 @@ public class LeaveService : ILeaveService
             StatusLabel = GetLeaveStatusDisplayName(leave.Status),
             StatusTone = GetLeaveStatusTone(leave.Status),
             DecisionDisplay = GetDecisionDisplay(leave),
-            CanCancel = leave.Status == (int)LeaveStatus.Pending
+            CanCancel = IsPendingApproval(leave.Status)
         };
     }
 
-    private static AdminLeaveRequestItemModel MapAdminLeaveRequestItem(Leave leave, IReadOnlyDictionary<int, string> employeeNames)
+    private static AdminLeaveRequestItemModel MapAdminLeaveRequestItem(
+        Leave leave,
+        IReadOnlyDictionary<int, string> employeeNames,
+        ApprovalRouteModel? approvalRoute,
+        bool canTakeAction)
     {
         var employeeName = employeeNames.TryGetValue(leave.EmployeeId, out var value) && !string.IsNullOrWhiteSpace(value)
             ? value
@@ -1166,7 +1304,9 @@ public class LeaveService : ILeaveService
             StatusLabel = GetLeaveStatusDisplayName(leave.Status),
             StatusTone = GetLeaveStatusTone(leave.Status),
             DecisionDisplay = GetDecisionDisplay(leave),
-            CanTakeAction = leave.Status == (int)LeaveStatus.Pending
+            LocationNames = approvalRoute?.LocationNames ?? "-",
+            ManagerDecisionDisplay = GetManagerDecisionDisplay(leave),
+            CanTakeAction = canTakeAction
         };
     }
 
@@ -1268,6 +1408,8 @@ public class LeaveService : ILeaveService
     {
         return ToLeaveStatus(status) switch
         {
+            LeaveStatus.Pending => "Okul Müdürü Onayı Bekliyor",
+            LeaveStatus.PendingFinalApproval => "Genel Müdürlük Onayı Bekliyor",
             LeaveStatus.Approved => "Onaylandı",
             LeaveStatus.Rejected => "Reddedildi",
             LeaveStatus.Cancelled => "İptal",
@@ -1288,7 +1430,7 @@ public class LeaveService : ILeaveService
 
     private static string GetDecisionDisplay(Leave leave)
     {
-        if (leave.Status == (int)LeaveStatus.Pending)
+        if (IsPendingApproval(leave.Status))
         {
             return "-";
         }
@@ -1296,6 +1438,112 @@ public class LeaveService : ILeaveService
         return string.IsNullOrWhiteSpace(leave.DecisionBy)
             ? "Belirtilmedi"
             : leave.DecisionBy;
+    }
+
+    private static string GetManagerDecisionDisplay(Leave leave)
+    {
+        if (leave.Status == (int)LeaveStatus.Pending)
+        {
+            return "Bekleniyor";
+        }
+
+        return string.IsNullOrWhiteSpace(leave.ManagerDecisionBy)
+            ? "Doğrudan Genel Müdürlük onayına iletildi"
+            : leave.ManagerDecisionBy;
+    }
+
+    private static bool IsPendingApproval(int status)
+    {
+        return status == (int)LeaveStatus.Pending ||
+               status == (int)LeaveStatus.PendingFinalApproval;
+    }
+
+    private static string? ValidateApprovalRoute(ApprovalRouteModel? route)
+    {
+        if (route == null)
+        {
+            return "Çalışan için onay akışı oluşturulamadı.";
+        }
+
+        if (!route.HasLocation)
+        {
+            return "İzin talebi oluşturabilmek için kullanıcıya bir lokasyon atanmalıdır.";
+        }
+
+        if (string.IsNullOrWhiteSpace(route.FinalApprover.Email))
+        {
+            return "Genel Müdürlük onaylayıcısı yapılandırılmamış.";
+        }
+
+        if (!route.EmployeeIsLocationManager && route.ManagerApprovers.Count == 0)
+        {
+            return "Kullanıcının lokasyonu için okul müdürü tanımlanmamış.";
+        }
+
+        return null;
+    }
+
+    private async Task<Dictionary<int, ApprovalRouteModel>> ResolveRoutesAsync(IEnumerable<int> employeeIds)
+    {
+        var routes = new Dictionary<int, ApprovalRouteModel>();
+        foreach (var employeeId in employeeIds.Distinct())
+        {
+            var route = await _approvalWorkflowService.ResolveRouteAsync(employeeId);
+            if (route != null)
+            {
+                routes[employeeId] = route;
+            }
+        }
+
+        return routes;
+    }
+
+    private static bool CanViewRequest(ApprovalActorModel actor, ApprovalRouteModel? route)
+    {
+        return route != null &&
+               (actor.IsAdministrator || actor.IsFinalApprover || CanTakeManagerAction(actor, route));
+    }
+
+    private static bool CanTakeAction(int status, ApprovalActorModel actor, ApprovalRouteModel? route)
+    {
+        return route != null &&
+               ((status == (int)LeaveStatus.Pending && CanTakeManagerAction(actor, route)) ||
+                (status == (int)LeaveStatus.PendingFinalApproval && actor.IsFinalApprover));
+    }
+
+    private static bool CanTakeManagerAction(ApprovalActorModel actor, ApprovalRouteModel route)
+    {
+        return actor.IsLocationManager && route.ManagerApprovers.Any(x => EmailsEqual(x.Email, actor.Email));
+    }
+
+    private static bool EmailsEqual(string? left, string? right)
+    {
+        return string.Equals(left?.Trim(), right?.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<ApprovalRecipientModel> GetCurrentApprovers(int status, ApprovalRouteModel? route)
+    {
+        if (route == null)
+        {
+            return Array.Empty<ApprovalRecipientModel>();
+        }
+
+        return status == (int)LeaveStatus.PendingFinalApproval
+            ? new[] { route.FinalApprover }
+            : route.ManagerApprovers;
+    }
+
+    private static List<WorkflowNotificationRecipientModel> ToNotificationRecipients(IEnumerable<ApprovalRecipientModel> recipients)
+    {
+        return recipients
+            .Where(x => !string.IsNullOrWhiteSpace(x.Email))
+            .GroupBy(x => x.Email.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(x => new WorkflowNotificationRecipientModel
+            {
+                Email = x.Key,
+                DisplayName = x.First().DisplayName
+            })
+            .ToList();
     }
 
     private static DateTime? TryParseReportDate(string? value)

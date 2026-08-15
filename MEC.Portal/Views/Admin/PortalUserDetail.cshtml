@@ -160,10 +160,22 @@
                         <span asp-validation-for="BirthDate" class="announcement-form-validation"></span>
                     </div>
 
-                    <div class="leave-detail-field">
-                        <span>Lokasyon</span>
-                        <select asp-for="LocationIds" asp-items="Model.LocationOptions" class="announcement-form-input" multiple="multiple" size="4"></select>
-                        <small class="admin-portal-user-field-note">Birden fazla lokasyon seçebilirsiniz.</small>
+                    <div class="leave-detail-field admin-portal-user-location-field">
+                        <span>Lokasyonlar</span>
+                        <div class="admin-portal-user-location-options" role="group" aria-label="Kullanıcının lokasyonları">
+                            @foreach (var locationOption in Model.LocationOptions)
+                            {
+                                var isSelected = int.TryParse(locationOption.Value, out var locationId) && Model.LocationIds.Contains(locationId);
+                                <label class="admin-portal-user-location-option">
+                                    <input type="checkbox"
+                                           name="LocationIds"
+                                           value="@locationOption.Value"
+                                           checked="@(isSelected ? "checked" : null)" />
+                                    <span>@locationOption.Text</span>
+                                </label>
+                            }
+                        </div>
+                        <small class="admin-portal-user-field-note">Kullanıcının bağlı olduğu lokasyonların tamamını işaretleyebilirsiniz.</small>
                         <span asp-validation-for="LocationIds" class="announcement-form-validation"></span>
                     </div>
 
@@ -222,6 +234,15 @@
                             <option value="false">Hayır</option>
                             <option value="true">Evet</option>
                         </select>
+                    </div>
+
+                    <div class="leave-detail-field">
+                        <span>Lokasyon Müdürü</span>
+                        <select asp-for="IsManager" class="announcement-form-input">
+                            <option value="false">Hayır</option>
+                            <option value="true">Evet</option>
+                        </select>
+                        <small class="admin-portal-user-field-note">Müdür, seçili lokasyonlardaki izin ve mesai taleplerinin ilk onayını verir.</small>
                     </div>
                 </div>
 

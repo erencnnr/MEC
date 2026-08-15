@@ -451,7 +451,8 @@ namespace MEC.Portal.Controllers
         {
             return new List<LeaveStatusFilterOptionViewModel>
             {
-                new() { Value = (int)LeaveStatus.Pending, Label = "Onay Bekliyor" },
+                new() { Value = (int)LeaveStatus.Pending, Label = "Okul Müdürü Onayı Bekliyor" },
+                new() { Value = (int)LeaveStatus.PendingFinalApproval, Label = "Genel Müdürlük Onayı Bekliyor" },
                 new() { Value = (int)LeaveStatus.Approved, Label = "Onaylandı" },
                 new() { Value = (int)LeaveStatus.Rejected, Label = "Reddedildi" },
                 new() { Value = (int)LeaveStatus.Cancelled, Label = "İptal" }
@@ -519,6 +520,8 @@ namespace MEC.Portal.Controllers
         {
             return ToLeaveStatus(status) switch
             {
+                LeaveStatus.Pending => "Okul Müdürü Onayı Bekliyor",
+                LeaveStatus.PendingFinalApproval => "Genel Müdürlük Onayı Bekliyor",
                 LeaveStatus.Approved => "Onaylandı",
                 LeaveStatus.Rejected => "Reddedildi",
                 LeaveStatus.Cancelled => "İptal",
@@ -558,7 +561,9 @@ namespace MEC.Portal.Controllers
                 }
             }
 
-            return leave.Status == (int)LeaveStatus.Pending ? "-" : "Belirtilmedi";
+            return leave.Status == (int)LeaveStatus.Pending || leave.Status == (int)LeaveStatus.PendingFinalApproval
+                ? "-"
+                : "Belirtilmedi";
         }
 
         private string CreateBulkLeaveErrorReportUrl(IReadOnlyCollection<BulkLeaveUploadErrorRowModel> errorRows)

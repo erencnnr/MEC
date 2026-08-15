@@ -51,8 +51,8 @@ namespace MEC.Portal.Services.Notifications
                 "SendLeaveNotification");
 
             var approverTokens = CreateLeaveTokens(model, BuildAbsoluteUrl($"/Admin/LeaveRequests/{model.LeaveId}"));
-            await SendTemplateEmailAsync(
-                _notificationOptions.ApproverFallbackEmail,
+            await SendTemplateEmailsAsync(
+                GetRecipientsOrFallback(model.Approvers),
                 "MEC Portal - Yeni İzin Talebi",
                 "leave-request-created-approver.html",
                 approverTokens,
@@ -72,8 +72,8 @@ namespace MEC.Portal.Services.Notifications
                 ["CancelledBy"] = model.CancelledBy
             };
 
-            await SendTemplateEmailAsync(
-                _notificationOptions.ApproverFallbackEmail,
+            await SendTemplateEmailsAsync(
+                GetRecipientsOrFallback(model.Approvers),
                 "MEC Portal - İzin Talebi İptal Edildi",
                 "leave-request-cancelled-approver.html",
                 tokens,
@@ -93,8 +93,35 @@ namespace MEC.Portal.Services.Notifications
                 ["DecisionBy"] = model.DecisionBy,
                 ["DecisionLabel"] = model.DecisionLabel,
                 ["DecisionAction"] = ToDecisionAction(model.DecisionLabel),
+                ["DecisionAuthority"] = model.IsManagerDecision ? "Okul müdürü" : "Genel Müdürlük",
+                ["LocationNames"] = model.LocationNames,
                 ["RequestUrl"] = BuildAbsoluteUrl($"/Leave/History/{model.LeaveId}")
             };
+
+            if (model.IsManagerDecision && string.Equals(model.DecisionLabel, "Onaylandı", StringComparison.Ordinal))
+            {
+                await SendTemplateEmailAsync(
+                    model.EmployeeEmail,
+                    "MEC Portal - İzin Talebiniz Okul Müdürü Tarafından Onaylandı",
+                    "leave-request-manager-approved-user.html",
+                    tokens,
+                    model,
+                    "SendLeaveNotification");
+
+                var finalApproverTokens = new Dictionary<string, string>(tokens, StringComparer.Ordinal)
+                {
+                    ["RequestUrl"] = BuildAbsoluteUrl($"/Admin/LeaveRequests/{model.LeaveId}")
+                };
+
+                await SendTemplateEmailsAsync(
+                    model.NextApprovers,
+                    "MEC Portal - Nihai Onay Bekleyen İzin Talebi",
+                    "leave-request-manager-approved-final-approver.html",
+                    finalApproverTokens,
+                    model,
+                    "SendLeaveNotification");
+                return;
+            }
 
             await SendTemplateEmailAsync(
                 model.EmployeeEmail,
@@ -103,6 +130,22 @@ namespace MEC.Portal.Services.Notifications
                 tokens,
                 model,
                 "SendLeaveNotification");
+
+            if (!model.IsManagerDecision)
+            {
+                var managerTokens = new Dictionary<string, string>(tokens, StringComparer.Ordinal)
+                {
+                    ["RequestUrl"] = BuildAbsoluteUrl($"/Admin/LeaveRequests/{model.LeaveId}")
+                };
+
+                await SendTemplateEmailsAsync(
+                    model.RegionalManagers,
+                    $"MEC Portal - İzin Talebi {model.DecisionLabel}",
+                    "leave-request-final-decision-manager.html",
+                    managerTokens,
+                    model,
+                    "SendLeaveNotification");
+            }
         }
 
         public async Task NotifyOvertimeRequestCreatedAsync(OvertimeRequestCreatedNotificationModel model)
@@ -117,8 +160,8 @@ namespace MEC.Portal.Services.Notifications
                 "SendOvertimeNotification");
 
             var approverTokens = CreateOvertimeTokens(model, BuildAbsoluteUrl($"/Admin/OvertimeRequests/{model.OvertimeRequestId}"));
-            await SendTemplateEmailAsync(
-                _notificationOptions.ApproverFallbackEmail,
+            await SendTemplateEmailsAsync(
+                GetRecipientsOrFallback(model.Approvers),
                 "MEC Portal - Yeni Mesai Talebi",
                 "overtime-request-created-approver.html",
                 approverTokens,
@@ -139,8 +182,8 @@ namespace MEC.Portal.Services.Notifications
                 ["CancelledBy"] = model.CancelledBy
             };
 
-            await SendTemplateEmailAsync(
-                _notificationOptions.ApproverFallbackEmail,
+            await SendTemplateEmailsAsync(
+                GetRecipientsOrFallback(model.Approvers),
                 "MEC Portal - Mesai Talebi İptal Edildi",
                 "overtime-request-cancelled-approver.html",
                 tokens,
@@ -161,8 +204,35 @@ namespace MEC.Portal.Services.Notifications
                 ["DecisionBy"] = model.DecisionBy,
                 ["DecisionLabel"] = model.DecisionLabel,
                 ["DecisionAction"] = ToDecisionAction(model.DecisionLabel),
+                ["DecisionAuthority"] = model.IsManagerDecision ? "Okul müdürü" : "Genel Müdürlük",
+                ["LocationNames"] = model.LocationNames,
                 ["RequestUrl"] = BuildAbsoluteUrl($"/Overtime/History/{model.OvertimeRequestId}")
             };
+
+            if (model.IsManagerDecision && string.Equals(model.DecisionLabel, "Onaylandı", StringComparison.Ordinal))
+            {
+                await SendTemplateEmailAsync(
+                    model.EmployeeEmail,
+                    "MEC Portal - Mesai Talebiniz Okul Müdürü Tarafından Onaylandı",
+                    "overtime-request-manager-approved-user.html",
+                    tokens,
+                    model,
+                    "SendOvertimeNotification");
+
+                var finalApproverTokens = new Dictionary<string, string>(tokens, StringComparer.Ordinal)
+                {
+                    ["RequestUrl"] = BuildAbsoluteUrl($"/Admin/OvertimeRequests/{model.OvertimeRequestId}")
+                };
+
+                await SendTemplateEmailsAsync(
+                    model.NextApprovers,
+                    "MEC Portal - Nihai Onay Bekleyen Mesai Talebi",
+                    "overtime-request-manager-approved-final-approver.html",
+                    finalApproverTokens,
+                    model,
+                    "SendOvertimeNotification");
+                return;
+            }
 
             await SendTemplateEmailAsync(
                 model.EmployeeEmail,
@@ -171,6 +241,52 @@ namespace MEC.Portal.Services.Notifications
                 tokens,
                 model,
                 "SendOvertimeNotification");
+
+            if (!model.IsManagerDecision)
+            {
+                var managerTokens = new Dictionary<string, string>(tokens, StringComparer.Ordinal)
+                {
+                    ["RequestUrl"] = BuildAbsoluteUrl($"/Admin/OvertimeRequests/{model.OvertimeRequestId}")
+                };
+
+                await SendTemplateEmailsAsync(
+                    model.RegionalManagers,
+                    $"MEC Portal - Mesai Talebi {model.DecisionLabel}",
+                    "overtime-request-final-decision-manager.html",
+                    managerTokens,
+                    model,
+                    "SendOvertimeNotification");
+            }
+        }
+
+        private async Task SendTemplateEmailsAsync(
+            IEnumerable<WorkflowNotificationRecipientModel> recipients,
+            string subject,
+            string templateFileName,
+            IReadOnlyDictionary<string, string> tokens,
+            WorkflowNotificationContextModel context,
+            string methodName)
+        {
+            foreach (var recipient in recipients
+                .Where(x => !string.IsNullOrWhiteSpace(x.Email))
+                .GroupBy(x => x.Email.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Select(x => x.First()))
+            {
+                var recipientTokens = new Dictionary<string, string>(tokens, StringComparer.Ordinal)
+                {
+                    ["RecipientName"] = string.IsNullOrWhiteSpace(recipient.DisplayName)
+                        ? recipient.Email
+                        : recipient.DisplayName
+                };
+
+                await SendTemplateEmailAsync(
+                    recipient.Email,
+                    subject,
+                    templateFileName,
+                    recipientTokens,
+                    context,
+                    methodName);
+            }
         }
 
         private async Task SendTemplateEmailAsync(
@@ -324,6 +440,8 @@ namespace MEC.Portal.Services.Notifications
                 ["EndDate"] = FormatDateTime(model.EndDate),
                 ["DateRange"] = FormatDateRange(model.StartDate, model.EndDate),
                 ["ReasonHtml"] = FormatMultilineHtml(model.Reason),
+                ["LocationNames"] = model.LocationNames,
+                ["ApprovalTarget"] = model.ApprovalTarget,
                 ["RequestUrl"] = requestUrl
             };
         }
@@ -338,8 +456,30 @@ namespace MEC.Portal.Services.Notifications
                 ["DateRange"] = FormatDateRange(model.StartDate, model.EndDate),
                 ["RequestedHours"] = FormatHours(model.RequestedHours),
                 ["ReasonHtml"] = FormatMultilineHtml(model.Reason),
+                ["LocationNames"] = model.LocationNames,
+                ["ApprovalTarget"] = model.ApprovalTarget,
                 ["RequestUrl"] = requestUrl
             };
+        }
+
+        private IEnumerable<WorkflowNotificationRecipientModel> GetRecipientsOrFallback(
+            IReadOnlyCollection<WorkflowNotificationRecipientModel> recipients)
+        {
+            if (recipients.Count > 0)
+            {
+                return recipients;
+            }
+
+            return string.IsNullOrWhiteSpace(_notificationOptions.ApproverFallbackEmail)
+                ? Array.Empty<WorkflowNotificationRecipientModel>()
+                : new[]
+                {
+                    new WorkflowNotificationRecipientModel
+                    {
+                        Email = _notificationOptions.ApproverFallbackEmail,
+                        DisplayName = "Onay Yetkilisi"
+                    }
+                };
         }
 
         private static string FormatDateTime(DateTime value)

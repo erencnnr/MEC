@@ -70,6 +70,8 @@
                           isAdminOvertimePage;
         var isLeavePage = string.Equals(currentController, "Leave", StringComparison.OrdinalIgnoreCase);
         var isAdminUser = User.Identity?.IsAuthenticated == true && User.IsInRole("Admin");
+        var isApprovalUser = User.Identity?.IsAuthenticated == true &&
+                             (User.IsInRole("Manager") || User.IsInRole("FinalApprover"));
 
         bool HeaderRouteMatch(string controller, params string[] actions)
         {
@@ -197,6 +199,18 @@
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="Surveys">Anket Yönetimi</a>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            }
+                            else if (isApprovalUser)
+                            {
+                                <div class="dropdown portal-header__nav-dropdown @(isAdminLeaveRequestsPage || isAdminOvertimeRequestsPage ? "is-active" : string.Empty)">
+                                    <button class="portal-header__nav-link portal-header__nav-dropdown-toggle dropdown-toggle @(isAdminLeaveRequestsPage || isAdminOvertimeRequestsPage ? "is-active" : string.Empty)" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Onay İşlemleri
+                                    </button>
+                                    <div class="dropdown-menu portal-header__nav-dropdown-menu">
+                                        <a class="portal-header__nav-dropdown-item @(isAdminLeaveRequestsPage ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="LeaveRequests">İzin Talepleri</a>
+                                        <a class="portal-header__nav-dropdown-item @(isAdminOvertimeRequestsPage ? "is-active" : string.Empty)" href="/Admin/OvertimeRequests">Mesai Talepleri</a>
                                     </div>
                                 </div>
                             }

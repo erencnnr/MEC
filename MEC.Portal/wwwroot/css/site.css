@@ -3486,6 +3486,12 @@ body.admin-leave-confirm-open {
     font-weight: 500;
 }
 
+.admin-portal-users-table__email {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
 .admin-portal-users-table-card {
     gap: 18px;
 }
@@ -3863,6 +3869,53 @@ body.admin-leave-confirm-open {
     margin-top: 8px;
     color: var(--text-3);
     font-size: 0.84rem;
+}
+
+.admin-portal-user-location-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.admin-portal-user-location-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-1);
+    border-radius: 12px;
+    background: var(--surface-1);
+    color: var(--text-2);
+    cursor: pointer;
+    transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.admin-portal-user-location-option:hover,
+.admin-portal-user-location-option:has(input:focus-visible) {
+    border-color: var(--brand-1);
+    box-shadow: 0 0 0 3px rgba(24, 79, 160, 0.1);
+}
+
+.admin-portal-user-location-option:has(input:checked) {
+    border-color: var(--brand-1);
+    background: rgba(24, 79, 160, 0.08);
+    color: var(--text-1);
+}
+
+.admin-portal-user-grid .admin-portal-user-location-option input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--brand-1);
+    flex: 0 0 auto;
+}
+
+@media (max-width: 575.98px) {
+    .admin-portal-user-location-options {
+        grid-template-columns: 1fr;
+    }
 }
 
 .admin-portal-user-loan-warning {
@@ -7817,8 +7870,7 @@ body.content-management-modal-open {
 }
 
 .leave-agreement-table__email-col {
-    width: 24ch;
-    max-width: 24ch;
+    width: 28ch;
 }
 
 .leave-agreement-table__phone-col {
@@ -7856,11 +7908,16 @@ body.content-management-modal-open {
 }
 
 .leave-agreement-table td.leave-agreement-table__name-col,
-.leave-agreement-table td.leave-agreement-table__surname-col,
-.leave-agreement-table td.leave-agreement-table__email-col {
+.leave-agreement-table td.leave-agreement-table__surname-col {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.leave-agreement-table td.leave-agreement-table__email-col {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
 }
 
 .leave-agreement-table td.leave-agreement-table__phone-col {

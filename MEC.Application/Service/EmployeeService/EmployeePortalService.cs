@@ -89,7 +89,8 @@ namespace MEC.Application.Service.EmployeeService
                 .ToList();
 
             var pendingAnnualLeaves = employeeLeaves
-                .Where(x => x.Status == (int)LeaveStatus.Pending)
+                .Where(x => x.Status == (int)LeaveStatus.Pending ||
+                            x.Status == (int)LeaveStatus.PendingFinalApproval)
                 .Where(IsAnnualLeave)
                 .ToList();
 
@@ -230,6 +231,7 @@ namespace MEC.Application.Service.EmployeeService
             portalUser.BirthDate = NormalizeOptionalDate(model.BirthDate);
             portalUser.LeaveDays = model.LeaveDays;
             portalUser.IsAdmin = model.IsAdmin;
+            portalUser.IsManager = model.IsManager;
             portalUser.IsDeleted = model.IsDeleted;
             portalUser.AddressText = NormalizeOptionalText(model.AddressText);
             portalUser.MaritalStatus = model.MaritalStatus;
@@ -547,6 +549,7 @@ namespace MEC.Application.Service.EmployeeService
                 HireDate = NormalizeOptionalDate(portalUser.HireDate),
                 TerminationDate = NormalizeOptionalDate(portalUser.TerminationDate),
                 IsAdmin = portalUser.IsAdmin,
+                IsManager = portalUser.IsManager,
                 IsDeleted = portalUser.IsDeleted
             };
         }
@@ -573,6 +576,7 @@ namespace MEC.Application.Service.EmployeeService
                     .ToList(),
                 LeaveDays = portalUser.LeaveDays,
                 IsAdmin = portalUser.IsAdmin,
+                IsManager = portalUser.IsManager,
                 IsDeleted = portalUser.IsDeleted,
                 ActiveLoans = activeLoans ?? new List<PortalUserActiveLoanModel>(),
                 LoanRecordCount = loanRecordCount,

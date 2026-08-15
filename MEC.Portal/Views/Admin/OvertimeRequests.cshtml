@@ -78,6 +78,7 @@
                         <thead>
                             <tr>
                                 <th>Personel</th>
+                                <th>Lokasyon</th>
                                 <th>Toplam Mesai Süresi</th>
                                 <th>Mesai Tarihi</th>
                                 <th>Başlangıç</th>
@@ -91,6 +92,7 @@
                             {
                                 <tr class="leave-history-table__row" data-href="/Admin/OvertimeRequests/@item.Id" tabindex="0">
                                     <td>@item.EmployeeName</td>
+                                    <td>@item.LocationNames</td>
                                     <td>@FormatHours(item.RequestedHours) Saat</td>
                                     <td>@item.StartDate.ToString("dd.MM.yyyy")</td>
                                     <td>@item.StartDate.ToString("HH:mm")</td>
@@ -140,7 +142,7 @@
                                         }
                                         else
                                         {
-                                            <span class="admin-leave-note">İşlem tamamlandı</span>
+                                            <span class="admin-leave-note">@(item.Status == 0 || item.Status == 4 ? "Onay sırası başka bir yetkilide" : "İşlem tamamlandı")</span>
                                         }
                                     </td>
                                 </tr>

@@ -8,7 +8,7 @@ using System.Globalization;
 
 namespace MEC.Portal.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Manager,FinalApprover")]
     public class OvertimeAdminController : Controller
     {
         private const int OvertimeRequestsPageSize = 10;
@@ -29,7 +29,8 @@ namespace MEC.Portal.Controllers
             {
                 Page = page,
                 PageSize = OvertimeRequestsPageSize,
-                Status = selectedStatus
+                Status = selectedStatus,
+                CurrentUserEmail = User.Identity?.Name ?? string.Empty
             });
 
             var model = new AdminOvertimeRequestListViewModel
@@ -49,7 +50,7 @@ namespace MEC.Portal.Controllers
         [HttpGet("/Admin/OvertimeRequests/{id:int}")]
         public async Task<IActionResult> Detail(int id)
         {
-            var item = await _overtimeService.GetAdminOvertimeRequestDetailAsync(id);
+            var item = await _overtimeService.GetAdminOvertimeRequestDetailAsync(id, User.Identity?.Name ?? string.Empty);
             if (item == null)
             {
                 return RedirectToAction(nameof(Index));
@@ -64,6 +65,7 @@ namespace MEC.Portal.Controllers
         }
 
         [HttpGet("/Admin/OvertimeReport")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Report(int? employeeId = null, int? status = null, string? startDate = null, string? endDate = null)
         {
             var selectedStatus = NormalizeOvertimeStatusFilter(status);
@@ -79,6 +81,7 @@ namespace MEC.Portal.Controllers
         }
 
         [HttpGet("/Admin/OvertimeReport/Export")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> ExportReport(int? employeeId = null, int? status = null, string? startDate = null, string? endDate = null)
         {
             var selectedStatus = NormalizeOvertimeStatusFilter(status);
@@ -119,11 +122,7 @@ namespace MEC.Portal.Controllers
             if (result.IsSuccess)
             {
                 TempData["AdminOvertimeStatusLevel"] = "success";
-                TempData["AdminOvertimeStatusMessage"] = status == (int)OvertimeStatus.Approved
-                    ? "Mesai talebi onaylandı."
-                    : status == (int)OvertimeStatus.Rejected
-                        ? "Mesai talebi reddedildi."
-                        : result.Message;
+                TempData["AdminOvertimeStatusMessage"] = result.Message;
 
                 return RedirectToReturnUrl(returnUrl);
             }
@@ -167,7 +166,8 @@ namespace MEC.Portal.Controllers
         {
             return new List<OvertimeStatusFilterOptionViewModel>
             {
-                new() { Value = (int)OvertimeStatus.Pending, Label = "Onay Bekliyor" },
+                new() { Value = (int)OvertimeStatus.Pending, Label = "Okul Müdürü Onayı Bekliyor" },
+                new() { Value = (int)OvertimeStatus.PendingFinalApproval, Label = "Genel Müdürlük Onayı Bekliyor" },
                 new() { Value = (int)OvertimeStatus.Approved, Label = "Onaylandı" },
                 new() { Value = (int)OvertimeStatus.Rejected, Label = "Reddedildi" },
                 new() { Value = (int)OvertimeStatus.Cancelled, Label = "İptal" }
@@ -189,6 +189,8 @@ namespace MEC.Portal.Controllers
                 StatusLabel = item.StatusLabel,
                 StatusTone = item.StatusTone,
                 DecisionDisplay = item.DecisionDisplay,
+                LocationNames = item.LocationNames,
+                ManagerDecisionDisplay = item.ManagerDecisionDisplay,
                 CanTakeAction = item.CanTakeAction
             };
         }

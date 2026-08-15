@@ -27,6 +27,7 @@ namespace MEC.Portal.Models
         public DateTime? HireDate { get; set; }
         public DateTime? TerminationDate { get; set; }
         public bool IsAdmin { get; set; }
+        public bool IsManager { get; set; }
         public bool IsDeleted { get; set; }
         public string StatusLabel => IsDeleted ? "Pasif" : "Aktif";
         public string StatusTone => IsDeleted ? "rejected" : "approved";
@@ -78,6 +79,8 @@ namespace MEC.Portal.Models
         public decimal LeaveDays { get; set; }
 
         public bool IsAdmin { get; set; }
+
+        public bool IsManager { get; set; }
 
         public bool IsDeleted { get; set; }
         public bool ActiveLoanWarningAccepted { get; set; }

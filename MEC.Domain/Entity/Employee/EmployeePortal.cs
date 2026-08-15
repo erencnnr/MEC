@@ -35,6 +35,7 @@ namespace MEC.Domain.Entity.Employee
         public decimal LeaveDays { get; set; }
 
         public bool IsAdmin { get; set; }
+        public bool IsManager { get; set; }
         public bool IsDeleted { get; set; }
 
         public ICollection<EmployeePortalChild> Children { get; set; } = new List<EmployeePortalChild>();

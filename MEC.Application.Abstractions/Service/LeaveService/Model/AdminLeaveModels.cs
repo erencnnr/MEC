@@ -7,12 +7,15 @@ namespace MEC.Application.Abstractions.Service.LeaveService.Model
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
         public int? Status { get; set; }
+        public string CurrentUserEmail { get; set; } = string.Empty;
     }
 
     public class AdminLeaveRequestItemModel : LeaveHistoryItemModel
     {
         public int EmployeeId { get; set; }
         public string EmployeeName { get; set; } = string.Empty;
+        public string LocationNames { get; set; } = string.Empty;
+        public string ManagerDecisionDisplay { get; set; } = "-";
         public bool CanTakeAction { get; set; }
     }
 

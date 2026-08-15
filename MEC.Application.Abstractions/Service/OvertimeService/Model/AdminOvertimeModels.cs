@@ -5,10 +5,13 @@ namespace MEC.Application.Abstractions.Service.OvertimeService.Model
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 10;
         public int? Status { get; set; }
+        public string CurrentUserEmail { get; set; } = string.Empty;
     }
 
     public class AdminOvertimeRequestItemModel : OvertimeHistoryItemModel
     {
+        public string LocationNames { get; set; } = string.Empty;
+        public string ManagerDecisionDisplay { get; set; } = "-";
         public bool CanTakeAction { get; set; }
     }
 

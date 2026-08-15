@@ -1,3 +1,5 @@
+using MEC.Application.Abstractions.Service.ApprovalWorkflowService;
+using MEC.Application.Abstractions.Service.ApprovalWorkflowService.Model;
 using MEC.Application.Abstractions.Service.AssetService;
 using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.LeaveService;
@@ -8,6 +10,7 @@ using MEC.Application.Abstractions.Service.NotificationService;
 using MEC.Application.Abstractions.Service.OvertimeService;
 using MEC.Application.Abstractions.Service.SchoolService;
 using MEC.Application.Abstractions.Service.ServiceHistoryService;
+using MEC.Application.Service.ApprovalWorkflowService;
 using MEC.Application.Service.AssetService;
 using MEC.Application.Service.EmployeeService;
 using MEC.Application.Service.OvertimeService;
@@ -65,9 +68,13 @@ try
     builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
     builder.Services.Configure<NotificationOptions>(builder.Configuration.GetSection("NotificationOptions"));
     builder.Services.Configure<PortalUrlOptions>(builder.Configuration.GetSection("PortalUrl"));
+    builder.Services.AddSingleton(
+        builder.Configuration.GetSection("ApprovalWorkflow").Get<ApprovalWorkflowSettings>()
+        ?? new ApprovalWorkflowSettings());
 
     builder.Services.AddScoped<ILoginService, LoginService>();
     builder.Services.AddScoped<IEmployeePortalService, EmployeePortalService>();
+    builder.Services.AddScoped<IApprovalWorkflowService, ApprovalWorkflowService>();
     builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
     builder.Services.AddScoped<ILibraryService, LibraryService>();
     builder.Services.AddScoped<ISliderService, SliderService>();

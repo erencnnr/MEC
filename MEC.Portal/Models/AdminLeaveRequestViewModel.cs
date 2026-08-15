@@ -9,6 +9,8 @@ namespace MEC.Portal.Models
         public int EmployeeId { get; set; }
         public int LeaveTypeId { get; set; }
         public string EmployeeName { get; set; } = string.Empty;
+        public string LocationNames { get; set; } = string.Empty;
+        public string ManagerDecisionDisplay { get; set; } = "-";
         public string LeaveType { get; set; } = string.Empty;
         public decimal RequestedDays { get; set; }
         public DateTime StartDate { get; set; }

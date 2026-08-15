@@ -19,7 +19,7 @@ namespace MEC.Application.Abstractions.Service.LeaveService
         Task<LeaveHistoryResultModel> GetLeaveHistoryAsync(LeaveHistoryQueryModel query);
         Task<LeaveHistoryItemModel?> GetLeaveHistoryDetailAsync(string userEmail, int leaveId);
         Task<PagedResultModel<AdminLeaveRequestItemModel>> GetAdminLeaveRequestsAsync(AdminLeaveRequestListQueryModel query);
-        Task<AdminLeaveRequestItemModel?> GetAdminLeaveRequestDetailAsync(int id);
+        Task<AdminLeaveRequestItemModel?> GetAdminLeaveRequestDetailAsync(int id, string currentUserEmail);
         Task<PagedResultModel<AdminLeaveAgreementItemModel>> GetAdminLeaveAgreementsAsync(AdminLeaveAgreementListQueryModel query);
         Task<AdminLeaveAgreementItemModel?> GetAdminLeaveAgreementAsync(int id);
         Task<OperationResultModel> SyncLeaveAgreementsAsync();

@@ -10,6 +10,7 @@ using MEC.Portal.Models;
 using MEC.Portal.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Globalization;
 using System.IO;
@@ -17,7 +18,7 @@ using System.Text;
 
 namespace MEC.Portal.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin,Manager,FinalApprover")]
     public class AdminController : Controller
     {
         private const string UpdateLeaveStatusMethodName = "UpdateLeaveStatus";
@@ -28,6 +29,12 @@ namespace MEC.Portal.Controllers
         private const int LeaveAgreementsPageSize = 10;
         private const int PortalUsersPageSize = 10;
         private const long MaxFoodMenuUploadSizeBytes = 15 * 1024 * 1024;
+        private static readonly HashSet<string> ApprovalActionNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            nameof(LeaveRequests),
+            nameof(LeaveRequestDetail),
+            nameof(UpdateLeaveStatus)
+        };
 
         private readonly ILeaveService _leaveService;
         private readonly IAnnouncementService _announcementService;
@@ -41,6 +48,19 @@ namespace MEC.Portal.Controllers
         private readonly IFoodMenuAttachmentApiClient _foodMenuAttachmentApiClient;
         private readonly IPortalUserSyncApiClient _portalUserSyncApiClient;
         private readonly IWebHostEnvironment _environment;
+
+        public override void OnActionExecuting(ActionExecutingContext context)
+        {
+            context.ActionDescriptor.RouteValues.TryGetValue("action", out var actionName);
+            actionName ??= string.Empty;
+            if (!User.IsInRole("Admin") && !ApprovalActionNames.Contains(actionName))
+            {
+                context.Result = Forbid();
+                return;
+            }
+
+            base.OnActionExecuting(context);
+        }
 
         public AdminController(
             ILeaveService leaveService,
@@ -121,7 +141,8 @@ namespace MEC.Portal.Controllers
             {
                 Page = page,
                 PageSize = LeaveRequestsPageSize,
-                Status = selectedStatus
+                Status = selectedStatus,
+                CurrentUserEmail = User.Identity?.Name ?? string.Empty
             });
 
             var model = new AdminLeaveRequestListViewModel
@@ -141,7 +162,7 @@ namespace MEC.Portal.Controllers
         [HttpGet("/Admin/LeaveRequests/{id:int}")]
         public async Task<IActionResult> LeaveRequestDetail(int id)
         {
-            var item = await _leaveService.GetAdminLeaveRequestDetailAsync(id);
+            var item = await _leaveService.GetAdminLeaveRequestDetailAsync(id, User.Identity?.Name ?? string.Empty);
             if (item == null)
             {
                 return RedirectToAction(nameof(LeaveRequests));
@@ -465,6 +486,7 @@ namespace MEC.Portal.Controllers
                 }).ToList(),
                 LeaveDays = model.LeaveDays,
                 IsAdmin = model.IsAdmin,
+                IsManager = model.IsManager,
                 IsDeleted = model.IsDeleted,
                 ActiveLoanWarningAccepted = model.ActiveLoanWarningAccepted
             });
@@ -933,6 +955,7 @@ namespace MEC.Portal.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateLeaveStatus(int id, int status, string? returnUrl = null)
         {
             var result = await _leaveService.UpdateLeaveStatusWithLogAsync(new LeaveStatusUpdateRequestModel
@@ -948,11 +971,7 @@ namespace MEC.Portal.Controllers
             if (result.IsSuccess)
             {
                 TempData["AdminLeaveStatusLevel"] = "success";
-                TempData["AdminLeaveStatusMessage"] = status == (int)LeaveStatus.Approved
-                    ? "İzin talebi onaylandı."
-                    : status == (int)LeaveStatus.Rejected
-                        ? "İzin talebi reddedildi."
-                        : result.Message;
+                TempData["AdminLeaveStatusMessage"] = result.Message;
 
                 return RedirectToLeaveReturnUrl(returnUrl);
             }
@@ -1003,7 +1022,8 @@ namespace MEC.Portal.Controllers
         {
             return new List<AdminLeaveStatusFilterOptionViewModel>
             {
-                new() { Value = (int)LeaveStatus.Pending, Label = "Onay Bekliyor" },
+                new() { Value = (int)LeaveStatus.Pending, Label = "Okul Müdürü Onayı Bekliyor" },
+                new() { Value = (int)LeaveStatus.PendingFinalApproval, Label = "Genel Müdürlük Onayı Bekliyor" },
                 new() { Value = (int)LeaveStatus.Approved, Label = "Onaylandı" },
                 new() { Value = (int)LeaveStatus.Rejected, Label = "Reddedildi" },
                 new() { Value = (int)LeaveStatus.Cancelled, Label = "İptal" }
@@ -1029,6 +1049,8 @@ namespace MEC.Portal.Controllers
                 StatusLabel = item.StatusLabel,
                 StatusTone = item.StatusTone,
                 DecisionDisplay = item.DecisionDisplay,
+                LocationNames = item.LocationNames,
+                ManagerDecisionDisplay = item.ManagerDecisionDisplay,
                 CanTakeAction = item.CanTakeAction
             };
         }
@@ -1240,6 +1262,7 @@ namespace MEC.Portal.Controllers
                 HireDate = portalUser.HireDate,
                 TerminationDate = portalUser.TerminationDate,
                 IsAdmin = portalUser.IsAdmin,
+                IsManager = portalUser.IsManager,
                 IsDeleted = portalUser.IsDeleted
             };
         }
@@ -1271,6 +1294,7 @@ namespace MEC.Portal.Controllers
                 }).ToList(),
                 LeaveDays = portalUser.LeaveDays,
                 IsAdmin = portalUser.IsAdmin,
+                IsManager = portalUser.IsManager,
                 IsDeleted = portalUser.IsDeleted,
                 ActiveLoans = portalUser.ActiveLoans.Select(MapActiveLoan).ToList(),
                 LoanRecordCount = portalUser.LoanRecordCount

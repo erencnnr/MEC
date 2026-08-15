@@ -60,7 +60,11 @@
                         <div class="dashboard-activity-item__side">
                             @if (item.Status == 0)
                             {
-                                <span class="dashboard-badge dashboard-badge--pending">Bekliyor</span>
+                                <span class="dashboard-badge dashboard-badge--pending">Müdür Onayı</span>
+                            }
+                            else if (item.Status == 4)
+                            {
+                                <span class="dashboard-badge dashboard-badge--pending">Genel Müdürlük Onayı</span>
                             }
                             else if (item.Status == 1)
                             {

@@ -1,5 +1,6 @@
 ﻿using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.LoginService;
+using MEC.Application.Abstractions.Service.ApprovalWorkflowService.Model;
 using MEC.Portal.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -14,15 +15,18 @@ namespace MEC.Portal.Controllers
         private readonly ILoginService _loginService;
         private readonly IEmployeePortalService _employeePortalService;
         private readonly IConfiguration _configuration;
+        private readonly ApprovalWorkflowSettings _approvalWorkflowSettings;
 
         public AccountController(
             ILoginService loginService,
             IEmployeePortalService employeePortalService,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ApprovalWorkflowSettings approvalWorkflowSettings)
         {
             _loginService = loginService;
             _employeePortalService = employeePortalService;
             _configuration = configuration;
+            _approvalWorkflowSettings = approvalWorkflowSettings;
         }
 
         [HttpGet]
@@ -62,6 +66,20 @@ namespace MEC.Portal.Controllers
                     if (portalUser.IsAdmin)
                     {
                         claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+                    }
+
+                    if (portalUser.IsManager)
+                    {
+                        claims.Add(new Claim(ClaimTypes.Role, "Manager"));
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(_approvalWorkflowSettings.FinalApproverEmail) &&
+                        string.Equals(
+                            portalUser.Email?.Trim(),
+                            _approvalWorkflowSettings.FinalApproverEmail.Trim(),
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        claims.Add(new Claim(ClaimTypes.Role, "FinalApprover"));
                     }
 
                     if (!string.IsNullOrWhiteSpace(portalUser.FirstName))

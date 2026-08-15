@@ -59,6 +59,16 @@
                 </div>
 
                 <div class="leave-detail-field">
+                    <span>Lokasyon</span>
+                    <strong>@item.LocationNames</strong>
+                </div>
+
+                <div class="leave-detail-field">
+                    <span>Okul Müdürü Kararı</span>
+                    <strong>@item.ManagerDecisionDisplay</strong>
+                </div>
+
+                <div class="leave-detail-field">
                     <span>Onaylayan / Reddeden</span>
                     <strong>@item.DecisionDisplay</strong>
                 </div>
@@ -136,7 +146,7 @@
                 }
                 else
                 {
-                    <div class="admin-leave-note">Bu talep için işlem tamamlandı.</div>
+                    <div class="admin-leave-note">@(item.Status == 0 || item.Status == 4 ? "Bu talepte onay sırası başka bir yetkilide." : "Bu talep için işlem tamamlandı.")</div>
                 }
             </div>
         </div>

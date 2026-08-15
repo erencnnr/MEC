@@ -1,4 +1,6 @@
 using MEC.Application.Abstractions.Common.Models;
+using MEC.Application.Abstractions.Service.ApprovalWorkflowService;
+using MEC.Application.Abstractions.Service.ApprovalWorkflowService.Model;
 using MEC.Application.Abstractions.Service.LoggingService;
 using MEC.Application.Abstractions.Service.LoggingService.Model;
 using MEC.Application.Abstractions.Service.NotificationService;
@@ -20,17 +22,20 @@ namespace MEC.Application.Service.OvertimeService
         private readonly IGenericRepository<EmployeePortal> _employeePortalRepository;
         private readonly IUserActionLogService _userActionLogService;
         private readonly IWorkflowNotificationService _workflowNotificationService;
+        private readonly IApprovalWorkflowService _approvalWorkflowService;
 
         public OvertimeService(
             IGenericRepository<OvertimeRequest> overtimeRequestRepository,
             IGenericRepository<EmployeePortal> employeePortalRepository,
             IUserActionLogService userActionLogService,
-            IWorkflowNotificationService workflowNotificationService)
+            IWorkflowNotificationService workflowNotificationService,
+            IApprovalWorkflowService approvalWorkflowService)
         {
             _overtimeRequestRepository = overtimeRequestRepository;
             _employeePortalRepository = employeePortalRepository;
             _userActionLogService = userActionLogService;
             _workflowNotificationService = workflowNotificationService;
+            _approvalWorkflowService = approvalWorkflowService;
         }
 
         public async Task<OvertimeRequestValidationModel> ValidateOvertimeRequestAsync(OvertimeRequestCreateModel request)
@@ -94,6 +99,13 @@ namespace MEC.Application.Service.OvertimeService
                     validation.FieldErrors.Values.FirstOrDefault() ?? "Mesai talebi doğrulanamadı.");
             }
 
+            var approvalRoute = await _approvalWorkflowService.ResolveRouteAsync(employeePortal.Id);
+            var routeValidationError = ValidateApprovalRoute(approvalRoute);
+            if (!string.IsNullOrWhiteSpace(routeValidationError))
+            {
+                return OperationResultModel<OvertimeRequestCreateResultModel>.Fail(routeValidationError);
+            }
+
             var overtimeRequest = new OvertimeRequest
             {
                 EmployeePortalId = employeePortal.Id,
@@ -101,11 +113,18 @@ namespace MEC.Application.Service.OvertimeService
                 EndDate = request.EndDate,
                 RequestedHours = validation.RequestedHours,
                 Reason = request.Reason.Trim(),
-                Status = (int)OvertimeStatus.Pending,
+                Status = approvalRoute!.RequiresManagerApproval
+                    ? (int)OvertimeStatus.Pending
+                    : (int)OvertimeStatus.PendingFinalApproval,
                 CreatedDate = DateTime.Now
             };
 
             await _overtimeRequestRepository.AddAsync(overtimeRequest);
+
+            var isFinalApprovalStage = overtimeRequest.Status == (int)OvertimeStatus.PendingFinalApproval;
+            var approvers = isFinalApprovalStage
+                ? new List<ApprovalRecipientModel> { approvalRoute.FinalApprover }
+                : approvalRoute.ManagerApprovers;
 
             await _workflowNotificationService.NotifyOvertimeRequestCreatedAsync(new OvertimeRequestCreatedNotificationModel
             {
@@ -116,6 +135,11 @@ namespace MEC.Application.Service.OvertimeService
                 EndDate = overtimeRequest.EndDate,
                 RequestedHours = overtimeRequest.RequestedHours,
                 Reason = overtimeRequest.Reason,
+                LocationNames = approvalRoute.LocationNames,
+                ApprovalTarget = isFinalApprovalStage
+                    ? $"Genel Müdürlüğe ({approvalRoute.FinalApprover.DisplayName})"
+                    : $"{approvalRoute.LocationNames} okul müdürüne",
+                Approvers = ToNotificationRecipients(approvers),
                 TriggeredByUser = string.IsNullOrWhiteSpace(request.UserEmail) ? BuildEmployeeName(employeePortal) : request.UserEmail,
                 IpAddress = string.IsNullOrWhiteSpace(request.IpAddress) ? "unknown" : request.IpAddress
             });
@@ -151,7 +175,7 @@ namespace MEC.Application.Service.OvertimeService
                 return OperationResultModel.Fail("Mesai talebi bulunamadı.");
             }
 
-            if (overtimeRequest.Status != (int)OvertimeStatus.Pending)
+            if (!IsPendingApproval(overtimeRequest.Status))
             {
                 return OperationResultModel.Fail("Sadece onay bekleyen mesai talepleri iptal edilebilir.");
             }
@@ -159,6 +183,8 @@ namespace MEC.Application.Service.OvertimeService
             var employeeName = BuildEmployeeName(employeePortal);
             var cancelledBy = string.IsNullOrWhiteSpace(request.CancelledBy) ? employeeName : request.CancelledBy;
             var currentUser = string.IsNullOrWhiteSpace(request.CurrentUser) ? request.UserEmail : request.CurrentUser;
+            var approvalRoute = await _approvalWorkflowService.ResolveRouteAsync(employeePortal.Id);
+            var pendingStatus = overtimeRequest.Status;
 
             try
             {
@@ -185,6 +211,7 @@ namespace MEC.Application.Service.OvertimeService
                     RequestedHours = overtimeRequest.RequestedHours,
                     Reason = overtimeRequest.Reason,
                     CancelledBy = cancelledBy,
+                    Approvers = ToNotificationRecipients(GetCurrentApprovers(pendingStatus, approvalRoute)),
                     TriggeredByUser = currentUser,
                     IpAddress = string.IsNullOrWhiteSpace(request.IpAddress) ? "unknown" : request.IpAddress
                 });
@@ -291,8 +318,23 @@ namespace MEC.Application.Service.OvertimeService
         {
             var overtimeRequests = (await _overtimeRequestRepository.GetAllAsync(x => true, x => x.EmployeePortal!))
                 .ToList();
+            var actor = await _approvalWorkflowService.GetActorAsync(query.CurrentUserEmail);
+            var pageSize = query.PageSize <= 0 ? 10 : query.PageSize;
+            if (actor == null)
+            {
+                return new PagedResultModel<AdminOvertimeRequestItemModel>
+                {
+                    CurrentPage = 1,
+                    TotalPages = 1,
+                    PageSize = pageSize
+                };
+            }
 
-            var filteredRequests = overtimeRequests.AsEnumerable();
+            var routes = await ResolveRoutesAsync(overtimeRequests.Select(x => x.EmployeePortalId));
+
+            var filteredRequests = overtimeRequests
+                .Where(x => routes.TryGetValue(x.EmployeePortalId, out var route) && CanViewRequest(actor, route))
+                .AsEnumerable();
 
             if (query.Status.HasValue && Enum.IsDefined(typeof(OvertimeStatus), query.Status.Value))
             {
@@ -302,11 +344,13 @@ namespace MEC.Application.Service.OvertimeService
             var items = filteredRequests
                 .OrderByDescending(x => x.CreatedDate ?? x.StartDate)
                 .ThenByDescending(x => x.Id)
-                .Select(MapAdminItem)
+                .Select(x => MapAdminItem(
+                    x,
+                    routes.GetValueOrDefault(x.EmployeePortalId),
+                    CanTakeAction(x.Status, actor, routes.GetValueOrDefault(x.EmployeePortalId))))
                 .ToList();
 
             var totalCount = items.Count;
-            var pageSize = query.PageSize <= 0 ? 10 : query.PageSize;
             var totalPages = totalCount == 0 ? 1 : (int)Math.Ceiling(totalCount / (decimal)pageSize);
             var currentPage = Math.Min(Math.Max(query.Page, 1), totalPages);
             var pagedItems = items
@@ -324,12 +368,24 @@ namespace MEC.Application.Service.OvertimeService
             };
         }
 
-        public async Task<AdminOvertimeRequestItemModel?> GetAdminOvertimeRequestDetailAsync(int id)
+        public async Task<AdminOvertimeRequestItemModel?> GetAdminOvertimeRequestDetailAsync(int id, string currentUserEmail)
         {
             var overtimeRequest = (await _overtimeRequestRepository.GetAllAsync(x => x.Id == id, x => x.EmployeePortal!))
                 .FirstOrDefault();
 
-            return overtimeRequest == null ? null : MapAdminItem(overtimeRequest);
+            if (overtimeRequest == null)
+            {
+                return null;
+            }
+
+            var actor = await _approvalWorkflowService.GetActorAsync(currentUserEmail);
+            var route = await _approvalWorkflowService.ResolveRouteAsync(overtimeRequest.EmployeePortalId);
+            if (actor == null || !CanViewRequest(actor, route))
+            {
+                return null;
+            }
+
+            return MapAdminItem(overtimeRequest, route, CanTakeAction(overtimeRequest.Status, actor, route));
         }
 
         public async Task<AdminOvertimeReportResultModel> GetAdminOvertimeReportAsync(AdminOvertimeReportQueryModel query)
@@ -451,9 +507,9 @@ namespace MEC.Application.Service.OvertimeService
 
         public async Task<OperationResultModel> UpdateOvertimeStatusAsync(OvertimeStatusUpdateRequestModel request)
         {
-            if (!Enum.IsDefined(typeof(OvertimeStatus), request.Status))
+            if (request.Status != (int)OvertimeStatus.Approved && request.Status != (int)OvertimeStatus.Rejected)
             {
-                return OperationResultModel.Fail("Geçersiz mesai durumu.");
+                return OperationResultModel.Fail("Bu işlem için yalnızca onay veya ret kararı verilebilir.");
             }
 
             var overtimeRequest = (await _overtimeRequestRepository.GetAllAsync(x => x.Id == request.OvertimeRequestId, x => x.EmployeePortal!))
@@ -462,6 +518,30 @@ namespace MEC.Application.Service.OvertimeService
             if (overtimeRequest == null)
             {
                 return OperationResultModel.Fail("Mesai talebi bulunamadı.");
+            }
+
+            var actor = await _approvalWorkflowService.GetActorAsync(request.CurrentUser);
+            var approvalRoute = await _approvalWorkflowService.ResolveRouteAsync(overtimeRequest.EmployeePortalId);
+            if (actor == null || approvalRoute == null)
+            {
+                return OperationResultModel.Fail("Onay yetkiniz doğrulanamadı.");
+            }
+
+            var isManagerStage = overtimeRequest.Status == (int)OvertimeStatus.Pending;
+            var isFinalStage = overtimeRequest.Status == (int)OvertimeStatus.PendingFinalApproval;
+            if (isManagerStage && !CanTakeManagerAction(actor, approvalRoute))
+            {
+                return OperationResultModel.Fail("Bu mesai talebi için okul müdürü onay yetkiniz bulunmuyor.");
+            }
+
+            if (isFinalStage && !actor.IsFinalApprover)
+            {
+                return OperationResultModel.Fail("Bu mesai talebi Genel Müdürlük onayı bekliyor.");
+            }
+
+            if (!isManagerStage && !isFinalStage)
+            {
+                return OperationResultModel.Fail("Bu mesai talebi daha önce sonuçlandırılmış.");
             }
 
             if (request.Status == (int)OvertimeStatus.Approved)
@@ -509,21 +589,32 @@ namespace MEC.Application.Service.OvertimeService
                 }
             }
 
-            overtimeRequest.Status = request.Status;
-            overtimeRequest.UpdateDate = DateTime.Now;
+            var decisionBy = string.IsNullOrWhiteSpace(request.DecisionBy)
+                ? request.CurrentUser
+                : request.DecisionBy;
 
-            if (request.Status == (int)OvertimeStatus.Pending)
+            if (isManagerStage)
             {
-                overtimeRequest.DecisionBy = null;
-                overtimeRequest.DecisionDate = null;
+                overtimeRequest.ManagerDecisionBy = decisionBy;
+                overtimeRequest.ManagerDecisionDate = DateTime.UtcNow;
+                overtimeRequest.Status = request.Status == (int)OvertimeStatus.Approved
+                    ? (int)OvertimeStatus.PendingFinalApproval
+                    : (int)OvertimeStatus.Rejected;
+
+                if (request.Status == (int)OvertimeStatus.Rejected)
+                {
+                    overtimeRequest.DecisionBy = decisionBy;
+                    overtimeRequest.DecisionDate = DateTime.UtcNow;
+                }
             }
             else
             {
-                overtimeRequest.DecisionBy = string.IsNullOrWhiteSpace(request.DecisionBy)
-                    ? request.CurrentUser
-                    : request.DecisionBy;
+                overtimeRequest.Status = request.Status;
+                overtimeRequest.DecisionBy = decisionBy;
                 overtimeRequest.DecisionDate = DateTime.UtcNow;
             }
+
+            overtimeRequest.UpdateDate = DateTime.Now;
 
             _overtimeRequestRepository.Update(overtimeRequest);
 
@@ -540,7 +631,7 @@ namespace MEC.Application.Service.OvertimeService
                 Message = $"Mesai talebi güncellendi. TalepId: {overtimeRequest.Id}, Personel: {employeeName}, YeniDurum: {statusLabel}, Baslangic: {overtimeRequest.StartDate:dd.MM.yyyy HH:mm}, Bitis: {overtimeRequest.EndDate:dd.MM.yyyy HH:mm}, Sure: {overtimeRequest.RequestedHours:0.##} saat, Aciklama: {overtimeRequest.Reason}"
             });
 
-            if ((request.Status == (int)OvertimeStatus.Approved || request.Status == (int)OvertimeStatus.Rejected) && overtimeRequest.EmployeePortal != null)
+            if (overtimeRequest.EmployeePortal != null)
             {
                 await _workflowNotificationService.NotifyOvertimeRequestDecisionAsync(new OvertimeRequestDecisionNotificationModel
                 {
@@ -551,14 +642,26 @@ namespace MEC.Application.Service.OvertimeService
                     EndDate = overtimeRequest.EndDate,
                     RequestedHours = overtimeRequest.RequestedHours,
                     Reason = overtimeRequest.Reason,
-                    DecisionBy = overtimeRequest.DecisionBy ?? request.CurrentUser,
+                    DecisionBy = decisionBy,
                     DecisionLabel = statusLabel,
+                    LocationNames = approvalRoute.LocationNames,
+                    IsManagerDecision = isManagerStage,
+                    RegionalManagers = ToNotificationRecipients(approvalRoute.ManagerApprovers),
+                    NextApprovers = isManagerStage && request.Status == (int)OvertimeStatus.Approved
+                        ? ToNotificationRecipients(new[] { approvalRoute.FinalApprover })
+                        : new List<WorkflowNotificationRecipientModel>(),
                     TriggeredByUser = string.IsNullOrWhiteSpace(request.CurrentUser) ? employeeName : request.CurrentUser,
                     IpAddress = string.IsNullOrWhiteSpace(request.IpAddress) ? "unknown" : request.IpAddress
                 });
             }
 
-            return OperationResultModel.Success("Mesai talebi güncellendi.");
+            var successMessage = isManagerStage && request.Status == (int)OvertimeStatus.Approved
+                ? "Okul müdürü onayı tamamlandı; mesai talebi Genel Müdürlüğe iletildi."
+                : request.Status == (int)OvertimeStatus.Approved
+                    ? "Mesai talebi onaylandı."
+                    : "Mesai talebi reddedildi.";
+
+            return OperationResultModel.Success(successMessage);
         }
 
         private Task LogWorkflowActionAsync(string? ipAddress, string? user, string level, string methodName, string message)
@@ -692,11 +795,14 @@ namespace MEC.Application.Service.OvertimeService
                 StatusLabel = GetStatusLabel(overtimeRequest.Status),
                 StatusTone = GetStatusTone(overtimeRequest.Status),
                 DecisionDisplay = GetDecisionDisplay(overtimeRequest),
-                CanCancel = overtimeRequest.Status == (int)OvertimeStatus.Pending
+                CanCancel = IsPendingApproval(overtimeRequest.Status)
             };
         }
 
-        private static AdminOvertimeRequestItemModel MapAdminItem(OvertimeRequest overtimeRequest)
+        private static AdminOvertimeRequestItemModel MapAdminItem(
+            OvertimeRequest overtimeRequest,
+            ApprovalRouteModel? approvalRoute,
+            bool canTakeAction)
         {
             var item = MapHistoryItem(overtimeRequest);
 
@@ -714,7 +820,9 @@ namespace MEC.Application.Service.OvertimeService
                 StatusLabel = item.StatusLabel,
                 StatusTone = item.StatusTone,
                 DecisionDisplay = item.DecisionDisplay,
-                CanTakeAction = overtimeRequest.Status == (int)OvertimeStatus.Pending
+                LocationNames = approvalRoute?.LocationNames ?? "-",
+                ManagerDecisionDisplay = GetManagerDecisionDisplay(overtimeRequest),
+                CanTakeAction = canTakeAction
             };
         }
 
@@ -741,13 +849,27 @@ namespace MEC.Application.Service.OvertimeService
                 return overtimeRequest.DecisionBy;
             }
 
-            return overtimeRequest.Status == (int)OvertimeStatus.Pending ? "-" : "Belirtilmedi";
+            return IsPendingApproval(overtimeRequest.Status) ? "-" : "Belirtilmedi";
+        }
+
+        private static string GetManagerDecisionDisplay(OvertimeRequest overtimeRequest)
+        {
+            if (overtimeRequest.Status == (int)OvertimeStatus.Pending)
+            {
+                return "Bekleniyor";
+            }
+
+            return string.IsNullOrWhiteSpace(overtimeRequest.ManagerDecisionBy)
+                ? "Doğrudan Genel Müdürlük onayına iletildi"
+                : overtimeRequest.ManagerDecisionBy;
         }
 
         private static string GetStatusLabel(int status)
         {
             return ToOvertimeStatus(status) switch
             {
+                OvertimeStatus.Pending => "Okul Müdürü Onayı Bekliyor",
+                OvertimeStatus.PendingFinalApproval => "Genel Müdürlük Onayı Bekliyor",
                 OvertimeStatus.Approved => "Onaylandı",
                 OvertimeStatus.Rejected => "Reddedildi",
                 OvertimeStatus.Cancelled => "İptal",
@@ -777,11 +899,106 @@ namespace MEC.Application.Service.OvertimeService
         {
             return new List<OvertimeStatusOptionModel>
             {
-                new() { Value = (int)OvertimeStatus.Pending, Label = "Onay Bekliyor" },
+                new() { Value = (int)OvertimeStatus.Pending, Label = "Okul Müdürü Onayı Bekliyor" },
+                new() { Value = (int)OvertimeStatus.PendingFinalApproval, Label = "Genel Müdürlük Onayı Bekliyor" },
                 new() { Value = (int)OvertimeStatus.Approved, Label = "Onaylandı" },
                 new() { Value = (int)OvertimeStatus.Rejected, Label = "Reddedildi" },
                 new() { Value = (int)OvertimeStatus.Cancelled, Label = "İptal" }
             };
+        }
+
+        private static bool IsPendingApproval(int status)
+        {
+            return status == (int)OvertimeStatus.Pending ||
+                   status == (int)OvertimeStatus.PendingFinalApproval;
+        }
+
+        private static string? ValidateApprovalRoute(ApprovalRouteModel? route)
+        {
+            if (route == null)
+            {
+                return "Çalışan için onay akışı oluşturulamadı.";
+            }
+
+            if (!route.HasLocation)
+            {
+                return "Mesai talebi oluşturabilmek için kullanıcıya bir lokasyon atanmalıdır.";
+            }
+
+            if (string.IsNullOrWhiteSpace(route.FinalApprover.Email))
+            {
+                return "Genel Müdürlük onaylayıcısı yapılandırılmamış.";
+            }
+
+            if (!route.EmployeeIsLocationManager && route.ManagerApprovers.Count == 0)
+            {
+                return "Kullanıcının lokasyonu için okul müdürü tanımlanmamış.";
+            }
+
+            return null;
+        }
+
+        private async Task<Dictionary<int, ApprovalRouteModel>> ResolveRoutesAsync(IEnumerable<int> employeeIds)
+        {
+            var routes = new Dictionary<int, ApprovalRouteModel>();
+            foreach (var employeeId in employeeIds.Distinct())
+            {
+                var route = await _approvalWorkflowService.ResolveRouteAsync(employeeId);
+                if (route != null)
+                {
+                    routes[employeeId] = route;
+                }
+            }
+
+            return routes;
+        }
+
+        private static bool CanViewRequest(ApprovalActorModel actor, ApprovalRouteModel? route)
+        {
+            return route != null &&
+                   (actor.IsAdministrator || actor.IsFinalApprover || CanTakeManagerAction(actor, route));
+        }
+
+        private static bool CanTakeAction(int status, ApprovalActorModel actor, ApprovalRouteModel? route)
+        {
+            return route != null &&
+                   ((status == (int)OvertimeStatus.Pending && CanTakeManagerAction(actor, route)) ||
+                    (status == (int)OvertimeStatus.PendingFinalApproval && actor.IsFinalApprover));
+        }
+
+        private static bool CanTakeManagerAction(ApprovalActorModel actor, ApprovalRouteModel route)
+        {
+            return actor.IsLocationManager && route.ManagerApprovers.Any(x => EmailsEqual(x.Email, actor.Email));
+        }
+
+        private static bool EmailsEqual(string? left, string? right)
+        {
+            return string.Equals(left?.Trim(), right?.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static IEnumerable<ApprovalRecipientModel> GetCurrentApprovers(int status, ApprovalRouteModel? route)
+        {
+            if (route == null)
+            {
+                return Array.Empty<ApprovalRecipientModel>();
+            }
+
+            return status == (int)OvertimeStatus.PendingFinalApproval
+                ? new[] { route.FinalApprover }
+                : route.ManagerApprovers;
+        }
+
+        private static List<WorkflowNotificationRecipientModel> ToNotificationRecipients(IEnumerable<ApprovalRecipientModel> recipients)
+        {
+            return recipients
+                .Where(x => !string.IsNullOrWhiteSpace(x.Email))
+                .GroupBy(x => x.Email.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Select(x => new WorkflowNotificationRecipientModel
+                {
+                    Email = x.Key,
+                    DisplayName = x.First().DisplayName
+                })
+                .ToList();
         }
     }
 }
