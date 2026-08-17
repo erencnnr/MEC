@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
-using MEC.Domain.Entity.Leave; // Bu satırın olduğundan emin olun
 
 namespace MEC.Domain.Entity.Employee
 {
@@ -18,7 +17,5 @@ namespace MEC.Domain.Entity.Employee
         public int? EmployeeTypeId { get; set; }
         public EmployeeType? EmployeeType { get; set; }
 
-        // HATA VEREN SATIRI BU ŞEKİLDE DEĞİŞTİRİN:
-        public ICollection<MEC.Domain.Entity.Leave.Leave>? Leaves { get; set; }
     }
 }

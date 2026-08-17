@@ -190,6 +190,12 @@ namespace MEC.DAL.Config.Contexts
                 .HasForeignKey(x => x.LeaveTypeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<MEC.Domain.Entity.Leave.Leave>()
+                .HasOne(x => x.EmployeePortal)
+                .WithMany(x => x.Leaves)
+                .HasForeignKey(x => x.EmployeeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<OvertimeRequest>()
                 .Property(x => x.CreatedDate)
                 .HasColumnName("created_date");

@@ -38,6 +38,7 @@ namespace MEC.Domain.Entity.Employee
         public bool IsManager { get; set; }
         public bool IsDeleted { get; set; }
 
+        public ICollection<MEC.Domain.Entity.Leave.Leave> Leaves { get; set; } = new List<MEC.Domain.Entity.Leave.Leave>();
         public ICollection<EmployeePortalChild> Children { get; set; } = new List<EmployeePortalChild>();
         public ICollection<EmployeePortalLocation> EmployeePortalLocations { get; set; } = new List<EmployeePortalLocation>();
     }

@@ -26,6 +26,8 @@ namespace MEC.Domain.Entity.Leave
         public string? ManagerDecisionBy { get; set; }
         [Column("manager_decision_date")]
         public DateTime? ManagerDecisionDate { get; set; }
+        [ForeignKey(nameof(EmployeeId))]
+        public MEC.Domain.Entity.Employee.EmployeePortal? EmployeePortal { get; set; }
         public LeaveType? LeaveType { get; set; }
     }
 }

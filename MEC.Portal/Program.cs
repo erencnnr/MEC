@@ -118,6 +118,11 @@ try
 
     var app = builder.Build();
 
+    await TestApprovalUserSeeder.SeedAsync(
+        app.Services,
+        builder.Configuration,
+        app.Logger);
+
     if (!app.Environment.IsDevelopment())
     {
         app.UseExceptionHandler("/Home/Error");
