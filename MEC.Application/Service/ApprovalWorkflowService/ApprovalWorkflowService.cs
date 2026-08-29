@@ -58,35 +58,68 @@ namespace MEC.Application.Service.ApprovalWorkflowService
 
         public async Task<ApprovalRouteModel?> ResolveRouteAsync(int employeePortalId)
         {
-            var employee = (await _employeePortalRepository.GetAllAsync(
-                    x => x.Id == employeePortalId && !x.IsDeleted))
-                .FirstOrDefault();
+            var routes = await ResolveRoutesAsync(new[] { employeePortalId });
+            return routes.GetValueOrDefault(employeePortalId);
+        }
 
-            if (employee == null)
-            {
-                return null;
-            }
-
-            var employeeAssignments = (await _employeePortalLocationRepository.GetAllAsync(
-                    x => x.EmployeePortalId == employeePortalId,
-                    x => x.Location!))
+        public async Task<Dictionary<int, ApprovalRouteModel>> ResolveRoutesAsync(IEnumerable<int> employeePortalIds)
+        {
+            var requestedEmployeeIds = employeePortalIds
+                .Distinct()
                 .ToList();
 
-            var locationIds = employeeAssignments
+            if (requestedEmployeeIds.Count == 0)
+            {
+                return new Dictionary<int, ApprovalRouteModel>();
+            }
+
+            var employees = (await _employeePortalRepository.GetAllAsync(
+                    x => requestedEmployeeIds.Contains(x.Id) && !x.IsDeleted))
+                .ToList();
+
+            if (employees.Count == 0)
+            {
+                return new Dictionary<int, ApprovalRouteModel>();
+            }
+
+            var activeEmployeeIds = employees
+                .Select(x => x.Id)
+                .ToList();
+            var employeeAssignments = (await _employeePortalLocationRepository.GetAllAsync(
+                    x => activeEmployeeIds.Contains(x.EmployeePortalId),
+                    x => x.Location!))
+                .ToList();
+            var allLocationIds = employeeAssignments
                 .Select(x => x.LocationId)
                 .Distinct()
                 .ToList();
 
-            var managerApprovers = new List<ApprovalRecipientModel>();
-            if (locationIds.Count > 0)
-            {
-                managerApprovers = (await _employeePortalLocationRepository.GetAllAsync(
-                        x => locationIds.Contains(x.LocationId),
+            var managerAssignments = allLocationIds.Count == 0
+                ? new List<EmployeePortalLocation>()
+                : (await _employeePortalLocationRepository.GetAllAsync(
+                        x => allLocationIds.Contains(x.LocationId),
                         x => x.EmployeePortal!))
-                    .Where(x => x.EmployeePortal != null)
-                    .Select(x => x.EmployeePortal!)
-                    .Where(x => !x.IsDeleted && x.IsManager)
-                    .Where(x => !string.IsNullOrWhiteSpace(x.Email))
+                    .ToList();
+
+            var finalApprover = await ResolveFinalApproverAsync();
+            var assignmentsByEmployee = employeeAssignments.ToLookup(x => x.EmployeePortalId);
+            var managersByLocation = managerAssignments
+                .Where(x => x.EmployeePortal != null &&
+                            !x.EmployeePortal.IsDeleted &&
+                            x.EmployeePortal.IsManager &&
+                            !string.IsNullOrWhiteSpace(x.EmployeePortal.Email))
+                .ToLookup(x => x.LocationId, x => x.EmployeePortal!);
+            var routes = new Dictionary<int, ApprovalRouteModel>();
+
+            foreach (var employee in employees)
+            {
+                var assignments = assignmentsByEmployee[employee.Id].ToList();
+                var locationIds = assignments
+                    .Select(x => x.LocationId)
+                    .Distinct()
+                    .ToList();
+                var managerApprovers = locationIds
+                    .SelectMany(locationId => managersByLocation[locationId])
                     .Where(x => !EmailsEqual(x.Email, employee.Email))
                     .GroupBy(x => x.Email.Trim(), StringComparer.OrdinalIgnoreCase)
                     .Select(x => x.First())
@@ -97,25 +130,25 @@ namespace MEC.Application.Service.ApprovalWorkflowService
                         DisplayName = BuildDisplayName(x)
                     })
                     .ToList();
-            }
 
-            var finalApprover = await ResolveFinalApproverAsync();
-
-            return new ApprovalRouteModel
-            {
-                EmployeePortalId = employee.Id,
-                EmployeeEmail = employee.Email,
-                EmployeeName = BuildDisplayName(employee),
-                EmployeeIsLocationManager = employee.IsManager,
-                LocationIds = locationIds,
-                LocationNames = string.Join(", ", employeeAssignments
+                routes[employee.Id] = new ApprovalRouteModel
+                {
+                    EmployeePortalId = employee.Id,
+                    EmployeeEmail = employee.Email,
+                    EmployeeName = BuildDisplayName(employee),
+                    EmployeeIsLocationManager = employee.IsManager,
+                    LocationIds = locationIds,
+                    LocationNames = string.Join(", ", assignments
                     .Select(x => x.Location?.Name)
                     .Where(x => !string.IsNullOrWhiteSpace(x))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .OrderBy(x => x)),
-                ManagerApprovers = managerApprovers,
-                FinalApprover = finalApprover
-            };
+                    ManagerApprovers = managerApprovers,
+                    FinalApprover = finalApprover
+                };
+            }
+
+            return routes;
         }
 
         private async Task<ApprovalRecipientModel> ResolveFinalApproverAsync()

@@ -19,7 +19,7 @@
         <div>
             <span class="inventory-page__eyebrow">YÖNETİCİ İŞLEMLERİ</span>
             <h1 class="inventory-page__title">İzin Mutabakatı</h1>
-            <p class="inventory-page__subtitle">Mutabakat kayıtlarını arayın, imza durumunu filtreleyin ve satır bazlı güncelleyin.</p>
+            <p class="inventory-page__subtitle">Mutabakat tarihindeki açılış bakiyesini ve 2026 bilgi alanlarını kaydedin. Sistem bakiyeyi bu tarihten sonraki hareketlerle ilerletir.</p>
         </div>
         <div class="inventory-page__actions">
             <button type="button"
@@ -72,6 +72,10 @@
                         <th class="leave-agreement-table__email-col">E-posta</th>
                         <th class="leave-agreement-table__phone-col">Telefon</th>
                         <th class="leave-agreement-table__days-col">Mutabık Kalınan İzin Günü</th>
+                        <th>Mutabakat Tarihi</th>
+                        <th>2026 Hak Edilen</th>
+                        <th>2026 Kullanılan</th>
+                        <th>Güncel Bakiye</th>
                         <th class="leave-agreement-table__signed-col">
                             <div class="inventory-table__header-filter">
                                 <span>Mutabakat İmzalandı</span>
@@ -132,6 +136,34 @@
                                            class="inventory-input"
                                            form="@formId" />
                                 </td>
+                                <td>
+                                    <input type="date"
+                                           name="balanceAsOfDate"
+                                           value="@item.BalanceAsOfDate?.ToString("yyyy-MM-dd")"
+                                           max="@DateTime.Today.ToString("yyyy-MM-dd")"
+                                           class="inventory-input"
+                                           form="@formId"
+                                           required />
+                                </td>
+                                <td>
+                                    <input type="number"
+                                           step="0.5"
+                                           min="0"
+                                           name="currentYearEarnedDays"
+                                           value="@item.CurrentYearEarnedDaysInput"
+                                           class="inventory-input"
+                                           form="@formId" />
+                                </td>
+                                <td>
+                                    <input type="number"
+                                           step="0.5"
+                                           min="0"
+                                           name="currentYearUsedDays"
+                                           value="@item.CurrentYearUsedDaysInput"
+                                           class="inventory-input"
+                                           form="@formId" />
+                                </td>
+                                <td><strong>@item.CurrentBalance.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"))</strong></td>
                                 <td class="leave-agreement-table__signed-col">
                                     <select name="isSigned" class="inventory-select" form="@formId">
                                         @if (item.IsSigned)
@@ -180,7 +212,7 @@
                     else
                     {
                         <tr>
-                            <td colspan="8" class="inventory-table__empty">Kayıt bulunamadı.</td>
+                            <td colspan="12" class="inventory-table__empty">Kayıt bulunamadı.</td>
                         </tr>
                     }
                 </tbody>
@@ -272,7 +304,7 @@
                 </div>
                 <div class="modal-body bulk-leave-upload-modal__body">
                     <p class="bulk-leave-upload-modal__description">
-                        Excel sırası: <strong>Ad</strong>, <strong>Soyad</strong>, <strong>E-posta</strong>, <strong>Telefon</strong>, <strong>Mutabık kalınan izin günü</strong>.
+                        Excel sırası: <strong>Ad</strong>, <strong>Soyad</strong>, <strong>E-posta</strong>, <strong>Telefon</strong>, <strong>Mutabakat bakiyesi</strong>, <strong>Mutabakat tarihi</strong>, <strong>2026 hak edilen</strong>, <strong>2026 kullanılan</strong>.
                     </p>
                     <label class="bulk-leave-upload-modal__file" for="leaveAgreementUploadFile">
                         <span>Excel dosyası</span>

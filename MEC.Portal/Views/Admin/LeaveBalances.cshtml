@@ -1,0 +1,193 @@
+@using System.Globalization
+@model MEC.Portal.Models.AdminLeaveBalanceListViewModel
+
+@{
+    ViewData["Title"] = "İzin Bakiyeleri";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    var culture = CultureInfo.GetCultureInfo("tr-TR");
+
+    string FormatDays(decimal value)
+    {
+        return value.ToString("0.##", culture);
+    }
+}
+
+<section class="leave-history-page admin-leave-page admin-leave-balances-page">
+    <div class="leave-history-shell">
+        <div class="leave-history-topbar">
+            <div>
+                <span class="leave-history-topbar__eyebrow">İzin yönetimi</span>
+                <h1>İzin Bakiyeleri</h1>
+                <p>
+                    @if (Model.CanViewAllLocations)
+                    {
+                        <text>Tüm çalışanların yıllık izin hak edişlerini ve güncel bakiyelerini görüntüleyin.</text>
+                    }
+                    else
+                    {
+                        <text>Sorumlu olduğunuz okullardaki çalışanların yıllık izin hak edişlerini ve güncel bakiyelerini görüntüleyin.</text>
+                    }
+                </p>
+            </div>
+        </div>
+
+        <form class="leave-balance-filters" method="get" asp-controller="Admin" asp-action="LeaveBalances">
+            <div class="leave-balance-filters__field leave-balance-filters__field--search">
+                <label for="searchText">Çalışan ara</label>
+                <input id="searchText"
+                       name="searchText"
+                       type="search"
+                       value="@Model.SearchText"
+                       placeholder="Ad, e-posta, unvan veya okul ara..."
+                       autocomplete="off" />
+            </div>
+
+            <div class="leave-balance-filters__field">
+                <label for="locationId">Okul</label>
+                <select id="locationId" name="locationId">
+                    <option value="">Tüm okullar</option>
+                    @foreach (var location in Model.LocationOptions)
+                    {
+                        <option value="@location.Id" selected="@(Model.SelectedLocationId == location.Id ? "selected" : null)">@location.Name</option>
+                    }
+                </select>
+            </div>
+
+            <div class="leave-balance-filters__actions">
+                <button type="submit" class="leave-balance-filters__submit">Ara ve filtrele</button>
+                @if (Model.HasActiveFilters)
+                {
+                    <a class="leave-balance-filters__clear" asp-controller="Admin" asp-action="LeaveBalances">Temizle</a>
+                }
+            </div>
+        </form>
+
+        @if (!Model.Items.Any())
+        {
+            <div class="leave-history-empty">
+                <h2>Çalışan bulunamadı</h2>
+                <p>
+                    @if (Model.HasActiveFilters)
+                    {
+                        <text>Arama veya okul filtresiyle eşleşen bir çalışan bulunmuyor.</text>
+                    }
+                    else
+                    {
+                        <text>Görüntüleme yetkiniz kapsamında listelenecek aktif çalışan bulunmuyor.</text>
+                    }
+                </p>
+            </div>
+        }
+        else
+        {
+            <div class="leave-history-table-card leave-balance-table-card">
+                <div class="leave-history-table-card__meta">
+                    <span><strong>@Model.TotalCount</strong> çalışan</span>
+                    <span>@(Model.CanViewAllLocations ? "Tüm okullar" : "Sorumlu olduğunuz okullar") · Sayfa @Model.CurrentPage / @Model.TotalPages</span>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table leave-history-table leave-balance-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Çalışan</th>
+                                <th>Okul</th>
+                                <th>Görev</th>
+                                <th>İşe giriş / kıdem</th>
+                                <th>Yıllık hak</th>
+                                <th>Güncel bakiye</th>
+                                <th>Sonraki hak ediş</th>
+                                <th>Mutabakat</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="leave-balance-employee">
+                                            <strong>@item.EmployeeName</strong>
+                                            <span>@(string.IsNullOrWhiteSpace(item.Email) ? "E-posta tanımlı değil" : item.Email)</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="leave-balance-location">@(string.IsNullOrWhiteSpace(item.LocationNames) ? "Atanmamış" : item.LocationNames)</span>
+                                    </td>
+                                    <td>@(string.IsNullOrWhiteSpace(item.Title) ? "—" : item.Title)</td>
+                                    <td>
+                                        @if (item.HireDate.HasValue)
+                                        {
+                                            <div class="leave-balance-detail">
+                                                <strong>@item.HireDate.Value.ToString("dd.MM.yyyy")</strong>
+                                                <span>@item.CompletedServiceYears tamamlanmış yıl</span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span>—</span>
+                                        }
+                                    </td>
+                                    <td><strong>@FormatDays(item.AnnualEntitlementDays) gün</strong></td>
+                                    <td>
+                                        <span class="leave-balance-value @(item.CurrentBalance < 0 ? "is-negative" : string.Empty)">
+                                            @FormatDays(item.CurrentBalance) gün
+                                        </span>
+                                    </td>
+                                    <td>@(item.NextEntitlementDate.HasValue ? item.NextEntitlementDate.Value.ToString("dd.MM.yyyy") : "—")</td>
+                                    <td>
+                                        @if (item.HasReconciliation)
+                                        {
+                                            <div class="leave-balance-reconciliation">
+                                                <strong>@item.BalanceAsOfDate?.ToString("dd.MM.yyyy") · @FormatDays(item.ReconciledOpeningBalance) gün</strong>
+                                                <span>2026: +@FormatDays(item.CurrentYearEarnedDays) / -@FormatDays(item.CurrentYearUsedDays)</span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="leave-balance-reconciliation is-empty">Mutabakat girilmemiş</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @if (Model.TotalPages > 1)
+            {
+                <nav class="leave-history-pagination" aria-label="İzin bakiyeleri sayfaları">
+                    @if (Model.CurrentPage > 1)
+                    {
+                        <a class="leave-history-pagination__item"
+                           asp-controller="Admin"
+                           asp-action="LeaveBalances"
+                           asp-route-searchText="@Model.SearchText"
+                           asp-route-locationId="@Model.SelectedLocationId"
+                           asp-route-page="@(Model.CurrentPage - 1)">Önceki</a>
+                    }
+
+                    @for (var pageNumber = 1; pageNumber <= Model.TotalPages; pageNumber++)
+                    {
+                        <a class="leave-history-pagination__item @(pageNumber == Model.CurrentPage ? "is-active" : string.Empty)"
+                           asp-controller="Admin"
+                           asp-action="LeaveBalances"
+                           asp-route-searchText="@Model.SearchText"
+                           asp-route-locationId="@Model.SelectedLocationId"
+                           asp-route-page="@pageNumber">@pageNumber</a>
+                    }
+
+                    @if (Model.CurrentPage < Model.TotalPages)
+                    {
+                        <a class="leave-history-pagination__item"
+                           asp-controller="Admin"
+                           asp-action="LeaveBalances"
+                           asp-route-searchText="@Model.SearchText"
+                           asp-route-locationId="@Model.SelectedLocationId"
+                           asp-route-page="@(Model.CurrentPage + 1)">Sonraki</a>
+                    }
+                </nav>
+            }
+        }
+    </div>
+</section>

@@ -37,6 +37,7 @@ namespace MEC.Application.Abstractions.Service.EmployeeService.Model
 
     public class PortalUserChildEditModel
     {
+        public string? Name { get; set; }
         public ChildGenderType? Gender { get; set; }
         public DateTime? BirthDate { get; set; }
         public ChildEducationStatusType? EducationStatus { get; set; }

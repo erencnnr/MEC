@@ -1,5 +1,6 @@
 using System.Globalization;
 using ClosedXML.Excel;
+using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.LeaveService;
 using MEC.Application.Abstractions.Service.LeaveService.Model;
 using MEC.Domain.Common;
@@ -45,15 +46,18 @@ namespace MEC.Portal.Controllers
         };
 
         private readonly IAttachmentApiClient _attachmentApiClient;
+        private readonly IEmployeePortalService _employeePortalService;
         private readonly ILeaveService _leaveService;
         private readonly IMemoryCache _memoryCache;
 
         public LeaveController(
             IAttachmentApiClient attachmentApiClient,
+            IEmployeePortalService employeePortalService,
             ILeaveService leaveService,
             IMemoryCache memoryCache)
         {
             _attachmentApiClient = attachmentApiClient;
+            _employeePortalService = employeePortalService;
             _leaveService = leaveService;
             _memoryCache = memoryCache;
         }
@@ -187,6 +191,7 @@ namespace MEC.Portal.Controllers
                     StartDate = startDate,
                     EndDate = endDate,
                     LeaveTypeId = model.LeaveTypeId ?? 0,
+                    MinimumBlockExceptionRequested = model.MinimumBlockExceptionRequested,
                     Reason = model.Reason
                 });
 
@@ -200,6 +205,7 @@ namespace MEC.Portal.Controllers
                         "EndDate" => nameof(model.EndDate),
                         "Reason" => nameof(model.Reason),
                         "LeaveTypeId" => nameof(model.LeaveTypeId),
+                        "MinimumBlockExceptionRequested" => nameof(model.MinimumBlockExceptionRequested),
                         _ => string.Empty
                     };
 
@@ -239,6 +245,7 @@ namespace MEC.Portal.Controllers
                 EndDate = endDate,
                 LeaveTypeId = model.LeaveTypeId ?? 0,
                 RequestedDays = model.RequestedDays,
+                MinimumBlockExceptionRequested = model.MinimumBlockExceptionRequested,
                 Reason = model.Reason
             });
 
@@ -345,9 +352,23 @@ namespace MEC.Portal.Controllers
 
         private async Task PopulateLeaveRequestOptionsAsync(LeaveRequestViewModel model)
         {
+            var userEmail = User.Identity?.Name;
+            if (!string.IsNullOrWhiteSpace(userEmail))
+            {
+                var portalUser = await _employeePortalService.GetActivePortalUserByEmailAsync(userEmail);
+                model.RemainingLeaveDays = portalUser?.LeaveDays;
+            }
+
             model.LeaveTypes = await GetActiveLeaveTypeOptionsAsync();
             model.Holidays = (await _leaveService.GetHolidayCalendarItemsAsync())
                 .Select(MapHolidayCalendarItem)
+                .ToList();
+            model.SaturdayPolicies = (await _leaveService.GetSaturdayPoliciesAsync())
+                .Select(x => new SaturdayPolicyViewModel
+                {
+                    EffectiveFrom = x.EffectiveFrom,
+                    CountSaturday = x.CountSaturday
+                })
                 .ToList();
         }
 

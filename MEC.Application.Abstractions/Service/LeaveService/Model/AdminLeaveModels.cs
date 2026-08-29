@@ -17,6 +17,7 @@ namespace MEC.Application.Abstractions.Service.LeaveService.Model
         public string LocationNames { get; set; } = string.Empty;
         public string ManagerDecisionDisplay { get; set; } = "-";
         public bool CanTakeAction { get; set; }
+        public bool MinimumBlockExceptionRequested { get; set; }
     }
 
     public class AdminLeaveReportQueryModel

@@ -8,6 +8,7 @@ ALTER TABLE `employee_portal`
 CREATE TABLE IF NOT EXISTS `employee_portal_child` (
     `id` INT NOT NULL AUTO_INCREMENT,
     `employee_portal_id` INT NOT NULL,
+    `name` VARCHAR(100) NULL,
     `gender` INT NOT NULL,
     `birth_date` DATE NOT NULL,
     `education_status` INT NULL,

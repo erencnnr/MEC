@@ -10,6 +10,7 @@ namespace MEC.Portal.Models
         public bool IsSelected { get; set; }
         public string NavigateUrl { get; set; } = string.Empty;
         public bool OpenInNewTab { get; set; }
+        public bool EnableDragDrop { get; set; }
         public List<LibraryTreeNodeViewModel> Children { get; set; } = new();
     }
 
@@ -69,6 +70,13 @@ namespace MEC.Portal.Models
         public LibraryDocumentItemViewModel? SelectedDocument { get; set; }
         public bool HasFolders => FolderTree.Count > 0;
         public bool HasSelectedFolder => SelectedFolderId.HasValue;
+    }
+
+    public class LibraryMoveItemRequestViewModel
+    {
+        public string ItemType { get; set; } = string.Empty;
+        public int ItemId { get; set; }
+        public int TargetFolderId { get; set; }
     }
 
     public class LibraryIndexViewModel

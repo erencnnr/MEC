@@ -1,0 +1,88 @@
+@using System.Globalization
+@model MEC.Portal.Models.AdminLeavePolicyViewModel
+
+@{
+    ViewData["Title"] = "İzin Politikası";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    var resultMessage = TempData["LeavePolicyMessage"] as string;
+    var resultLevel = string.Equals(TempData["LeavePolicyLevel"] as string, "success", StringComparison.OrdinalIgnoreCase)
+        ? "success"
+        : "error";
+}
+
+<section class="inventory-page">
+    <div class="inventory-page__header">
+        <div>
+            <span class="inventory-page__eyebrow">YÖNETİCİ İŞLEMLERİ</span>
+            <h1 class="inventory-page__title">İzin Politikası</h1>
+            <p class="inventory-page__subtitle">Cumartesi gününün yıllık izinden sayılma kuralını başlangıç tarihiyle yönetin. Geçmiş tarih seçildiğinde etkilenen izinler ve bakiyeler yeniden hesaplanır.</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(resultMessage))
+    {
+        <div class="inventory-inline-alert inventory-inline-alert--@resultLevel">@resultMessage</div>
+    }
+
+    <div class="inventory-table-card mb-4">
+        <div class="inventory-table-card__meta">
+            <strong>Geçerli durum</strong>
+            <span>Cumartesi yıllık izinden @(Model.CurrentCountSaturday ? "sayılıyor" : "sayılmıyor").</span>
+        </div>
+
+        <form method="post" asp-controller="Admin" asp-action="UpdateSaturdayPolicy" class="p-3">
+            @Html.AntiForgeryToken()
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label" for="effectiveFrom">Başlangıç tarihi</label>
+                    <input id="effectiveFrom" name="effectiveFrom" type="date" min="2000-01-01" value="@DateTime.Today.ToString("yyyy-MM-dd")" class="inventory-input" required />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="countSaturday">Cumartesi hesabı</label>
+                    <select id="countSaturday" name="countSaturday" class="inventory-select">
+                        <option value="true">İzin gününden say</option>
+                        <option value="false">İzin gününden sayma</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="inventory-button inventory-button--success">Kaydet ve yeniden hesapla</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="inventory-table-card">
+        <div class="inventory-table-card__meta">
+            <strong>Değişiklik geçmişi</strong>
+            <span>@Model.SaturdayPolicies.Count kayıt</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table inventory-table mb-0">
+                <thead>
+                    <tr>
+                        <th>Başlangıç tarihi</th>
+                        <th>Cumartesi izinden sayılır</th>
+                        <th>Kayıt tarihi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.SaturdayPolicies.Any())
+                    {
+                        @foreach (var policy in Model.SaturdayPolicies)
+                        {
+                            <tr>
+                                <td>@policy.EffectiveFrom.ToString("dd.MM.yyyy", CultureInfo.GetCultureInfo("tr-TR"))</td>
+                                <td>@(policy.CountSaturday ? "Evet" : "Hayır")</td>
+                                <td>@(policy.CreatedDate?.ToString("dd.MM.yyyy HH:mm", CultureInfo.GetCultureInfo("tr-TR")) ?? "-")</td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="3" class="inventory-table__empty">Henüz tarihli bir cumartesi politikası bulunmuyor. Varsayılan olarak cumartesi sayılmaz.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>

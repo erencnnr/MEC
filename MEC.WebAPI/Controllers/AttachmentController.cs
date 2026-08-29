@@ -1,3 +1,4 @@
+using MEC.WebAPI.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
 
@@ -32,12 +33,14 @@ namespace MEC.WebAPI.Controllers
 
         // Legacy Asset endpoint - geriye uyumluluk korunur.
         [HttpPost("UploadAttachment")]
+        [RequireInternalApiKey]
         public Task<IActionResult> UploadAttachment(IFormFile file, [FromForm] int assetId)
         {
             return UploadInternalAsync(file, "assets", assetId);
         }
 
         [HttpPost("upload")]
+        [RequireInternalApiKey]
         public Task<IActionResult> Upload(IFormFile file, [FromForm] string scope, [FromForm] int entityId)
         {
             return UploadInternalAsync(file, scope, entityId);
@@ -68,12 +71,14 @@ namespace MEC.WebAPI.Controllers
         }
 
         [HttpDelete("DeleteAttachment")]
+        [RequireInternalApiKey]
         public IActionResult DeleteAttachment(int assetId, string fileName)
         {
             return DeleteAttachmentInternal("assets", assetId, fileName);
         }
 
         [HttpDelete("delete")]
+        [RequireInternalApiKey]
         public IActionResult Delete(string scope, int entityId, string fileName)
         {
             return DeleteAttachmentInternal(scope, entityId, fileName);

@@ -1,9 +1,13 @@
 @using System.Linq
 @model MEC.Portal.Models.LibraryTreeNodeViewModel
 
-<li class="library-tree__item @(Model.IsFolder ? "is-folder" : "is-document")">
+<li class="library-tree__item @(Model.IsFolder ? "is-folder" : "is-document")"
+    draggable="@(Model.EnableDragDrop ? "true" : "false")"
+    data-library-drag-type="@(Model.EnableDragDrop ? (Model.IsFolder ? "folder" : "document") : null)"
+    data-library-drag-id="@(Model.EnableDragDrop ? (Model.IsFolder ? Model.FolderId : Model.DocumentId) : null)">
     <a class="@(Model.IsSelected ? "library-tree__link is-selected" : "library-tree__link")"
        href="@Model.NavigateUrl"
+       data-library-drop-folder-id="@(Model.EnableDragDrop && Model.IsFolder ? Model.FolderId : null)"
        target="@(Model.OpenInNewTab ? "_blank" : null)"
        rel="@(Model.OpenInNewTab ? "noopener noreferrer" : null)">
         <span class="library-tree__icon" aria-hidden="true">

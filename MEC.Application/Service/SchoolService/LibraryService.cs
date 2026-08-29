@@ -128,6 +128,56 @@ namespace MEC.Application.Service.SchoolService
             return OperationResultModel.Success("Klasör adı güncellendi.");
         }
 
+        public async Task<OperationResultModel> MoveFolderAsync(int id, int targetFolderId)
+        {
+            var folders = (await _libraryFolderRepository.GetAllAsync()).ToList();
+            var folder = folders.FirstOrDefault(x => x.Id == id);
+            if (folder == null)
+            {
+                return OperationResultModel.Fail("Taşınacak klasör bulunamadı.");
+            }
+
+            var targetFolder = folders.FirstOrDefault(x => x.Id == targetFolderId);
+            if (targetFolder == null)
+            {
+                return OperationResultModel.Fail("Hedef klasör bulunamadı.");
+            }
+
+            if (folder.Id == targetFolder.Id)
+            {
+                return OperationResultModel.Fail("Bir klasör kendi içine taşınamaz.");
+            }
+
+            if (folder.ParentFolderId == targetFolder.Id)
+            {
+                return OperationResultModel.Success("Klasör zaten seçilen konumda.");
+            }
+
+            var descendantFolderIds = GetDescendantFolderIds(folder.Id, folders);
+            if (descendantFolderIds.Contains(targetFolder.Id))
+            {
+                return OperationResultModel.Fail("Bir klasör kendi alt klasörlerinden birinin içine taşınamaz.");
+            }
+
+            if (HasFolderNameConflict(folders, folder.Name, targetFolder.Id, folder.Id))
+            {
+                return OperationResultModel.Fail("Hedef klasörde aynı isimde başka bir klasör zaten var.");
+            }
+
+            var previousParentFolderId = folder.ParentFolderId;
+            folder.ParentFolderId = targetFolder.Id;
+            folder.DisplayOrder = folders
+                .Where(x => x.ParentFolderId == targetFolder.Id && x.Id != folder.Id)
+                .Select(x => x.DisplayOrder)
+                .DefaultIfEmpty(0)
+                .Max() + 1;
+            folder.UpdateDate = DateTime.Now;
+            _libraryFolderRepository.Update(folder);
+
+            await NormalizeFolderOrdersAsync(previousParentFolderId);
+            return OperationResultModel.Success($"{folder.Name} klasörü {targetFolder.Name} içine taşındı.");
+        }
+
         public async Task<OperationResultModel<LibraryFolderDeletePrepareModel>> PrepareDeleteFolderAsync(int id)
         {
             var folders = (await _libraryFolderRepository.GetAllAsync()).ToList();
@@ -239,6 +289,31 @@ namespace MEC.Application.Service.SchoolService
             document.UpdateDate = DateTime.Now;
             _libraryDocumentRepository.Update(document);
             return OperationResultModel.Success("Doküman adı güncellendi.");
+        }
+
+        public async Task<OperationResultModel> MoveDocumentAsync(int id, int targetFolderId)
+        {
+            var document = await _libraryDocumentRepository.GetByIdAsync(id);
+            if (document == null)
+            {
+                return OperationResultModel.Fail("Taşınacak doküman bulunamadı.");
+            }
+
+            var targetFolder = await _libraryFolderRepository.GetByIdAsync(targetFolderId);
+            if (targetFolder == null)
+            {
+                return OperationResultModel.Fail("Hedef klasör bulunamadı.");
+            }
+
+            if (document.FolderId == targetFolder.Id)
+            {
+                return OperationResultModel.Success("Doküman zaten seçilen klasörde.");
+            }
+
+            document.FolderId = targetFolder.Id;
+            document.UpdateDate = DateTime.Now;
+            _libraryDocumentRepository.Update(document);
+            return OperationResultModel.Success($"{document.OriginalFileName} dokümanı {targetFolder.Name} içine taşındı.");
         }
 
         public async Task<OperationResultModel> DeleteDocumentMetadataAsync(int id)

@@ -88,6 +88,11 @@
                     <strong>@FormatLeaveDays(item.RequestedDays) Gün</strong>
                 </div>
 
+                <div class="leave-detail-field">
+                    <span>Blok İzin İstisnası</span>
+                    <strong>@(item.MinimumBlockExceptionRequested ? "5 günlük alt sınır için karşılıklı onay isteniyor" : "Yok")</strong>
+                </div>
+
             </div>
 
             <div class="leave-detail-reason">

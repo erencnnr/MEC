@@ -16,6 +16,15 @@ namespace MEC.Domain.Entity.Leave
         [Column("agreed_leave_days", TypeName = "decimal(10,2)")]
         public decimal AgreedLeaveDays { get; set; }
 
+        [Column("balance_as_of_date")]
+        public DateTime? BalanceAsOfDate { get; set; }
+
+        [Column("current_year_earned_days", TypeName = "decimal(10,2)")]
+        public decimal CurrentYearEarnedDays { get; set; }
+
+        [Column("current_year_used_days", TypeName = "decimal(10,2)")]
+        public decimal CurrentYearUsedDays { get; set; }
+
         [Column("is_signed")]
         public bool IsSigned { get; set; }
 

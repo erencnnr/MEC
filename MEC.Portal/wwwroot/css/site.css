@@ -1261,6 +1261,12 @@ body {
     width: min(100%, 560px);
 }
 
+.home-directory__scope {
+    margin: 6px 0 0;
+    color: #748396;
+    font-size: 0.92rem;
+}
+
 .home-directory__count {
     margin: 18px 0 0;
     color: #748396;
@@ -3912,6 +3918,39 @@ body.admin-leave-confirm-open {
     flex: 0 0 auto;
 }
 
+.admin-portal-user-location-warning {
+    display: grid;
+    gap: 4px;
+    margin-top: 12px;
+    padding: 12px 14px;
+    border: 1px solid #f2d99e;
+    border-left: 4px solid #d89a13;
+    border-radius: 12px;
+    background: #fff6e1;
+    color: #7d5907;
+    font-size: 0.86rem;
+}
+
+.admin-portal-user-location-warning[hidden] {
+    display: none;
+}
+
+.admin-portal-user-manager-location-modal .modal-body p {
+    margin: 0;
+    color: var(--text-2);
+}
+
+.admin-portal-user-manager-location-modal__schools {
+    display: grid;
+    gap: 4px;
+    margin-top: 16px;
+    padding: 12px 14px;
+    border: 1px solid #f2d99e;
+    border-radius: 12px;
+    background: #fffaf0;
+    color: #7d5907;
+}
+
 @media (max-width: 575.98px) {
     .admin-portal-user-location-options {
         grid-template-columns: 1fr;
@@ -4114,6 +4153,38 @@ body.admin-leave-confirm-open {
     margin: 0;
     color: var(--text-3);
     line-height: 1.7;
+}
+
+.leave-request-balance {
+    display: grid;
+    min-width: 220px;
+    gap: 4px;
+    padding: 16px 20px;
+    border: 1px solid #b42318;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #b42318 0%, #d92d20 100%);
+    box-shadow: 0 12px 28px rgba(180, 35, 24, 0.2);
+    color: #ffffff;
+}
+
+.leave-request-balance__label {
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.leave-request-balance__value {
+    color: #ffffff;
+    font-size: 1.65rem;
+    font-weight: 800;
+    line-height: 1.15;
+}
+
+.leave-request-balance__value small {
+    font-size: 0.82rem;
+    font-weight: 700;
 }
 
 .leave-request-header__eyebrow,
@@ -7127,6 +7198,45 @@ body.content-management-modal-open {
     justify-content: flex-start;
 }
 
+.content-management-drag-help {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding: 12px 16px;
+    border: 1px dashed rgba(24, 40, 92, 0.24);
+    border-radius: 16px;
+    background: rgba(24, 40, 92, 0.04);
+    color: var(--text-2);
+}
+
+.content-management-drag-help > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    border-radius: 10px;
+    background: var(--primary);
+    color: #ffffff;
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.content-management-drag-help p {
+    margin: 0;
+    line-height: 1.55;
+}
+
+.content-management-drag-status {
+    margin-bottom: 18px;
+}
+
+.content-management-drag-status[hidden] {
+    display: none;
+}
+
 .content-management-tile {
     position: relative;
     display: flex;
@@ -7155,10 +7265,39 @@ body.content-management-modal-open {
 
 .content-management-tile--folder {
     color: var(--text-1);
+    cursor: grab;
 }
 
 .content-management-tile--document {
-    cursor: pointer;
+    cursor: grab;
+}
+
+.content-management-tile[draggable="true"]:active,
+.library-tree__item[draggable="true"] > .library-tree__link:active {
+    cursor: grabbing;
+}
+
+.content-management-tile.is-dragging,
+.library-tree__item.is-dragging > .library-tree__link {
+    opacity: 0.42;
+    transform: scale(0.97);
+}
+
+.content-management-tile.is-drop-target,
+.library-tree__link.is-drop-target,
+.content-management-card.is-drop-target {
+    border-color: #06c6f7;
+    background: rgba(6, 198, 247, 0.12);
+    box-shadow: 0 0 0 4px rgba(6, 198, 247, 0.13), 0 16px 30px rgba(24, 40, 92, 0.1);
+}
+
+.content-management-tile.is-drop-target,
+.library-tree__link.is-drop-target {
+    transform: translateY(-2px) scale(1.02);
+}
+
+.is-drop-loading {
+    cursor: progress !important;
 }
 
 .content-management-tile--document.is-selected {
@@ -8857,5 +8996,200 @@ body.content-management-modal-open {
     .survey-answer-form__back,
     .survey-answer-form__primary {
         min-width: 0;
+    }
+}
+
+/* Admin leave balance overview */
+.leave-balance-filters {
+    display: grid;
+    grid-template-columns: minmax(280px, 1.6fr) minmax(220px, 0.8fr) auto;
+    gap: 18px;
+    align-items: end;
+    margin-bottom: 24px;
+    padding: 22px 24px;
+    border: 1px solid var(--border-1);
+    border-radius: 24px;
+    background: var(--surface-1);
+    box-shadow: 0 10px 24px rgba(35, 49, 61, 0.05);
+}
+
+.leave-balance-filters__field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.leave-balance-filters__field label {
+    margin: 0;
+    color: var(--brand-1);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.leave-balance-filters__field input,
+.leave-balance-filters__field select {
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 14px;
+    border: 1px solid var(--border-1);
+    border-radius: 14px;
+    background: #ffffff;
+    color: var(--text-1);
+}
+
+.leave-balance-filters__field input:focus,
+.leave-balance-filters__field select:focus {
+    border-color: var(--border-2);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(6, 198, 247, 0.14);
+}
+
+.leave-balance-filters__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.leave-balance-filters__submit,
+.leave-balance-filters__clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+    padding: 0 18px;
+    border: 1px solid var(--brand-1);
+    border-radius: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.leave-balance-filters__submit {
+    background: var(--brand-1);
+    color: #ffffff;
+}
+
+.leave-balance-filters__submit:hover {
+    border-color: var(--accent-1);
+    background: var(--accent-1);
+    color: var(--brand-1);
+}
+
+.leave-balance-filters__clear {
+    background: #ffffff;
+    color: var(--brand-1);
+}
+
+.leave-balance-filters__clear:hover {
+    background: var(--brand-soft);
+    color: var(--brand-1);
+}
+
+.leave-balance-table {
+    min-width: 1380px;
+}
+
+.leave-balance-table-card .table-responsive {
+    margin-top: 4px;
+}
+
+.leave-balance-employee,
+.leave-balance-detail,
+.leave-balance-reconciliation {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.leave-balance-employee {
+    min-width: 230px;
+}
+
+.leave-balance-employee strong,
+.leave-balance-detail strong,
+.leave-balance-reconciliation strong {
+    color: var(--text-1);
+}
+
+.leave-balance-employee span,
+.leave-balance-detail span,
+.leave-balance-reconciliation span {
+    color: var(--text-3);
+    font-size: 0.82rem;
+}
+
+.leave-balance-location {
+    display: inline-flex;
+    max-width: 220px;
+    padding: 7px 10px;
+    border-radius: 10px;
+    background: var(--brand-soft);
+    color: var(--brand-1);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.leave-balance-value {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    padding: 9px 12px;
+    border: 1px solid #9ddcb1;
+    border-radius: 12px;
+    background: #effaf2;
+    color: #1e7a3c;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.leave-balance-value.is-negative {
+    border-color: #f0a3ab;
+    background: #fff2f4;
+    color: #b5263a;
+}
+
+.leave-balance-reconciliation {
+    min-width: 190px;
+}
+
+.leave-balance-reconciliation.is-empty {
+    color: var(--text-3);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+@media (max-width: 992px) {
+    .leave-balance-filters {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .leave-balance-filters__actions {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 640px) {
+    .leave-balance-filters {
+        grid-template-columns: 1fr;
+        padding: 18px;
+        border-radius: 20px;
+    }
+
+    .leave-balance-filters__actions {
+        grid-column: auto;
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .leave-balance-filters__submit,
+    .leave-balance-filters__clear {
+        width: 100%;
+    }
+
+    .leave-balance-table-card .leave-history-table-card__meta {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }

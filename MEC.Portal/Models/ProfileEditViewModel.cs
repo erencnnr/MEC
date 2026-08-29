@@ -35,6 +35,9 @@ namespace MEC.Portal.Models
 
     public class ProfileChildInputViewModel
     {
+        [StringLength(100, ErrorMessage = "Çocuk adı en fazla 100 karakter olabilir.")]
+        public string? Name { get; set; }
+
         public ChildGenderType? Gender { get; set; }
 
         [DataType(DataType.Date)]

@@ -88,7 +88,13 @@
                                     </td>
                                     <td>@item.LocationNames</td>
                                     <td>@item.LeaveType</td>
-                                    <td>@FormatLeaveDays(item.RequestedDays) Gün</td>
+                                    <td>
+                                        @FormatLeaveDays(item.RequestedDays) Gün
+                                        @if (item.MinimumBlockExceptionRequested)
+                                        {
+                                            <small class="d-block">5 günlük blok onayı isteniyor</small>
+                                        }
+                                    </td>
                                     <td>@item.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
                                     <td>@item.EndDate.ToString("dd.MM.yyyy HH:mm")</td>
                                     <td>

@@ -40,6 +40,10 @@
         ? Model.RequestedDays.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"))
         : "0";
 
+    var remainingLeaveDaysDisplay = Model.RemainingLeaveDays?.ToString(
+        "0.##",
+        CultureInfo.GetCultureInfo("tr-TR"));
+
     var startDateValue = ParseLeaveDate(Model.StartDate);
     var endDateValue = ParseLeaveDate(Model.EndDate);
 
@@ -69,6 +73,11 @@
         startDate = x.StartDate.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture),
         endDate = x.EndDate.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture)
     }));
+    var saturdayPolicyJson = JsonSerializer.Serialize(Model.SaturdayPolicies.Select(x => new
+    {
+        effectiveFrom = x.EffectiveFrom.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+        countSaturday = x.CountSaturday
+    }));
 }
 
 <style>
@@ -86,6 +95,14 @@
                 <span class="leave-request-header__eyebrow">İzin işlemleri</span>
                 <h1>İzin Talebi Oluştur</h1>
             </div>
+
+            @if (Model.RemainingLeaveDays.HasValue)
+            {
+                <div class="leave-request-balance" role="status" aria-label="Kalan izin hakkı">
+                    <span class="leave-request-balance__label">Kalan izin hakkınız</span>
+                    <strong class="leave-request-balance__value">@remainingLeaveDaysDisplay <small>Gün</small></strong>
+                </div>
+            }
         </div>
 
         <div class="leave-request-layout">
@@ -149,7 +166,7 @@
                         <div class="leave-request-field leave-request-field--full">
                             <label for="RequestedDaysDisplay">Kullanılacak İzin Gün Sayısı</label>
                             <input id="RequestedDaysDisplay" class="leave-request-input leave-request-input--readonly" type="text" value="@requestedDaysDisplay Gün" readonly />
-                            <span class="leave-request-help">Hafta sonları ve resmi tatiller otomatik olarak hesaptan çıkarılır. Sonuç en yakın yarım güne yukarı yuvarlanır.</span>
+                            <span class="leave-request-help">Pazar ve resmi tatiller hesaptan çıkarılır. Cumartesi, geçerli şirket parametresine göre hesaplanır. Sonuç en yakın yarım güne yukarı yuvarlanır.</span>
                         </div>
 
                         <div class="leave-request-field leave-request-field--full">
@@ -158,10 +175,19 @@
                                 <option value="">İzin türü seçiniz</option>
                                 @foreach (var leaveType in Model.LeaveTypes)
                                 {
-                                    <option value="@leaveType.Id">@leaveType.Name</option>
+                                    <option value="@leaveType.Id" data-code="@leaveType.Code">@leaveType.Name</option>
                                 }
                             </select>
                             <span asp-validation-for="LeaveTypeId" class="leave-request-validation"></span>
+                        </div>
+
+                        <div class="leave-request-field leave-request-field--full" id="minimumBlockExceptionField" hidden>
+                            <label class="leave-request-checkbox" for="MinimumBlockExceptionRequested">
+                                <input asp-for="MinimumBlockExceptionRequested" type="checkbox" />
+                                <span>10 günlük blok alt sınırını karşılıklı onayla 5 güne indir</span>
+                            </label>
+                            <span class="leave-request-help">Bu seçenek yalnızca 5 ile 9,5 gün arasındaki yıllık izin taleplerinde kullanılır ve mevcut onay akışında yönetici onayına sunulur.</span>
+                            <span asp-validation-for="MinimumBlockExceptionRequested" class="leave-request-validation"></span>
                         </div>
 
                         <div class="leave-request-field leave-request-field--full">
@@ -210,6 +236,16 @@
                     && !Number.isNaN(holiday.end.getTime())
                     && holiday.end > holiday.start;
             });
+            const saturdayPolicies = (@Html.Raw(saturdayPolicyJson)).map(function (policy) {
+                return {
+                    effectiveFrom: new Date(`${policy.effectiveFrom}T00:00:00`),
+                    countSaturday: policy.countSaturday
+                };
+            }).filter(function (policy) {
+                return !Number.isNaN(policy.effectiveFrom.getTime());
+            }).sort(function (left, right) {
+                return left.effectiveFrom - right.effectiveFrom;
+            });
 
             const requestedDaysDisplay = document.getElementById("RequestedDaysDisplay");
             const hiddenStartInput = document.getElementById("StartDate");
@@ -218,11 +254,38 @@
             const endDateInput = document.getElementById("EndDatePicker");
             const startTimeInput = document.getElementById("StartTimePicker");
             const endTimeInput = document.getElementById("EndTimePicker");
+            const leaveTypeInput = document.getElementById("LeaveTypeId");
+            const minimumBlockExceptionField = document.getElementById("minimumBlockExceptionField");
             let startDatePicker = null;
             let endDatePicker = null;
 
             function isWeekend(date) {
-                return date.getDay() === 0 || date.getDay() === 6;
+                if (date.getDay() === 0) {
+                    return true;
+                }
+
+                if (date.getDay() !== 6) {
+                    return false;
+                }
+
+                let countSaturday = false;
+                saturdayPolicies.forEach(function (policy) {
+                    if (policy.effectiveFrom <= date) {
+                        countSaturday = policy.countSaturday;
+                    }
+                });
+
+                return !countSaturday;
+            }
+
+            function updateMinimumBlockExceptionVisibility() {
+                const selectedOption = leaveTypeInput.options[leaveTypeInput.selectedIndex];
+                const isAnnualLeave = selectedOption && selectedOption.dataset.code === "ANNUAL";
+                minimumBlockExceptionField.hidden = !isAnnualLeave;
+
+                if (!isAnnualLeave) {
+                    document.getElementById("MinimumBlockExceptionRequested").checked = false;
+                }
             }
 
             function isHoliday(date) {
@@ -413,7 +476,7 @@
                 dateFormat: "d.m.Y",
                 disableMobile: true,
                 onDayCreate: function (dObj, dStr, fp, dayElem) {
-                    if (dayElem.dateObj.getDay() === 0 || dayElem.dateObj.getDay() === 6) {
+                    if (isWeekend(dayElem.dateObj)) {
                         dayElem.classList.add("weekend-day");
                     }
 
@@ -434,6 +497,9 @@
                     updateRangeHighlights();
                 }
             };
+
+            leaveTypeInput.addEventListener("change", updateMinimumBlockExceptionVisibility);
+            updateMinimumBlockExceptionVisibility();
 
             endDatePicker = flatpickr("#EndDatePicker", {
                 ...flatpickrConfig,

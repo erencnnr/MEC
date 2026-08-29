@@ -15,7 +15,8 @@ namespace MEC.Domain.Common
         public static decimal CalculateRequestedDays(
             DateTime startDateTime,
             DateTime endDateTime,
-            IEnumerable<HolidayInterval>? holidays = null)
+            IEnumerable<HolidayInterval>? holidays = null,
+            IEnumerable<SaturdayLeavePolicy>? saturdayPolicies = null)
         {
             if (endDateTime < startDateTime)
             {
@@ -25,11 +26,14 @@ namespace MEC.Domain.Common
             var holidayIntervals = holidays?
                 .Where(x => x.EndDate > x.StartDate)
                 .ToList() ?? new List<HolidayInterval>();
+            var orderedSaturdayPolicies = saturdayPolicies?
+                .OrderBy(x => x.EffectiveFrom)
+                .ToList() ?? new List<SaturdayLeavePolicy>();
             decimal totalMinutes = 0m;
 
             for (var day = startDateTime.Date; day <= endDateTime.Date; day = day.AddDays(1))
             {
-                if (IsWeekend(day))
+                if (IsNonWorkingDay(day, orderedSaturdayPolicies))
                 {
                     continue;
                 }
@@ -64,9 +68,24 @@ namespace MEC.Domain.Common
             return Math.Ceiling(rawDays * 2m) / 2m;
         }
 
-        private static bool IsWeekend(DateTime value)
+        private static bool IsNonWorkingDay(
+            DateTime value,
+            IReadOnlyList<SaturdayLeavePolicy> saturdayPolicies)
         {
-            return value.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+            if (value.DayOfWeek == DayOfWeek.Sunday)
+            {
+                return true;
+            }
+
+            if (value.DayOfWeek != DayOfWeek.Saturday)
+            {
+                return false;
+            }
+
+            var effectivePolicy = saturdayPolicies
+                .LastOrDefault(x => x.EffectiveFrom.Date <= value.Date);
+
+            return !effectivePolicy.CountsAsLeaveDay;
         }
 
         private static decimal CalculateHolidayOverlapMinutes(

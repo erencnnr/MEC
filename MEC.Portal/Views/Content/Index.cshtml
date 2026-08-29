@@ -46,6 +46,15 @@
             <div class="library-alert library-alert--error">@errorMessage</div>
         }
 
+        @if (Model.HasFolders)
+        {
+            <div class="content-management-drag-help">
+                <span aria-hidden="true">&#8645;</span>
+                <p><strong>S&#252;r&#252;kle-b&#305;rak ile ta&#351;&#305;y&#305;n:</strong> Dosya veya klas&#246;r&#252; tutup hedef klas&#246;r&#252;n &#252;zerine b&#305;rak&#305;n.</p>
+            </div>
+            <div id="libraryDragStatus" class="library-alert content-management-drag-status" role="status" aria-live="polite" hidden></div>
+        }
+
         <div class="library-layout content-management-layout">
             <aside class="library-sidebar">
                 <section class="library-card library-card--sidebar library-explorer">
@@ -87,7 +96,8 @@
             <div class="library-main">
                 @if (Model.SelectedFolderId.HasValue)
                 {
-                    <section class="library-card content-management-card">
+                    <section class="library-card content-management-card"
+                             data-library-drop-folder-id="@Model.SelectedFolderId">
                         <div class="library-card__head library-card__head--split">
                             <div>
                                 <span class="library-card__eyebrow">Seçili klasör</span>
@@ -112,7 +122,12 @@
                                 {
                                     if (item.IsFolder)
                                     {
-                                        <a class="content-management-tile content-management-tile--folder" href="@item.NavigateUrl">
+                                        <a class="content-management-tile content-management-tile--folder"
+                                           href="@item.NavigateUrl"
+                                           draggable="true"
+                                           data-library-drag-type="folder"
+                                           data-library-drag-id="@item.FolderId"
+                                           data-library-drop-folder-id="@item.FolderId">
                                             <span class="content-management-tile__icon" aria-hidden="true">
                                                 <svg viewBox="0 0 24 24" fill="none" role="presentation">
                                                     <path d="M3 7.5C3 6.67 3.67 6 4.5 6H9l1.4 1.8H19.5c.83 0 1.5.67 1.5 1.5V17c0 .83-.67 1.5-1.5 1.5h-15C3.67 18.5 3 17.83 3 17V7.5Z" fill="currentColor" opacity=".22"></path>
@@ -128,6 +143,9 @@
                                     else
                                     {
                                         <article class="@(item.IsSelected ? "content-management-tile content-management-tile--document is-selected" : "content-management-tile content-management-tile--document")"
+                                                 draggable="true"
+                                                 data-library-drag-type="document"
+                                                 data-library-drag-id="@item.DocumentId"
                                                  data-select-url="@item.SelectUrl"
                                                  data-open-url="@item.OpenUrl"
                                                  data-preview-url="@item.PreviewUrl"
@@ -328,6 +346,10 @@
         @Html.AntiForgeryToken()
         <input id="renameDocumentName" name="name" type="hidden" />
     </form>
+
+    <form id="libraryMoveForm" method="post" class="d-none">
+        @Html.AntiForgeryToken()
+    </form>
 </section>
 
 @section Scripts {
@@ -416,6 +438,162 @@
                     form.action = "/Admin/Content/RenameDocument/" + documentId;
                     form.submit();
                 });
+            });
+
+            var draggedLibraryItem = null;
+            var draggedLibraryElement = null;
+            var activeDropTarget = null;
+            var dragStatus = document.getElementById("libraryDragStatus");
+
+            function clearLibraryDragState() {
+                if (draggedLibraryElement) {
+                    draggedLibraryElement.classList.remove("is-dragging");
+                }
+                if (activeDropTarget) {
+                    activeDropTarget.classList.remove("is-drop-target");
+                }
+
+                document.querySelectorAll(".is-drop-loading").forEach(function (element) {
+                    element.classList.remove("is-drop-loading");
+                });
+
+                draggedLibraryItem = null;
+                draggedLibraryElement = null;
+                activeDropTarget = null;
+            }
+
+            function showLibraryDragStatus(message, isError) {
+                if (!dragStatus) {
+                    if (isError) {
+                        window.alert(message);
+                    }
+                    return;
+                }
+
+                dragStatus.textContent = message;
+                dragStatus.hidden = false;
+                dragStatus.classList.toggle("library-alert--error", isError);
+                dragStatus.classList.toggle("library-alert--success", !isError);
+            }
+
+            function getDropTarget(eventTarget) {
+                return eventTarget instanceof Element
+                    ? eventTarget.closest("[data-library-drop-folder-id]")
+                    : null;
+            }
+
+            function canDropOn(target) {
+                if (!draggedLibraryItem || !target) {
+                    return false;
+                }
+
+                var targetFolderId = target.getAttribute("data-library-drop-folder-id");
+                return !!targetFolderId &&
+                    !(draggedLibraryItem.type === "folder" && draggedLibraryItem.id === targetFolderId);
+            }
+
+            document.addEventListener("dragstart", function (event) {
+                var source = event.target instanceof Element
+                    ? event.target.closest("[data-library-drag-type]")
+                    : null;
+
+                if (!source || event.target.closest(".content-management-menu")) {
+                    event.preventDefault();
+                    return;
+                }
+
+                var itemType = source.getAttribute("data-library-drag-type");
+                var itemId = source.getAttribute("data-library-drag-id");
+                if (!itemType || !itemId || !event.dataTransfer) {
+                    event.preventDefault();
+                    return;
+                }
+
+                draggedLibraryItem = { type: itemType, id: itemId };
+                draggedLibraryElement = source;
+                source.classList.add("is-dragging");
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", itemType + ":" + itemId);
+            });
+
+            document.addEventListener("dragover", function (event) {
+                var target = getDropTarget(event.target);
+                if (!canDropOn(target)) {
+                    if (activeDropTarget) {
+                        activeDropTarget.classList.remove("is-drop-target");
+                        activeDropTarget = null;
+                    }
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                if (event.dataTransfer) {
+                    event.dataTransfer.dropEffect = "move";
+                }
+
+                if (activeDropTarget !== target) {
+                    if (activeDropTarget) {
+                        activeDropTarget.classList.remove("is-drop-target");
+                    }
+                    activeDropTarget = target;
+                    activeDropTarget.classList.add("is-drop-target");
+                }
+            });
+
+            document.addEventListener("drop", async function (event) {
+                var target = getDropTarget(event.target);
+                if (!canDropOn(target)) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                var item = draggedLibraryItem;
+                var targetFolderId = target.getAttribute("data-library-drop-folder-id");
+                var tokenInput = document.querySelector("#libraryMoveForm input[name='__RequestVerificationToken']");
+                if (!item || !targetFolderId || !tokenInput) {
+                    clearLibraryDragState();
+                    showLibraryDragStatus("Taşıma işlemi başlatılamadı. Sayfayı yenileyip tekrar deneyin.", true);
+                    return;
+                }
+
+                target.classList.add("is-drop-loading");
+                showLibraryDragStatus("İçerik taşınıyor...", false);
+
+                var formData = new URLSearchParams();
+                formData.append("__RequestVerificationToken", tokenInput.value);
+                formData.append("ItemType", item.type);
+                formData.append("ItemId", item.id);
+                formData.append("TargetFolderId", targetFolderId);
+
+                try {
+                    var response = await fetch("/Admin/Content/MoveItem", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                            "X-Requested-With": "XMLHttpRequest"
+                        },
+                        body: formData.toString()
+                    });
+                    var payload = await response.json();
+                    if (!response.ok || !payload.success) {
+                        throw new Error(payload.message || "İçerik taşınamadı.");
+                    }
+
+                    showLibraryDragStatus(payload.message || "İçerik taşındı.", false);
+                    window.setTimeout(function () {
+                        window.location.href = payload.redirectUrl || ("/Admin/Content?folderId=" + targetFolderId);
+                    }, 350);
+                } catch (error) {
+                    clearLibraryDragState();
+                    showLibraryDragStatus(error instanceof Error ? error.message : "İçerik taşınamadı.", true);
+                }
+            });
+
+            document.addEventListener("dragend", function () {
+                clearLibraryDragState();
             });
         })();
     </script>

@@ -59,6 +59,37 @@ namespace MEC.Portal.Controllers
             return RedirectToAction(nameof(Index), new { folderId = id });
         }
 
+        [HttpPost("MoveItem")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MoveItem([FromForm] LibraryMoveItemRequestViewModel request)
+        {
+            OperationResultModel result;
+            if (string.Equals(request.ItemType, "folder", StringComparison.OrdinalIgnoreCase))
+            {
+                result = await _libraryService.MoveFolderAsync(request.ItemId, request.TargetFolderId);
+            }
+            else if (string.Equals(request.ItemType, "document", StringComparison.OrdinalIgnoreCase))
+            {
+                result = await _libraryService.MoveDocumentAsync(request.ItemId, request.TargetFolderId);
+            }
+            else
+            {
+                result = OperationResultModel.Fail("Taşınacak içerik türü geçersiz.");
+            }
+
+            if (!result.IsSuccess)
+            {
+                return BadRequest(new { success = false, message = result.Message });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                message = result.Message,
+                redirectUrl = Url.Action(nameof(Index), new { folderId = request.TargetFolderId })
+            });
+        }
+
         [HttpPost("DeleteFolder/{id:int}")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteFolder(int id)
@@ -231,6 +262,7 @@ namespace MEC.Portal.Controllers
                 IsFolder = node.IsFolder,
                 IsPdf = node.IsPdf,
                 IsSelected = node.IsSelected,
+                EnableDragDrop = true,
                 NavigateUrl = node.IsFolder
                     ? Url.Action(nameof(Index), new { folderId = node.FolderId }) ?? $"/Admin/Content?folderId={node.FolderId}"
                     : Url.Action(nameof(Index), new { folderId = node.FolderId, documentId = node.DocumentId }) ?? string.Empty,

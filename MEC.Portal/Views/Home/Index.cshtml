@@ -238,53 +238,60 @@
         </div>
     </section>
 
-    <section class="home-directory">
-        <div class="home-section-head home-section-head--spaced">
-            <div>
-                <span class="home-section-head__eyebrow">&#199;al&#305;&#351;an dizini</span>
-                <h2>&#199;al&#305;&#351;anlar&#305; Ara</h2>
-            </div>
-        </div>
-
-        <div class="home-directory-card">
-            <div class="home-directory__search-row">
-                <div class="inventory-search home-directory__search">
-                    <input type="search"
-                           id="homeEmployeeSearchInput"
-                           class="inventory-search__input"
-                           placeholder="Ad, soyad, email, telefon..."
-                           autocomplete="off" />
-                    <button type="button" id="homeEmployeeSearchButton" class="inventory-search__button inventory-search__button--icon" aria-label="&#199;alışan ara">
-                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <circle cx="11" cy="11" r="6.75" stroke="currentColor" stroke-width="1.8"></circle>
-                            <path d="M16 16L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
-                        </svg>
-                    </button>
+    @if (Model?.CanViewEmployeeDirectory == true)
+    {
+        <section class="home-directory">
+            <div class="home-section-head home-section-head--spaced">
+                <div>
+                    <span class="home-section-head__eyebrow">&#199;al&#305;&#351;an dizini</span>
+                    <h2>&#199;al&#305;&#351;anlar&#305; Ara</h2>
+                    @if (Model.IsEmployeeDirectoryLocationRestricted)
+                    {
+                        <p class="home-directory__scope">Yaln&#305;zca g&#246;revli oldu&#287;unuz okullardaki &#231;al&#305;&#351;anlar g&#246;sterilir.</p>
+                    }
                 </div>
             </div>
 
-            <p class="home-directory__count"><span id="homeEmployeeDirectoryCount">0</span> &#231;al&#305;&#351;an listeleniyor</p>
+            <div class="home-directory-card">
+                <div class="home-directory__search-row">
+                    <div class="inventory-search home-directory__search">
+                        <input type="search"
+                               id="homeEmployeeSearchInput"
+                               class="inventory-search__input"
+                               placeholder="Ad, soyad, email, telefon..."
+                               autocomplete="off" />
+                        <button type="button" id="homeEmployeeSearchButton" class="inventory-search__button inventory-search__button--icon" aria-label="&#199;alışan ara">
+                            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle cx="11" cy="11" r="6.75" stroke="currentColor" stroke-width="1.8"></circle>
+                                <path d="M16 16L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
 
-            <div id="homeEmployeeDirectoryGrid" class="home-directory__grid">
-                @foreach (var employee in employees)
-                {
-                    var displayName = string.IsNullOrWhiteSpace(employee.FullName) ? employee.Email : employee.FullName;
-                    <article class="home-directory-card__item"
-                             data-employee-card="true"
-                             data-search="@BuildEmployeeSearchText(employee)">
-                        <h3>@displayName</h3>
-                        <p>@(string.IsNullOrWhiteSpace(employee.PhoneNumber) ? "-" : employee.PhoneNumber)</p>
-                        <p>@(string.IsNullOrWhiteSpace(employee.Email) ? "-" : employee.Email)</p>
-                    </article>
-                }
-            </div>
+                <p class="home-directory__count"><span id="homeEmployeeDirectoryCount">0</span> &#231;al&#305;&#351;an listeleniyor</p>
 
-            <div id="homeEmployeeDirectoryEmpty" class="home-empty-state home-empty-state--compact home-directory__empty" hidden>
-                <h3>E&#351;le&#351;en &#231;al&#305;&#351;an bulunamad&#305;.</h3>
-                <p>Arama ifadesini de&#287;i&#351;tirerek tekrar deneyin.</p>
+                <div id="homeEmployeeDirectoryGrid" class="home-directory__grid">
+                    @foreach (var employee in employees)
+                    {
+                        var displayName = string.IsNullOrWhiteSpace(employee.FullName) ? employee.Email : employee.FullName;
+                        <article class="home-directory-card__item"
+                                 data-employee-card="true"
+                                 data-search="@BuildEmployeeSearchText(employee)">
+                            <h3>@displayName</h3>
+                            <p>@(string.IsNullOrWhiteSpace(employee.PhoneNumber) ? "-" : employee.PhoneNumber)</p>
+                            <p>@(string.IsNullOrWhiteSpace(employee.Email) ? "-" : employee.Email)</p>
+                        </article>
+                    }
+                </div>
+
+                <div id="homeEmployeeDirectoryEmpty" class="home-empty-state home-empty-state--compact home-directory__empty" hidden>
+                    <h3>E&#351;le&#351;en &#231;al&#305;&#351;an bulunamad&#305;.</h3>
+                    <p>Arama ifadesini de&#287;i&#351;tirerek tekrar deneyin.</p>
+                </div>
             </div>
-        </div>
-    </section>
+        </section>
+    }
 </section>
 
 @section Scripts

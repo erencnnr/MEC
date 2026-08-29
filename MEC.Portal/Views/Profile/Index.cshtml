@@ -207,8 +207,8 @@
                             @foreach (var child in profile.Children.OrderBy(x => x.BirthDate))
                             {
                                 <div class="profile-child-summary">
-                                    <strong>@GetChildGenderLabel(child.Gender)</strong>
-                                    <span>@child.BirthDate.ToString("dd.MM.yyyy") / @GetChildEducationStatusLabel(child.EducationStatus)</span>
+                                    <strong>@(!string.IsNullOrWhiteSpace(child.Name) ? child.Name : "Ad belirtilmemiş")</strong>
+                                    <span>@GetChildGenderLabel(child.Gender) / @child.BirthDate.ToString("dd.MM.yyyy") / @GetChildEducationStatusLabel(child.EducationStatus)</span>
                                 </div>
                             }
                         </div>

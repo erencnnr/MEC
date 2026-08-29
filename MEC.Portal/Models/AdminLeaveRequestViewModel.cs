@@ -23,6 +23,7 @@ namespace MEC.Portal.Models
         public string StatusTone { get; set; } = "pending";
         public string DecisionDisplay { get; set; } = "-";
         public bool CanTakeAction { get; set; }
+        public bool MinimumBlockExceptionRequested { get; set; }
     }
 
     public class AdminLeaveRequestListViewModel

@@ -16,6 +16,8 @@ namespace MEC.Domain.Entity.Leave
         public decimal RequestedDays { get; set; }
         [Column("remaining_leave_days", TypeName = "decimal(10,2)")]
         public decimal RemainingLeaveDays { get; set; }
+        [Column("minimum_block_exception_requested")]
+        public bool MinimumBlockExceptionRequested { get; set; }
         public string Reason { get; set; }
         public int Status { get; set; }
         [Column("decision_by")]

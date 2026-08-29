@@ -9,5 +9,7 @@ namespace MEC.Domain.Common
         public const string Sick = "SICK";
         public const string Maternity = "MATERNITY";
         public const string Paternity = "PATERNITY";
+        public const string Marriage = "MARRIAGE";
+        public const string Bereavement = "BEREAVEMENT";
     }
 }

@@ -1,4 +1,5 @@
 using MEC.WebAPI.Models;
+using MEC.WebAPI.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
 
@@ -28,6 +29,7 @@ namespace MEC.WebAPI.Controllers
         }
 
         [HttpPost("upload")]
+        [RequireInternalApiKey]
         public Task<IActionResult> Upload([FromForm] ImageRequestModel request)
         {
             if (!string.IsNullOrWhiteSpace(request.Scope) && request.EntityId.HasValue)
@@ -63,12 +65,14 @@ namespace MEC.WebAPI.Controllers
         }
 
         [HttpDelete("DeleteImage")]
+        [RequireInternalApiKey]
         public IActionResult DeleteImage([FromQuery] int assetId, [FromQuery] string fileName)
         {
             return DeleteInternal("assets", assetId, fileName);
         }
 
         [HttpDelete("delete")]
+        [RequireInternalApiKey]
         public IActionResult Delete(string scope, int entityId, string fileName)
         {
             return DeleteInternal(scope, entityId, fileName);

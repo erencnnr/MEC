@@ -9,6 +9,7 @@ namespace MEC.Application.Abstractions.Service.LeaveService.Model
         public DateTime EndDate { get; set; }
         public int LeaveTypeId { get; set; }
         public decimal RequestedDays { get; set; }
+        public bool MinimumBlockExceptionRequested { get; set; }
         public string Reason { get; set; } = string.Empty;
     }
 
@@ -39,5 +40,11 @@ namespace MEC.Application.Abstractions.Service.LeaveService.Model
         public Dictionary<string, string> FieldErrors { get; set; } = new();
         public decimal RequestedDays { get; set; }
         public LeaveTypeOptionModel? SelectedLeaveType { get; set; }
+    }
+
+    public class SaturdayPolicyModel
+    {
+        public DateTime EffectiveFrom { get; set; }
+        public bool CountSaturday { get; set; }
     }
 }

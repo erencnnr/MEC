@@ -40,13 +40,37 @@ namespace MEC.Portal.Controllers
 
         public async Task<IActionResult> Index()
         {
+            var currentPortalUser = await GetCurrentPortalUserAsync();
             var activeAnnouncements = (await _announcementService.GetActiveAnnouncementsAsync(AnnouncementContentType.Announcement))
                 .OrderByDescending(x => x.CreatedDate)
                 .ToList();
             var activeNews = (await _announcementService.GetActiveAnnouncementsAsync(AnnouncementContentType.News))
                 .OrderByDescending(x => x.CreatedDate)
                 .ToList();
-            var employees = (await _employeePortalService.GetActivePortalUsersAsync())
+
+            var canViewAllEmployees = currentPortalUser != null &&
+                                      (currentPortalUser.IsAdmin || User.IsInRole("FinalApprover"));
+            var canViewLocationEmployees = currentPortalUser?.IsManager == true;
+            var canViewEmployeeDirectory = canViewAllEmployees || canViewLocationEmployees;
+            var visibleEmployees = new List<EmployeePortal>();
+
+            if (canViewEmployeeDirectory)
+            {
+                visibleEmployees = await _employeePortalService.GetActivePortalUsersAsync();
+
+                if (!canViewAllEmployees)
+                {
+                    var managerLocationIds = currentPortalUser!.EmployeePortalLocations
+                        .Select(x => x.LocationId)
+                        .ToHashSet();
+
+                    visibleEmployees = visibleEmployees
+                        .Where(x => x.EmployeePortalLocations.Any(assignment => managerLocationIds.Contains(assignment.LocationId)))
+                        .ToList();
+                }
+            }
+
+            var employees = visibleEmployees
                 .Select(x => new HomeEmployeeDirectoryItemViewModel
                 {
                     Id = x.Id,
@@ -68,13 +92,15 @@ namespace MEC.Portal.Controllers
                 })
                 .ToList();
 
-            var birthdayPopup = await BuildBirthdayPopupAsync();
+            var birthdayPopup = await BuildBirthdayPopupAsync(currentPortalUser);
 
             return View(new HomeIndexViewModel
             {
                 Announcements = activeAnnouncements,
                 News = activeNews,
                 Employees = employees,
+                CanViewEmployeeDirectory = canViewEmployeeDirectory,
+                IsEmployeeDirectoryLocationRestricted = canViewLocationEmployees && !canViewAllEmployees,
                 SliderItems = sliderItems,
                 ShowBirthdayPopup = birthdayPopup.ShouldShow,
                 BirthdayPopupImageUrl = birthdayPopup.ImageUrl
@@ -129,9 +155,8 @@ namespace MEC.Portal.Controllers
             return View(sortedNews);
         }
 
-        private async Task<(bool ShouldShow, string ImageUrl)> BuildBirthdayPopupAsync()
+        private async Task<(bool ShouldShow, string ImageUrl)> BuildBirthdayPopupAsync(EmployeePortal? portalUser)
         {
-            var portalUser = await GetCurrentPortalUserAsync();
             if (portalUser == null || !IsBirthdayToday(portalUser.BirthDate))
             {
                 return (false, string.Empty);

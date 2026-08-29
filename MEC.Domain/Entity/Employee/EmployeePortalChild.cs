@@ -1,5 +1,6 @@
 using MEC.Domain.Common;
 using MEC.Domain.Common.Enum;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MEC.Domain.Entity.Employee
@@ -9,6 +10,10 @@ namespace MEC.Domain.Entity.Employee
     {
         [Column("employee_portal_id")]
         public int EmployeePortalId { get; set; }
+
+        [Column("name")]
+        [MaxLength(100)]
+        public string? Name { get; set; }
 
         [Column("gender")]
         public ChildGenderType Gender { get; set; }

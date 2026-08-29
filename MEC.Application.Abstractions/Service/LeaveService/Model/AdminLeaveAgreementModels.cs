@@ -22,6 +22,10 @@ namespace MEC.Application.Abstractions.Service.LeaveService.Model
         public string Email { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
         public decimal AgreedLeaveDays { get; set; }
+        public DateTime? BalanceAsOfDate { get; set; }
+        public decimal CurrentYearEarnedDays { get; set; }
+        public decimal CurrentYearUsedDays { get; set; }
+        public decimal CurrentBalance { get; set; }
         public bool IsSigned { get; set; }
         public bool HasAgreementPdf { get; set; }
         public string AgreementPdfFileName { get; set; } = string.Empty;
@@ -34,6 +38,9 @@ namespace MEC.Application.Abstractions.Service.LeaveService.Model
     {
         public int Id { get; set; }
         public decimal AgreedLeaveDays { get; set; }
+        public DateTime? BalanceAsOfDate { get; set; }
+        public decimal CurrentYearEarnedDays { get; set; }
+        public decimal CurrentYearUsedDays { get; set; }
         public bool IsSigned { get; set; }
     }
 
@@ -52,5 +59,25 @@ namespace MEC.Application.Abstractions.Service.LeaveService.Model
         public string CurrentUser { get; set; } = string.Empty;
         public string IpAddress { get; set; } = string.Empty;
         public string MethodName { get; set; } = string.Empty;
+    }
+
+    public class AdminLeavePolicyModel
+    {
+        public bool CurrentCountSaturday { get; set; }
+        public List<AdminSaturdayPolicyItemModel> SaturdayPolicies { get; set; } = new();
+    }
+
+    public class AdminSaturdayPolicyItemModel
+    {
+        public int Id { get; set; }
+        public DateTime EffectiveFrom { get; set; }
+        public bool CountSaturday { get; set; }
+        public DateTime? CreatedDate { get; set; }
+    }
+
+    public class AdminSaturdayPolicyUpdateModel
+    {
+        public DateTime EffectiveFrom { get; set; }
+        public bool CountSaturday { get; set; }
     }
 }

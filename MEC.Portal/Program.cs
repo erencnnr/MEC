@@ -83,6 +83,7 @@ try
     builder.Services.AddScoped<ISurveyService, SurveyService>();
     builder.Services.AddScoped<IWorkflowNotificationService, SmtpWorkflowNotificationService>();
     builder.Services.AddScoped<ILeaveService, LeaveService>();
+    builder.Services.AddHostedService<LeaveBalanceRefreshService>();
     builder.Services.AddScoped<IOvertimeService, OvertimeService>();
     builder.Services.AddScoped<IApiLogService, ApiLogService>();
     builder.Services.AddScoped<IUserActionLogService, UserActionLogService>();
@@ -123,6 +124,12 @@ try
         builder.Configuration,
         app.Logger);
 
+    if (args.Contains("--seed-test-data-only", StringComparer.OrdinalIgnoreCase))
+    {
+        app.Logger.LogInformation("Test verisi seed işlemi tamamlandı; web sunucusu başlatılmayacak.");
+        return;
+    }
+
     if (!app.Environment.IsDevelopment())
     {
         app.UseExceptionHandler("/Home/Error");
@@ -157,11 +164,19 @@ static void ConfigureApiClient(IServiceProvider serviceProvider, HttpClient clie
 {
     var configuration = serviceProvider.GetRequiredService<IConfiguration>();
     var baseUrl = configuration["WebApi:BaseUrl"];
+    var internalApiKey = configuration["InternalApi:ApiKey"];
 
     if (!string.IsNullOrWhiteSpace(baseUrl))
     {
         client.BaseAddress = new Uri(baseUrl);
     }
+
+    if (string.IsNullOrWhiteSpace(internalApiKey))
+    {
+        throw new InvalidOperationException("Internal API key is not configured.");
+    }
+
+    client.DefaultRequestHeaders.TryAddWithoutValidation("X-MEC-Internal-Key", internalApiKey.Trim());
 }
 
 static string EnsureMySqlConnectionString(string? connectionString)

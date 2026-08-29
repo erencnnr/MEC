@@ -11,6 +11,7 @@ namespace MEC.Application.Abstractions.Service.LeaveService
         Task<BulkLeaveUploadResultModel> BulkUploadLeaveDaysAsync(BulkLeaveUploadRequestModel request);
         Task<List<LeaveTypeOptionModel>> GetActiveLeaveTypeOptionsAsync();
         Task<List<HolidayCalendarItemModel>> GetHolidayCalendarItemsAsync();
+        Task<List<SaturdayPolicyModel>> GetSaturdayPoliciesAsync();
         Task<LeaveRequestValidationModel> ValidateLeaveRequestAsync(LeaveRequestCreateModel request);
         Task<OperationResultModel<LeaveRequestCreateResultModel>> CreateLeaveRequestAsync(LeaveRequestCreateModel request);
         Task DispatchLeaveRequestCreatedNotificationsAsync(LeaveRequestCreatedDispatchModel request);
@@ -26,6 +27,10 @@ namespace MEC.Application.Abstractions.Service.LeaveService
         Task<OperationResultModel> UploadLeaveAgreementsAsync(LeaveAgreementUploadRequestModel request);
         Task<OperationResultModel> UpdateLeaveAgreementAsync(AdminLeaveAgreementUpdateModel model);
         Task<OperationResultModel> UpdateLeaveAgreementPdfAsync(AdminLeaveAgreementPdfUpdateModel model);
+        Task<AdminLeavePolicyModel> GetAdminLeavePolicyAsync();
+        Task<AdminLeaveBalanceResultModel> GetAdminLeaveBalancesAsync(AdminLeaveBalanceQueryModel query);
+        Task<OperationResultModel> UpdateSaturdayPolicyAsync(AdminSaturdayPolicyUpdateModel model);
+        Task RecalculateAllAnnualLeaveBalancesAsync();
         Task<AdminLeaveReportResultModel> GetAdminLeaveReportAsync(AdminLeaveReportQueryModel query);
         Task<LeaveReportExportModel> ExportAdminLeaveReportAsync(AdminLeaveReportQueryModel query);
         Task<OperationResultModel> UpdateLeaveStatusWithLogAsync(LeaveStatusUpdateRequestModel request);

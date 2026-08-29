@@ -120,6 +120,7 @@ namespace MEC.Portal.Controllers
         {
             return new ProfileChildInputViewModel
             {
+                Name = child.Name,
                 Gender = child.Gender,
                 BirthDate = child.BirthDate,
                 EducationStatus = child.EducationStatus
@@ -130,6 +131,7 @@ namespace MEC.Portal.Controllers
         {
             return new PortalUserChildEditModel
             {
+                Name = child.Name,
                 Gender = child.Gender,
                 BirthDate = child.BirthDate,
                 EducationStatus = child.EducationStatus
@@ -143,6 +145,7 @@ namespace MEC.Portal.Controllers
                 .Where(x => x != null)
                 .Select(x => new ProfileChildInputViewModel
                 {
+                    Name = x.Name,
                     Gender = x.Gender,
                     BirthDate = x.BirthDate,
                     EducationStatus = x.EducationStatus

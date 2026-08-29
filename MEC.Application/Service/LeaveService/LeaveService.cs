@@ -25,6 +25,9 @@ public class LeaveService : ILeaveService
     private readonly IGenericRepository<LeaveType> _leaveTypeRepository;
     private readonly IGenericRepository<Holiday> _holidayRepository;
     private readonly IGenericRepository<LeaveAgreement> _leaveAgreementRepository;
+    private readonly IGenericRepository<LeavePolicySetting> _leavePolicyRepository;
+    private readonly IGenericRepository<EmployeePortalLocation> _employeePortalLocationRepository;
+    private readonly IGenericRepository<Location> _locationRepository;
     private readonly IAnnouncementService _announcementService;
     private readonly IUserActionLogService _userActionLogService;
     private readonly IWorkflowNotificationService _workflowNotificationService;
@@ -36,6 +39,9 @@ public class LeaveService : ILeaveService
         IGenericRepository<LeaveType> leaveTypeRepository,
         IGenericRepository<Holiday> holidayRepository,
         IGenericRepository<LeaveAgreement> leaveAgreementRepository,
+        IGenericRepository<LeavePolicySetting> leavePolicyRepository,
+        IGenericRepository<EmployeePortalLocation> employeePortalLocationRepository,
+        IGenericRepository<Location> locationRepository,
         IAnnouncementService announcementService,
         IUserActionLogService userActionLogService,
         IWorkflowNotificationService workflowNotificationService,
@@ -46,6 +52,9 @@ public class LeaveService : ILeaveService
         _leaveTypeRepository = leaveTypeRepository;
         _holidayRepository = holidayRepository;
         _leaveAgreementRepository = leaveAgreementRepository;
+        _leavePolicyRepository = leavePolicyRepository;
+        _employeePortalLocationRepository = employeePortalLocationRepository;
+        _locationRepository = locationRepository;
         _announcementService = announcementService;
         _userActionLogService = userActionLogService;
         _workflowNotificationService = workflowNotificationService;
@@ -75,25 +84,10 @@ public class LeaveService : ILeaveService
             : await CalculateRequestedDaysWithHolidaysAsync(leave.StartDate, leave.EndDate);
         var affectsAnnualBalance = string.Equals(leave.LeaveType?.Code, LeaveTypeCodes.Annual, StringComparison.OrdinalIgnoreCase);
         var statusChanged = leave.Status != status;
-
-        if (statusChanged)
-        {
-            var employeePortal = await _employeePortalRepository.GetByIdAsync(leave.EmployeeId);
-            if (employeePortal != null)
-            {
-                if (affectsAnnualBalance && leave.Status != (int)LeaveStatus.Approved && status == (int)LeaveStatus.Approved)
-                {
-                    employeePortal.LeaveDays -= requestedDays;
-                }
-                else if (affectsAnnualBalance && leave.Status == (int)LeaveStatus.Approved && status != (int)LeaveStatus.Approved)
-                {
-                    employeePortal.LeaveDays += requestedDays;
-                }
-
-                leave.RemainingLeaveDays = employeePortal.LeaveDays;
-                _employeePortalRepository.Update(employeePortal);
-            }
-        }
+        var previousStatus = leave.Status;
+        var employeePortal = statusChanged && affectsAnnualBalance
+            ? await _employeePortalRepository.GetByIdAsync(leave.EmployeeId)
+            : null;
 
         leave.Status = status;
         leave.RequestedDays = requestedDays;
@@ -114,6 +108,27 @@ public class LeaveService : ILeaveService
         }
 
         _leaveRepository.Update(leave);
+
+        if (statusChanged && affectsAnnualBalance && employeePortal != null)
+        {
+            var recalculatedFromAgreement = await RecalculateEmployeeAnnualBalanceAsync(employeePortal, DateTime.Today);
+            if (!recalculatedFromAgreement)
+            {
+                if (previousStatus != (int)LeaveStatus.Approved && status == (int)LeaveStatus.Approved)
+                {
+                    employeePortal.LeaveDays -= requestedDays;
+                }
+                else if (previousStatus == (int)LeaveStatus.Approved && status != (int)LeaveStatus.Approved)
+                {
+                    employeePortal.LeaveDays += requestedDays;
+                }
+
+                _employeePortalRepository.Update(employeePortal);
+            }
+
+            leave.RemainingLeaveDays = employeePortal.LeaveDays;
+            _leaveRepository.Update(leave);
+        }
 
         return true;
     }
@@ -137,7 +152,7 @@ public class LeaveService : ILeaveService
     {
         var holidays = await _holidayRepository.GetAllAsync(x => x.EndDate > x.StartDate);
 
-        return holidays
+        var calendarItems = holidays
             .OrderBy(x => x.StartDate)
             .ThenBy(x => x.EndDate)
             .Select(x => new HolidayCalendarItemModel
@@ -146,6 +161,45 @@ public class LeaveService : ILeaveService
                 Name = x.Name,
                 StartDate = x.StartDate,
                 EndDate = x.EndDate
+            })
+            .ToList();
+
+        var currentYear = DateTime.Today.Year;
+        foreach (var statutoryHoliday in GetFixedStatutoryHolidays(
+                     new DateTime(currentYear - 1, 1, 1),
+                     new DateTime(currentYear + 2, 12, 31, 23, 59, 59)))
+        {
+            if (calendarItems.Any(x =>
+                    x.StartDate == statutoryHoliday.Interval.StartDate &&
+                    x.EndDate == statutoryHoliday.Interval.EndDate))
+            {
+                continue;
+            }
+
+            calendarItems.Add(new HolidayCalendarItemModel
+            {
+                Id = -calendarItems.Count - 1,
+                Name = statutoryHoliday.Name,
+                StartDate = statutoryHoliday.Interval.StartDate,
+                EndDate = statutoryHoliday.Interval.EndDate
+            });
+        }
+
+        return calendarItems
+            .OrderBy(x => x.StartDate)
+            .ThenBy(x => x.EndDate)
+            .ToList();
+    }
+
+    public async Task<List<SaturdayPolicyModel>> GetSaturdayPoliciesAsync()
+    {
+        var policies = await _leavePolicyRepository.GetAllAsync();
+        return policies
+            .OrderBy(x => x.EffectiveFrom)
+            .Select(x => new SaturdayPolicyModel
+            {
+                EffectiveFrom = x.EffectiveFrom.Date,
+                CountSaturday = x.CountSaturday
             })
             .ToList();
     }
@@ -173,15 +227,6 @@ public class LeaveService : ILeaveService
             AddFieldError(result, "EndDate", "Bitiş saati 09:00 ile 18:00 arasında olmalıdır.");
         }
 
-        if (result.FieldErrors.Count == 0)
-        {
-            result.RequestedDays = await CalculateRequestedDaysWithHolidaysAsync(request.StartDate, request.EndDate);
-            if (result.RequestedDays <= 0)
-            {
-                AddFieldError(result, "EndDate", "Seçilen tarih ve saat aralığı için kullanılabilir izin günü hesaplanamadı.");
-            }
-        }
-
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
             AddFieldError(result, "Reason", "İzin nedeni zorunludur.");
@@ -200,6 +245,42 @@ public class LeaveService : ILeaveService
             }
         }
 
+        EmployeePortal? employeePortal = null;
+        if (string.IsNullOrWhiteSpace(request.UserEmail))
+        {
+            AddFieldError(result, "UserEmail", "Kullanıcı kaydı bulunamadı.");
+        }
+        else
+        {
+            employeePortal = (await _employeePortalRepository.GetAllAsync(
+                    x => x.Email == request.UserEmail && !x.IsDeleted))
+                .FirstOrDefault();
+
+            if (employeePortal == null)
+            {
+                AddFieldError(result, "UserEmail", "Kullanıcı kaydı bulunamadı.");
+            }
+            else
+            {
+                await RecalculateEmployeeAnnualBalanceAsync(employeePortal, DateTime.Today);
+            }
+        }
+
+        if (!result.FieldErrors.ContainsKey("StartDate") &&
+            !result.FieldErrors.ContainsKey("EndDate"))
+        {
+            result.RequestedDays = await CalculateRequestedDaysWithHolidaysAsync(request.StartDate, request.EndDate);
+            if (result.RequestedDays <= 0)
+            {
+                AddFieldError(result, "EndDate", "Seçilen tarih ve saat aralığı için kullanılabilir izin günü hesaplanamadı.");
+            }
+        }
+
+        if (result.SelectedLeaveType != null && result.RequestedDays > 0)
+        {
+            ValidateLeaveTypeSpecificRules(result, request, employeePortal);
+        }
+
         result.IsSuccess = result.FieldErrors.Count == 0;
         result.Level = result.IsSuccess ? "success" : "danger";
         result.Message = result.IsSuccess ? string.Empty : "İzin talebi doğrulanamadı.";
@@ -215,17 +296,20 @@ public class LeaveService : ILeaveService
             return OperationResultModel<LeaveRequestCreateResultModel>.Fail("Kullanıcı kaydı bulunamadı.");
         }
 
+        var validation = await ValidateLeaveRequestAsync(request);
+        if (!validation.IsSuccess || validation.SelectedLeaveType == null)
+        {
+            return OperationResultModel<LeaveRequestCreateResultModel>.Fail(
+                validation.Errors.FirstOrDefault() ?? "İzin talebi doğrulanamadı.");
+        }
+
         var leaveType = (await _leaveTypeRepository.GetAllAsync(x => x.Id == request.LeaveTypeId && x.IsActive)).FirstOrDefault();
         if (leaveType == null)
         {
             return OperationResultModel<LeaveRequestCreateResultModel>.Fail("Geçerli bir izin türü seçiniz.");
         }
 
-        var requestedDays = await CalculateRequestedDaysWithHolidaysAsync(request.StartDate, request.EndDate);
-        if (requestedDays <= 0)
-        {
-            return OperationResultModel<LeaveRequestCreateResultModel>.Fail("Seçilen tarih ve saat aralığı için kullanılabilir izin günü hesaplanamadı.");
-        }
+        var requestedDays = validation.RequestedDays;
 
         var approvalRoute = await _approvalWorkflowService.ResolveRouteAsync(employeePortal.Id);
         var routeValidationError = ValidateApprovalRoute(approvalRoute);
@@ -241,6 +325,7 @@ public class LeaveService : ILeaveService
             EndDate = request.EndDate,
             LeaveTypeId = leaveType.Id,
             RequestedDays = requestedDays,
+            MinimumBlockExceptionRequested = request.MinimumBlockExceptionRequested,
             RemainingLeaveDays = employeePortal.LeaveDays,
             Reason = request.Reason.Trim(),
             Status = approvalRoute!.RequiresManagerApproval
@@ -489,6 +574,12 @@ public class LeaveService : ILeaveService
         var currentPage = query.Page < 1 ? 1 : query.Page;
         var pageSize = query.PageSize <= 0 ? 10 : query.PageSize;
         var leaves = await GetAllLeavesAsync();
+
+        if (query.Status.HasValue && Enum.IsDefined(typeof(LeaveStatus), query.Status.Value))
+        {
+            leaves = leaves.Where(x => x.Status == query.Status.Value).ToList();
+        }
+
         var actor = await _approvalWorkflowService.GetActorAsync(query.CurrentUserEmail);
         if (actor == null)
         {
@@ -500,17 +591,13 @@ public class LeaveService : ILeaveService
             };
         }
 
-        var routes = await ResolveRoutesAsync(leaves.Select(x => x.EmployeeId));
+        var routes = await _approvalWorkflowService.ResolveRoutesAsync(leaves.Select(x => x.EmployeeId));
         leaves = leaves
             .Where(x => routes.TryGetValue(x.EmployeeId, out var route) && CanViewRequest(actor, route))
             .ToList();
 
-        if (query.Status.HasValue && Enum.IsDefined(typeof(LeaveStatus), query.Status.Value))
-        {
-            leaves = leaves.Where(x => x.Status == query.Status.Value).ToList();
-        }
-
-        var portalUserNames = await GetPortalUserNamesAsync();
+        var portalUserNames = routes.Values
+            .ToDictionary(x => x.EmployeePortalId, x => x.EmployeeName);
         var mappedItems = leaves
             .Select(x => MapAdminLeaveRequestItem(
                 x,
@@ -696,6 +783,19 @@ public class LeaveService : ILeaveService
                 continue;
             }
 
+            if (!row.BalanceAsOfDate.HasValue || row.BalanceAsOfDate.Value.Date > DateTime.Today)
+            {
+                errorMessages.Add($"{row.RowNumber}. satır: Mutabakat tarihi boş bırakılamaz ve bugünden ileri olamaz.");
+                continue;
+            }
+
+            if (!row.CurrentYearEarnedDays.HasValue || !row.CurrentYearUsedDays.HasValue ||
+                row.CurrentYearEarnedDays.Value < 0 || row.CurrentYearUsedDays.Value < 0)
+            {
+                errorMessages.Add($"{row.RowNumber}. satır: Yıl içinde hak edilen ve kullanılan izin değerleri geçerli olmalıdır.");
+                continue;
+            }
+
             if (!processedEmails.Add(row.Email))
             {
                 errorMessages.Add($"{row.RowNumber}. satır: Aynı Excel içinde bu e-posta adresi daha önce işlendi.");
@@ -711,6 +811,9 @@ public class LeaveService : ILeaveService
             if (agreementsByEmployeeId.TryGetValue(portalUser.Id, out var agreement))
             {
                 agreement.AgreedLeaveDays = row.AgreedLeaveDays.Value;
+                agreement.BalanceAsOfDate = row.BalanceAsOfDate.Value.Date;
+                agreement.CurrentYearEarnedDays = row.CurrentYearEarnedDays.Value;
+                agreement.CurrentYearUsedDays = row.CurrentYearUsedDays.Value;
                 agreement.IsSigned = false;
                 agreement.UpdateDate = DateTime.Now;
                 _leaveAgreementRepository.Update(agreement);
@@ -721,6 +824,9 @@ public class LeaveService : ILeaveService
                 {
                     EmployeePortalId = portalUser.Id,
                     AgreedLeaveDays = row.AgreedLeaveDays.Value,
+                    BalanceAsOfDate = row.BalanceAsOfDate.Value.Date,
+                    CurrentYearEarnedDays = row.CurrentYearEarnedDays.Value,
+                    CurrentYearUsedDays = row.CurrentYearUsedDays.Value,
                     IsSigned = false,
                     CreatedDate = DateTime.Now,
                     UpdateDate = DateTime.Now
@@ -729,6 +835,8 @@ public class LeaveService : ILeaveService
                 await _leaveAgreementRepository.AddAsync(agreement);
                 agreementsByEmployeeId[portalUser.Id] = agreement;
             }
+
+            await RecalculateEmployeeAnnualBalanceAsync(portalUser, DateTime.Today);
 
             updatedCount++;
         }
@@ -755,6 +863,16 @@ public class LeaveService : ILeaveService
             return OperationResultModel.Fail("Mutabık kalınan izin gün değeri negatif olamaz.");
         }
 
+        if (!model.BalanceAsOfDate.HasValue || model.BalanceAsOfDate.Value.Date > DateTime.Today)
+        {
+            return OperationResultModel.Fail("Mutabakat tarihi boş bırakılamaz ve bugünden ileri olamaz.");
+        }
+
+        if (model.CurrentYearEarnedDays < 0 || model.CurrentYearUsedDays < 0)
+        {
+            return OperationResultModel.Fail("Yıl içinde hak edilen ve kullanılan izin günleri negatif olamaz.");
+        }
+
         var agreement = (await _leaveAgreementRepository.GetAllAsync(x => x.Id == model.Id, x => x.EmployeePortal)).FirstOrDefault();
         if (agreement == null)
         {
@@ -762,10 +880,18 @@ public class LeaveService : ILeaveService
         }
 
         agreement.AgreedLeaveDays = model.AgreedLeaveDays;
+        agreement.BalanceAsOfDate = model.BalanceAsOfDate.Value.Date;
+        agreement.CurrentYearEarnedDays = model.CurrentYearEarnedDays;
+        agreement.CurrentYearUsedDays = model.CurrentYearUsedDays;
         agreement.IsSigned = model.IsSigned;
         agreement.UpdateDate = DateTime.Now;
 
         _leaveAgreementRepository.Update(agreement);
+
+        if (agreement.EmployeePortal != null)
+        {
+            await RecalculateEmployeeAnnualBalanceAsync(agreement.EmployeePortal, DateTime.Today);
+        }
 
         return OperationResultModel.Success($"{BuildPortalName(agreement.EmployeePortal, agreement.EmployeePortalId)} için izin mutabakat kaydı güncellendi.");
     }
@@ -793,6 +919,273 @@ public class LeaveService : ILeaveService
         _leaveAgreementRepository.Update(agreement);
 
         return OperationResultModel.Success($"{BuildPortalName(agreement.EmployeePortal, agreement.EmployeePortalId)} için mutabakat PDF'i yüklendi.");
+    }
+
+    public async Task<AdminLeavePolicyModel> GetAdminLeavePolicyAsync()
+    {
+        var policies = (await _leavePolicyRepository.GetAllAsync())
+            .OrderByDescending(x => x.EffectiveFrom)
+            .ThenByDescending(x => x.Id)
+            .ToList();
+        var currentPolicy = policies
+            .Where(x => x.EffectiveFrom.Date <= DateTime.Today)
+            .OrderByDescending(x => x.EffectiveFrom)
+            .FirstOrDefault();
+
+        return new AdminLeavePolicyModel
+        {
+            CurrentCountSaturday = currentPolicy?.CountSaturday ?? false,
+            SaturdayPolicies = policies.Select(x => new AdminSaturdayPolicyItemModel
+            {
+                Id = x.Id,
+                EffectiveFrom = x.EffectiveFrom.Date,
+                CountSaturday = x.CountSaturday,
+                CreatedDate = x.CreatedDate
+            }).ToList()
+        };
+    }
+
+    public async Task<AdminLeaveBalanceResultModel> GetAdminLeaveBalancesAsync(AdminLeaveBalanceQueryModel query)
+    {
+        var actor = await _approvalWorkflowService.GetActorAsync(query.CurrentUserEmail);
+        var canViewAllLocations = actor?.IsAdministrator == true || actor?.IsFinalApprover == true;
+        var isAuthorized = actor != null && (canViewAllLocations || actor.IsLocationManager);
+        var currentPage = query.Page < 1 ? 1 : query.Page;
+        var pageSize = query.PageSize <= 0 ? 20 : Math.Min(query.PageSize, 100);
+        var today = DateTime.Today;
+
+        if (!isAuthorized)
+        {
+            return new AdminLeaveBalanceResultModel
+            {
+                IsAuthorized = false,
+                CurrentPage = 1,
+                TotalPages = 1,
+                PageSize = pageSize
+            };
+        }
+
+        var employees = (await _employeePortalRepository.GetAllAsync(
+                x => !x.IsDeleted && (!x.TerminationDate.HasValue || x.TerminationDate.Value >= today)))
+            .ToList();
+        var employeeIds = employees.Select(x => x.Id).ToHashSet();
+        var assignments = (await _employeePortalLocationRepository.GetAllAsync(
+                x => employeeIds.Contains(x.EmployeePortalId),
+                x => x.Location!))
+            .Where(x => x.Location != null)
+            .ToList();
+        var assignmentsByEmployee = assignments
+            .GroupBy(x => x.EmployeePortalId)
+            .ToDictionary(x => x.Key, x => x.ToList());
+
+        if (!canViewAllLocations)
+        {
+            var managerLocationIds = actor!.LocationIds.ToHashSet();
+            employees = employees
+                .Where(x => assignmentsByEmployee.TryGetValue(x.Id, out var employeeAssignments) &&
+                            employeeAssignments.Any(a => managerLocationIds.Contains(a.LocationId)))
+                .ToList();
+        }
+
+        var visibleEmployeeIds = employees.Select(x => x.Id).ToHashSet();
+        var visibleAssignments = assignments
+            .Where(x => visibleEmployeeIds.Contains(x.EmployeePortalId))
+            .ToList();
+        var permittedLocationIds = canViewAllLocations
+            ? visibleAssignments.Select(x => x.LocationId).Distinct().ToHashSet()
+            : actor!.LocationIds.ToHashSet();
+        var locations = (await _locationRepository.GetAllAsync(x => permittedLocationIds.Contains(x.Id)))
+            .OrderBy(x => x.Name)
+            .ToList();
+
+        if (query.LocationId.HasValue)
+        {
+            employees = permittedLocationIds.Contains(query.LocationId.Value)
+                ? employees.Where(x => assignmentsByEmployee.TryGetValue(x.Id, out var employeeAssignments) &&
+                                       employeeAssignments.Any(a => a.LocationId == query.LocationId.Value)).ToList()
+                : new List<EmployeePortal>();
+        }
+
+        var normalizedSearch = query.SearchText?.Trim();
+        if (!string.IsNullOrWhiteSpace(normalizedSearch))
+        {
+            employees = employees.Where(x =>
+            {
+                var employeeName = BuildPortalName(x);
+                var locationNames = BuildLocationNames(assignmentsByEmployee.GetValueOrDefault(x.Id));
+                return employeeName.Contains(normalizedSearch, StringComparison.CurrentCultureIgnoreCase) ||
+                       (!string.IsNullOrWhiteSpace(x.Email) && x.Email.Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase)) ||
+                       (!string.IsNullOrWhiteSpace(x.Title) && x.Title.Contains(normalizedSearch, StringComparison.CurrentCultureIgnoreCase)) ||
+                       locationNames.Contains(normalizedSearch, StringComparison.CurrentCultureIgnoreCase);
+            }).ToList();
+        }
+
+        employees = employees
+            .OrderBy(x => x.FirstName)
+            .ThenBy(x => x.LastName)
+            .ThenBy(x => x.Id)
+            .ToList();
+
+        var totalCount = employees.Count;
+        var totalPages = totalCount == 0 ? 1 : (int)Math.Ceiling(totalCount / (double)pageSize);
+        currentPage = Math.Min(currentPage, totalPages);
+        var pageEmployees = employees
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+        var pageEmployeeIds = pageEmployees.Select(x => x.Id).ToHashSet();
+        var agreements = (await _leaveAgreementRepository.GetAllAsync(
+                x => pageEmployeeIds.Contains(x.EmployeePortalId)))
+            .ToDictionary(x => x.EmployeePortalId, x => x);
+        var items = new List<AdminLeaveBalanceItemModel>();
+
+        foreach (var employee in pageEmployees)
+        {
+            await RecalculateEmployeeAnnualBalanceAsync(employee, today);
+            agreements.TryGetValue(employee.Id, out var agreement);
+            var completedServiceYears = GetCompletedServiceYears(employee.HireDate, today);
+
+            items.Add(new AdminLeaveBalanceItemModel
+            {
+                EmployeePortalId = employee.Id,
+                EmployeeName = BuildPortalName(employee),
+                Email = employee.Email,
+                Title = employee.Title,
+                LocationNames = BuildLocationNames(assignmentsByEmployee.GetValueOrDefault(employee.Id)),
+                HireDate = employee.HireDate,
+                CompletedServiceYears = completedServiceYears,
+                AnnualEntitlementDays = employee.HireDate.HasValue && employee.HireDate.Value.Year > 1900
+                    ? AnnualLeaveEntitlementCalculator.CalculateEntitlement(employee.HireDate.Value, employee.BirthDate, today)
+                    : 0m,
+                CurrentBalance = employee.LeaveDays,
+                NextEntitlementDate = employee.HireDate.HasValue && employee.HireDate.Value.Year > 1900
+                    ? employee.HireDate.Value.Date.AddYears(Math.Max(1, completedServiceYears + 1))
+                    : null,
+                HasReconciliation = agreement?.BalanceAsOfDate != null,
+                BalanceAsOfDate = agreement?.BalanceAsOfDate,
+                ReconciledOpeningBalance = agreement?.AgreedLeaveDays ?? 0m,
+                CurrentYearEarnedDays = agreement?.CurrentYearEarnedDays ?? 0m,
+                CurrentYearUsedDays = agreement?.CurrentYearUsedDays ?? 0m
+            });
+        }
+
+        return new AdminLeaveBalanceResultModel
+        {
+            IsAuthorized = true,
+            CanViewAllLocations = canViewAllLocations,
+            SearchText = normalizedSearch ?? string.Empty,
+            SelectedLocationId = query.LocationId,
+            LocationOptions = locations.Select(x => new AdminLeaveBalanceLocationOptionModel
+            {
+                Id = x.Id,
+                Name = x.Name
+            }).ToList(),
+            Items = items,
+            CurrentPage = currentPage,
+            TotalPages = totalPages,
+            TotalCount = totalCount,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<OperationResultModel> UpdateSaturdayPolicyAsync(AdminSaturdayPolicyUpdateModel model)
+    {
+        if (model.EffectiveFrom.Year < 2000)
+        {
+            return OperationResultModel.Fail("Geçerli bir başlangıç tarihi giriniz.");
+        }
+
+        var effectiveDate = model.EffectiveFrom.Date;
+        var existingPolicy = (await _leavePolicyRepository.GetAllAsync(
+                x => x.EffectiveFrom == effectiveDate))
+            .FirstOrDefault();
+
+        if (existingPolicy == null)
+        {
+            await _leavePolicyRepository.AddAsync(new LeavePolicySetting
+            {
+                EffectiveFrom = effectiveDate,
+                CountSaturday = model.CountSaturday,
+                CreatedDate = DateTime.Now,
+                UpdateDate = DateTime.Now
+            });
+        }
+        else
+        {
+            existingPolicy.CountSaturday = model.CountSaturday;
+            existingPolicy.UpdateDate = DateTime.Now;
+            _leavePolicyRepository.Update(existingPolicy);
+        }
+
+        var affectedLeaves = (await _leaveRepository.GetAllAsync(
+                x => x.EndDate >= effectiveDate,
+                x => x.LeaveType!))
+            .ToList();
+
+        foreach (var leave in affectedLeaves)
+        {
+            leave.RequestedDays = await CalculateRequestedDaysWithHolidaysAsync(leave.StartDate, leave.EndDate);
+            leave.UpdateDate = DateTime.Now;
+            _leaveRepository.Update(leave);
+        }
+
+        await RecalculateAllAnnualLeaveBalancesAsync();
+
+        return OperationResultModel.Success(
+            $"Cumartesi kuralı {effectiveDate:dd.MM.yyyy} tarihinden itibaren güncellendi. {affectedLeaves.Count} izin kaydı yeniden hesaplandı.");
+    }
+
+    public async Task RecalculateAllAnnualLeaveBalancesAsync()
+    {
+        var employees = (await _employeePortalRepository.GetAllAsync(x => !x.IsDeleted)).ToList();
+        foreach (var employee in employees)
+        {
+            await RecalculateEmployeeAnnualBalanceAsync(employee, DateTime.Today);
+        }
+    }
+
+    private async Task<bool> RecalculateEmployeeAnnualBalanceAsync(EmployeePortal employeePortal, DateTime asOfDate)
+    {
+        var agreement = (await _leaveAgreementRepository.GetAllAsync(
+                x => x.EmployeePortalId == employeePortal.Id))
+            .FirstOrDefault();
+
+        if (agreement?.BalanceAsOfDate == null)
+        {
+            return false;
+        }
+
+        var cutoffDate = agreement.BalanceAsOfDate.Value.Date;
+        var entitlementThrough = employeePortal.TerminationDate.HasValue && employeePortal.TerminationDate.Value.Date < asOfDate.Date
+            ? employeePortal.TerminationDate.Value.Date
+            : asOfDate.Date;
+        var earnedAfterCutoff = 0m;
+
+        if (employeePortal.HireDate.HasValue && employeePortal.HireDate.Value.Year > 1900)
+        {
+            earnedAfterCutoff = AnnualLeaveEntitlementCalculator.GetEntitlements(
+                    employeePortal.HireDate.Value,
+                    employeePortal.BirthDate,
+                    cutoffDate,
+                    entitlementThrough)
+                .Sum(x => x.Days);
+        }
+
+        var approvedAnnualLeaves = await _leaveRepository.GetAllAsync(
+            x => x.EmployeeId == employeePortal.Id &&
+                 x.Status == (int)LeaveStatus.Approved &&
+                 x.StartDate >= cutoffDate.AddDays(1),
+            x => x.LeaveType!);
+        var usedAfterCutoff = approvedAnnualLeaves
+            .Where(x => string.Equals(x.LeaveType?.Code, LeaveTypeCodes.Annual, StringComparison.OrdinalIgnoreCase))
+            .Sum(x => x.RequestedDays > 0
+                ? x.RequestedDays
+                : LeaveDurationCalculator.CalculateRequestedDays(x.StartDate, x.EndDate));
+
+        employeePortal.LeaveDays = agreement.AgreedLeaveDays + earnedAfterCutoff - usedAfterCutoff;
+        employeePortal.UpdateDate = DateTime.Now;
+        _employeePortalRepository.Update(employeePortal);
+        return true;
     }
 
     public async Task<AdminLeaveReportResultModel> GetAdminLeaveReportAsync(AdminLeaveReportQueryModel query)
@@ -1187,7 +1580,15 @@ public class LeaveService : ILeaveService
     private async Task<decimal> CalculateRequestedDaysWithHolidaysAsync(DateTime startDate, DateTime endDate)
     {
         var holidayIntervals = await GetHolidayIntervalsAsync(startDate, endDate);
-        return LeaveDurationCalculator.CalculateRequestedDays(startDate, endDate, holidayIntervals);
+        var saturdayPolicies = (await GetSaturdayPoliciesAsync())
+            .Select(x => new SaturdayLeavePolicy(x.EffectiveFrom, x.CountSaturday))
+            .ToList();
+
+        return LeaveDurationCalculator.CalculateRequestedDays(
+            startDate,
+            endDate,
+            holidayIntervals,
+            saturdayPolicies);
     }
 
     private async Task<List<HolidayInterval>> GetHolidayIntervalsAsync(DateTime startDate, DateTime endDate)
@@ -1199,10 +1600,100 @@ public class LeaveService : ILeaveService
 
         var holidays = await _holidayRepository.GetAllAsync(x => x.StartDate <= endDate && x.EndDate >= startDate);
 
-        return holidays
+        var intervals = holidays
             .Where(x => x.EndDate > x.StartDate)
             .Select(x => new HolidayInterval(x.StartDate, x.EndDate))
             .ToList();
+
+        intervals.AddRange(GetFixedStatutoryHolidays(startDate, endDate)
+            .Select(x => x.Interval));
+
+        return intervals;
+    }
+
+    private static IEnumerable<(string Name, HolidayInterval Interval)> GetFixedStatutoryHolidays(
+        DateTime startDate,
+        DateTime endDate)
+    {
+        for (var year = startDate.Year; year <= endDate.Year; year++)
+        {
+            yield return FullDay("Yılbaşı", new DateTime(year, 1, 1));
+            yield return FullDay("Ulusal Egemenlik ve Çocuk Bayramı", new DateTime(year, 4, 23));
+            yield return FullDay("Emek ve Dayanışma Günü", new DateTime(year, 5, 1));
+            yield return FullDay("Atatürk'ü Anma, Gençlik ve Spor Bayramı", new DateTime(year, 5, 19));
+            yield return FullDay("Demokrasi ve Millî Birlik Günü", new DateTime(year, 7, 15));
+            yield return FullDay("Zafer Bayramı", new DateTime(year, 8, 30));
+            yield return HalfDay("Cumhuriyet Bayramı Arifesi", new DateTime(year, 10, 28));
+            yield return FullDay("Cumhuriyet Bayramı", new DateTime(year, 10, 29));
+        }
+
+        static (string Name, HolidayInterval Interval) FullDay(string name, DateTime day)
+            => (name, new HolidayInterval(day.Date, day.Date.AddDays(1)));
+
+        static (string Name, HolidayInterval Interval) HalfDay(string name, DateTime day)
+            => (name, new HolidayInterval(day.Date.AddHours(13), day.Date.AddDays(1)));
+    }
+
+    private static void ValidateLeaveTypeSpecificRules(
+        LeaveRequestValidationModel result,
+        LeaveRequestCreateModel request,
+        EmployeePortal? employeePortal)
+    {
+        var code = result.SelectedLeaveType?.Code ?? string.Empty;
+        var requestedDays = result.RequestedDays;
+
+        if (string.Equals(code, LeaveTypeCodes.Annual, StringComparison.OrdinalIgnoreCase))
+        {
+            if (employeePortal?.HireDate == null || employeePortal.HireDate.Value.Year <= 1900)
+            {
+                AddFieldError(result, "LeaveTypeId", "Yıllık izin hak edişini doğrulamak için işe giriş tarihi tanımlanmalıdır.");
+            }
+            else if (request.StartDate.Date < employeePortal.HireDate.Value.Date.AddYears(1))
+            {
+                AddFieldError(result, "StartDate", "Yıllık izin hakkı ilk çalışma yılı tamamlandıktan sonra kullanılabilir.");
+            }
+
+            if (requestedDays != 0.5m)
+            {
+                if (requestedDays < 5m)
+                {
+                    AddFieldError(
+                        result,
+                        "EndDate",
+                        "Yıllık izin en az 10 gün blok kullanılmalıdır. Karşılıklı onayla alt sınır 5 gündür; özel durumlarda yarım gün kullanılabilir.");
+                }
+                else if (requestedDays < 10m && !request.MinimumBlockExceptionRequested)
+                {
+                    AddFieldError(
+                        result,
+                        "MinimumBlockExceptionRequested",
+                        "5 ile 9,5 gün arasındaki yıllık izin için karşılıklı onay seçeneğini işaretleyiniz.");
+                }
+            }
+
+            if (employeePortal != null && requestedDays > employeePortal.LeaveDays)
+            {
+                AddFieldError(result, "EndDate", "Talep edilen yıllık izin mevcut izin bakiyesini aşıyor.");
+            }
+
+            return;
+        }
+
+        var maximumDays = code.ToUpperInvariant() switch
+        {
+            LeaveTypeCodes.Marriage => 3m,
+            LeaveTypeCodes.Bereavement => 3m,
+            LeaveTypeCodes.Paternity => 5m,
+            _ => 0m
+        };
+
+        if (maximumDays > 0m && requestedDays > maximumDays)
+        {
+            AddFieldError(
+                result,
+                "EndDate",
+                $"{result.SelectedLeaveType?.Name} en fazla {maximumDays:0.##} gün kullanılabilir.");
+        }
     }
 
     private static void AddFieldError(LeaveRequestValidationModel result, string fieldName, string message)
@@ -1306,6 +1797,7 @@ public class LeaveService : ILeaveService
             DecisionDisplay = GetDecisionDisplay(leave),
             LocationNames = approvalRoute?.LocationNames ?? "-",
             ManagerDecisionDisplay = GetManagerDecisionDisplay(leave),
+            MinimumBlockExceptionRequested = leave.MinimumBlockExceptionRequested,
             CanTakeAction = canTakeAction
         };
     }
@@ -1322,6 +1814,10 @@ public class LeaveService : ILeaveService
             Email = agreement.EmployeePortal?.Email ?? string.Empty,
             PhoneNumber = agreement.EmployeePortal?.PhoneNumber ?? string.Empty,
             AgreedLeaveDays = agreement.AgreedLeaveDays,
+            BalanceAsOfDate = agreement.BalanceAsOfDate,
+            CurrentYearEarnedDays = agreement.CurrentYearEarnedDays,
+            CurrentYearUsedDays = agreement.CurrentYearUsedDays,
+            CurrentBalance = agreement.EmployeePortal?.LeaveDays ?? agreement.AgreedLeaveDays,
             IsSigned = agreement.IsSigned,
             HasAgreementPdf = !string.IsNullOrWhiteSpace(agreement.AgreementPdfFileName),
             AgreementPdfFileName = agreement.AgreementPdfFileName ?? string.Empty,
@@ -1378,6 +1874,35 @@ public class LeaveService : ILeaveService
         }
 
         return portalUserId.HasValue ? $"#{portalUserId.Value}" : "Bilinmiyor";
+    }
+
+    private static string BuildLocationNames(IEnumerable<EmployeePortalLocation>? assignments)
+    {
+        var names = (assignments ?? Enumerable.Empty<EmployeePortalLocation>())
+            .Select(x => x.Location?.Name)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!)
+            .Distinct(StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(x => x)
+            .ToList();
+
+        return names.Count == 0 ? "Atanmamış" : string.Join(", ", names);
+    }
+
+    private static int GetCompletedServiceYears(DateTime? hireDate, DateTime asOfDate)
+    {
+        if (!hireDate.HasValue || hireDate.Value.Year <= 1900 || hireDate.Value.Date > asOfDate.Date)
+        {
+            return 0;
+        }
+
+        var years = asOfDate.Year - hireDate.Value.Year;
+        if (hireDate.Value.Date.AddYears(years) > asOfDate.Date)
+        {
+            years--;
+        }
+
+        return Math.Max(0, years);
     }
 
     private static string GetLeaveTypeName(Leave leave)
@@ -1481,21 +2006,6 @@ public class LeaveService : ILeaveService
         }
 
         return null;
-    }
-
-    private async Task<Dictionary<int, ApprovalRouteModel>> ResolveRoutesAsync(IEnumerable<int> employeeIds)
-    {
-        var routes = new Dictionary<int, ApprovalRouteModel>();
-        foreach (var employeeId in employeeIds.Distinct())
-        {
-            var route = await _approvalWorkflowService.ResolveRouteAsync(employeeId);
-            if (route != null)
-            {
-                routes[employeeId] = route;
-            }
-        }
-
-        return routes;
     }
 
     private static bool CanViewRequest(ApprovalActorModel actor, ApprovalRouteModel? route)
@@ -1750,12 +2260,18 @@ public class LeaveService : ILeaveService
             var email = row.Cell(3).GetString().Trim();
             var phoneNumber = row.Cell(4).GetString().Trim();
             var rawAgreedLeaveDays = row.Cell(5).GetString().Trim();
+            var rawBalanceAsOfDate = row.Cell(6).GetString().Trim();
+            var rawCurrentYearEarnedDays = row.Cell(7).GetString().Trim();
+            var rawCurrentYearUsedDays = row.Cell(8).GetString().Trim();
 
             if (string.IsNullOrWhiteSpace(firstName) &&
                 string.IsNullOrWhiteSpace(lastName) &&
                 string.IsNullOrWhiteSpace(email) &&
                 string.IsNullOrWhiteSpace(phoneNumber) &&
-                string.IsNullOrWhiteSpace(rawAgreedLeaveDays))
+                string.IsNullOrWhiteSpace(rawAgreedLeaveDays) &&
+                string.IsNullOrWhiteSpace(rawBalanceAsOfDate) &&
+                string.IsNullOrWhiteSpace(rawCurrentYearEarnedDays) &&
+                string.IsNullOrWhiteSpace(rawCurrentYearUsedDays))
             {
                 continue;
             }
@@ -1768,11 +2284,27 @@ public class LeaveService : ILeaveService
                 Email = email,
                 PhoneNumber = phoneNumber,
                 RawAgreedLeaveDays = rawAgreedLeaveDays,
-                AgreedLeaveDays = TryReadBulkLeaveDays(row.Cell(5), out var agreedLeaveDays) ? agreedLeaveDays : null
+                AgreedLeaveDays = TryReadBulkLeaveDays(row.Cell(5), out var agreedLeaveDays) ? agreedLeaveDays : null,
+                BalanceAsOfDate = TryReadLeaveAgreementDate(row.Cell(6), out var balanceAsOfDate) ? balanceAsOfDate : null,
+                CurrentYearEarnedDays = TryReadBulkLeaveDays(row.Cell(7), out var currentYearEarnedDays) ? currentYearEarnedDays : null,
+                CurrentYearUsedDays = TryReadBulkLeaveDays(row.Cell(8), out var currentYearUsedDays) ? currentYearUsedDays : null
             });
         }
 
         return rows;
+    }
+
+    private static bool TryReadLeaveAgreementDate(IXLCell cell, out DateTime date)
+    {
+        if (cell.TryGetValue<DateTime>(out date))
+        {
+            date = date.Date;
+            return true;
+        }
+
+        var rawValue = cell.GetString().Trim();
+        return DateTime.TryParse(rawValue, CultureInfo.GetCultureInfo("tr-TR"), DateTimeStyles.AllowWhiteSpaces, out date) ||
+               DateTime.TryParse(rawValue, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out date);
     }
 
     private sealed class LeaveAgreementImportRow
@@ -1784,5 +2316,8 @@ public class LeaveService : ILeaveService
         public string PhoneNumber { get; set; } = string.Empty;
         public string RawAgreedLeaveDays { get; set; } = string.Empty;
         public decimal? AgreedLeaveDays { get; set; }
+        public DateTime? BalanceAsOfDate { get; set; }
+        public decimal? CurrentYearEarnedDays { get; set; }
+        public decimal? CurrentYearUsedDays { get; set; }
     }
 }

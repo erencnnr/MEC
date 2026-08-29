@@ -33,7 +33,8 @@ namespace MEC.Portal.Controllers
         {
             nameof(LeaveRequests),
             nameof(LeaveRequestDetail),
-            nameof(UpdateLeaveStatus)
+            nameof(UpdateLeaveStatus),
+            nameof(LeaveBalances)
         };
 
         private readonly ILeaveService _leaveService;
@@ -261,12 +262,22 @@ namespace MEC.Portal.Controllers
 
         [HttpPost("/Admin/LeaveAgreement/Update/{id:int}")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateLeaveAgreement(int id, decimal agreedLeaveDays, bool isSigned, string? returnUrl = null)
+        public async Task<IActionResult> UpdateLeaveAgreement(
+            int id,
+            decimal agreedLeaveDays,
+            DateTime? balanceAsOfDate,
+            decimal currentYearEarnedDays,
+            decimal currentYearUsedDays,
+            bool isSigned,
+            string? returnUrl = null)
         {
             var result = await _leaveService.UpdateLeaveAgreementAsync(new AdminLeaveAgreementUpdateModel
             {
                 Id = id,
                 AgreedLeaveDays = agreedLeaveDays,
+                BalanceAsOfDate = balanceAsOfDate,
+                CurrentYearEarnedDays = currentYearEarnedDays,
+                CurrentYearUsedDays = currentYearUsedDays,
                 IsSigned = isSigned
             });
 
@@ -274,6 +285,93 @@ namespace MEC.Portal.Controllers
             TempData["LeaveAgreementMessage"] = result.Message;
 
             return RedirectToLeaveAgreementReturnUrl(returnUrl);
+        }
+
+        [HttpGet("/Admin/LeavePolicy")]
+        public async Task<IActionResult> LeavePolicy()
+        {
+            var policy = await _leaveService.GetAdminLeavePolicyAsync();
+            return View(new AdminLeavePolicyViewModel
+            {
+                CurrentCountSaturday = policy.CurrentCountSaturday,
+                SaturdayPolicies = policy.SaturdayPolicies.Select(x => new AdminSaturdayPolicyViewModel
+                {
+                    Id = x.Id,
+                    EffectiveFrom = x.EffectiveFrom,
+                    CountSaturday = x.CountSaturday,
+                    CreatedDate = x.CreatedDate
+                }).ToList()
+            });
+        }
+
+        [HttpGet("/Admin/LeaveBalances")]
+        public async Task<IActionResult> LeaveBalances(
+            string? searchText = null,
+            int? locationId = null,
+            int page = 1)
+        {
+            var result = await _leaveService.GetAdminLeaveBalancesAsync(new AdminLeaveBalanceQueryModel
+            {
+                CurrentUserEmail = User.Identity?.Name ?? string.Empty,
+                SearchText = searchText,
+                LocationId = locationId,
+                Page = page,
+                PageSize = 20
+            });
+
+            if (!result.IsAuthorized)
+            {
+                return Forbid();
+            }
+
+            return View(new AdminLeaveBalanceListViewModel
+            {
+                Items = result.Items.Select(x => new AdminLeaveBalanceViewModel
+                {
+                    EmployeePortalId = x.EmployeePortalId,
+                    EmployeeName = x.EmployeeName,
+                    Email = x.Email,
+                    Title = x.Title,
+                    LocationNames = x.LocationNames,
+                    HireDate = x.HireDate,
+                    CompletedServiceYears = x.CompletedServiceYears,
+                    AnnualEntitlementDays = x.AnnualEntitlementDays,
+                    CurrentBalance = x.CurrentBalance,
+                    NextEntitlementDate = x.NextEntitlementDate,
+                    HasReconciliation = x.HasReconciliation,
+                    BalanceAsOfDate = x.BalanceAsOfDate,
+                    ReconciledOpeningBalance = x.ReconciledOpeningBalance,
+                    CurrentYearEarnedDays = x.CurrentYearEarnedDays,
+                    CurrentYearUsedDays = x.CurrentYearUsedDays
+                }).ToList(),
+                LocationOptions = result.LocationOptions.Select(x => new AdminLeaveBalanceLocationViewModel
+                {
+                    Id = x.Id,
+                    Name = x.Name
+                }).ToList(),
+                CanViewAllLocations = result.CanViewAllLocations,
+                SearchText = result.SearchText,
+                SelectedLocationId = result.SelectedLocationId,
+                CurrentPage = result.CurrentPage,
+                TotalPages = result.TotalPages,
+                TotalCount = result.TotalCount,
+                PageSize = result.PageSize
+            });
+        }
+
+        [HttpPost("/Admin/LeavePolicy/Saturday")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateSaturdayPolicy(DateTime effectiveFrom, bool countSaturday)
+        {
+            var result = await _leaveService.UpdateSaturdayPolicyAsync(new AdminSaturdayPolicyUpdateModel
+            {
+                EffectiveFrom = effectiveFrom,
+                CountSaturday = countSaturday
+            });
+
+            TempData["LeavePolicyLevel"] = result.IsSuccess ? "success" : "error";
+            TempData["LeavePolicyMessage"] = result.Message;
+            return RedirectToAction(nameof(LeavePolicy));
         }
 
         [HttpGet("/Admin/LeaveAgreement/Print/{id:int}")]
@@ -480,6 +578,7 @@ namespace MEC.Portal.Controllers
                 EducationDepartment = model.EducationDepartment,
                 Children = model.Children.Select(x => new PortalUserChildEditModel
                 {
+                    Name = x.Name,
                     Gender = x.Gender,
                     BirthDate = x.BirthDate,
                     EducationStatus = x.EducationStatus
@@ -1040,6 +1139,7 @@ namespace MEC.Portal.Controllers
                 EmployeeName = item.EmployeeName,
                 LeaveType = item.LeaveType,
                 RequestedDays = item.RequestedDays,
+                MinimumBlockExceptionRequested = item.MinimumBlockExceptionRequested,
                 StartDate = item.StartDate,
                 EndDate = item.EndDate,
                 Reason = item.Reason,
@@ -1107,6 +1207,10 @@ namespace MEC.Portal.Controllers
                     Email = x.Email,
                     PhoneNumber = x.PhoneNumber,
                     AgreedLeaveDays = x.AgreedLeaveDays,
+                    BalanceAsOfDate = x.BalanceAsOfDate,
+                    CurrentYearEarnedDays = x.CurrentYearEarnedDays,
+                    CurrentYearUsedDays = x.CurrentYearUsedDays,
+                    CurrentBalance = x.CurrentBalance,
                     IsSigned = x.IsSigned,
                     HasAgreementPdf = x.HasAgreementPdf,
                     AgreementPdfOriginalFileName = x.AgreementPdfOriginalFileName,
@@ -1288,6 +1392,7 @@ namespace MEC.Portal.Controllers
                 EducationDepartment = portalUser.EducationDepartment,
                 Children = portalUser.Children.Select(x => new ProfileChildInputViewModel
                 {
+                    Name = x.Name,
                     Gender = x.Gender,
                     BirthDate = x.BirthDate,
                     EducationStatus = x.EducationStatus
@@ -1327,6 +1432,7 @@ namespace MEC.Portal.Controllers
                 .Where(x => x != null)
                 .Select(x => new ProfileChildInputViewModel
                 {
+                    Name = x.Name,
                     Gender = x.Gender,
                     BirthDate = x.BirthDate,
                     EducationStatus = x.EducationStatus
@@ -1563,7 +1669,11 @@ namespace MEC.Portal.Controllers
             {
                 "Izin Mutabakat Formu",
                 $"Ad Soyad: {fullName}",
-                $"Mutabik Kalinacak Izin Gun Sayisi: {agreement.AgreedLeaveDays.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"))}"
+                $"Mutabakat Tarihi: {(agreement.BalanceAsOfDate?.ToString("dd.MM.yyyy") ?? "-")}",
+                $"Mutabakat Bakiyesi: {agreement.AgreedLeaveDays.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"))}",
+                $"2026 Hak Edilen: {agreement.CurrentYearEarnedDays.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"))}",
+                $"2026 Kullanilan: {agreement.CurrentYearUsedDays.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"))}",
+                $"Guncel Bakiye: {agreement.CurrentBalance.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"))}"
             };
 
             var content = new StringBuilder();

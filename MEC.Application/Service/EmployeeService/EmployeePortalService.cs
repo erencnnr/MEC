@@ -315,6 +315,7 @@ namespace MEC.Application.Service.EmployeeService
                 await _childRepository.AddAsync(new EmployeePortalChild
                 {
                     EmployeePortalId = employeePortalId,
+                    Name = child.Name,
                     Gender = child.Gender!.Value,
                     BirthDate = child.BirthDate!.Value.Date,
                     EducationStatus = child.EducationStatus,
@@ -412,22 +413,30 @@ namespace MEC.Application.Service.EmployeeService
             var normalizedChildren = new List<PortalUserChildEditModel>();
             foreach (var child in children ?? Enumerable.Empty<PortalUserChildEditModel>())
             {
+                var normalizedName = TurkishNameFormatter.Format(child.Name);
+                var hasName = !string.IsNullOrWhiteSpace(normalizedName);
                 var hasGender = child.Gender.HasValue;
                 var hasBirthDate = child.BirthDate.HasValue;
                 var hasEducationStatus = child.EducationStatus.HasValue;
 
-                if (!hasGender && !hasBirthDate && !hasEducationStatus)
+                if (!hasName && !hasGender && !hasBirthDate && !hasEducationStatus)
                 {
                     continue;
                 }
 
-                if (!hasGender || !hasBirthDate || !hasEducationStatus)
+                if (!hasName || !hasGender || !hasBirthDate || !hasEducationStatus)
                 {
-                    return ChildNormalizationResult.Fail("Her çocuk kaydında cinsiyet, doğum tarihi ve eğitim durumu birlikte girilmelidir.");
+                    return ChildNormalizationResult.Fail("Her çocuk kaydında ad, cinsiyet, doğum tarihi ve eğitim durumu birlikte girilmelidir.");
+                }
+
+                if (normalizedName.Length > 100)
+                {
+                    return ChildNormalizationResult.Fail("Çocuk adı en fazla 100 karakter olabilir.");
                 }
 
                 normalizedChildren.Add(new PortalUserChildEditModel
                 {
+                    Name = normalizedName,
                     Gender = child.Gender,
                     BirthDate = child.BirthDate.Value.Date,
                     EducationStatus = child.EducationStatus
@@ -620,6 +629,7 @@ namespace MEC.Application.Service.EmployeeService
         {
             return new PortalUserChildEditModel
             {
+                Name = child.Name,
                 Gender = child.Gender,
                 BirthDate = child.BirthDate,
                 EducationStatus = child.EducationStatus

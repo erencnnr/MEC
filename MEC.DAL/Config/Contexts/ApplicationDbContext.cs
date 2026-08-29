@@ -62,6 +62,7 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<LeaveType> LeaveTypes { get; set; }
         public DbSet<Holiday> Holidays { get; set; }
         public DbSet<LeaveAgreement> LeaveAgreements { get; set; }
+        public DbSet<LeavePolicySetting> LeavePolicySettings { get; set; }
         public DbSet<OvertimeRequest> OvertimeRequests { get; set; }
 
         // Çakışmayı önlemek için sınıfı tam adıyla (MEC.Domain.Entity.Leave.Leave) belirtiyoruz
@@ -189,6 +190,18 @@ namespace MEC.DAL.Config.Contexts
                 .WithMany(x => x.Leaves)
                 .HasForeignKey(x => x.LeaveTypeId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<LeavePolicySetting>()
+                .Property(x => x.CreatedDate)
+                .HasColumnName("created_date");
+
+            modelBuilder.Entity<LeavePolicySetting>()
+                .Property(x => x.UpdateDate)
+                .HasColumnName("update_date");
+
+            modelBuilder.Entity<LeavePolicySetting>()
+                .HasIndex(x => x.EffectiveFrom)
+                .IsUnique();
 
             modelBuilder.Entity<MEC.Domain.Entity.Leave.Leave>()
                 .HasOne(x => x.EmployeePortal)

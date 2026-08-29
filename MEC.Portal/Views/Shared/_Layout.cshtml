@@ -24,6 +24,9 @@
         var isAdminLeaveReportPage = currentPath.Equals("/Admin/LeaveReport", StringComparison.OrdinalIgnoreCase);
         var isAdminLeaveAgreementPage = currentPath.Equals("/Admin/LeaveAgreement", StringComparison.OrdinalIgnoreCase) ||
                                         currentPath.StartsWith("/Admin/LeaveAgreement/", StringComparison.OrdinalIgnoreCase);
+        var isAdminLeavePolicyPage = currentPath.Equals("/Admin/LeavePolicy", StringComparison.OrdinalIgnoreCase) ||
+                                     currentPath.StartsWith("/Admin/LeavePolicy/", StringComparison.OrdinalIgnoreCase);
+        var isAdminLeaveBalancesPage = currentPath.Equals("/Admin/LeaveBalances", StringComparison.OrdinalIgnoreCase);
         var isAdminOvertimeReportPage = currentPath.Equals("/Admin/OvertimeReport", StringComparison.OrdinalIgnoreCase);
         var isAdminPortalUsersPage = currentPath.Equals("/Admin/PortalUsers", StringComparison.OrdinalIgnoreCase) ||
                                      currentPath.StartsWith("/Admin/PortalUsers/", StringComparison.OrdinalIgnoreCase);
@@ -45,7 +48,7 @@
         var isOvertimePage = string.Equals(currentController, "Overtime", StringComparison.OrdinalIgnoreCase);
         var isLibraryPage = currentPath.Equals("/Library", StringComparison.OrdinalIgnoreCase) ||
                             currentPath.StartsWith("/Library/", StringComparison.OrdinalIgnoreCase);
-        var isAdminLeavePage = isAdminLeaveRequestsPage || isAdminLeaveReportPage || isAdminLeaveAgreementPage;
+        var isAdminLeavePage = isAdminLeaveRequestsPage || isAdminLeaveReportPage || isAdminLeaveAgreementPage || isAdminLeavePolicyPage || isAdminLeaveBalancesPage;
         var isAdminSettingsPage = isAdminPortalUsersPage || isAdminSliderPage || isAdminBirthdayPopupPage || isAdminFoodMenuPage || isAdminSurveyPage;
         var isAdminInventoryPage = isAdminAssetsPage || isAdminLoansPage;
         var isAdminOvertimePage = isAdminOvertimeRequestsPage || isAdminOvertimeReportPage;
@@ -173,7 +176,9 @@
                                             <div class="portal-header__nav-submenu-menu">
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveRequests">İzin Talepleri</a>
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveReport">İzin Raporu</a>
+                                                <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveBalances">İzin Bakiyeleri</a>
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveAgreement">İzin Mutabakat</a>
+                                                <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeavePolicy">İzin Politikası</a>
                                             </div>
                                         </div>
 
@@ -204,12 +209,13 @@
                             }
                             else if (isApprovalUser)
                             {
-                                <div class="dropdown portal-header__nav-dropdown @(isAdminLeaveRequestsPage || isAdminOvertimeRequestsPage ? "is-active" : string.Empty)">
-                                    <button class="portal-header__nav-link portal-header__nav-dropdown-toggle dropdown-toggle @(isAdminLeaveRequestsPage || isAdminOvertimeRequestsPage ? "is-active" : string.Empty)" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <div class="dropdown portal-header__nav-dropdown @(isAdminLeaveRequestsPage || isAdminLeaveBalancesPage || isAdminOvertimeRequestsPage ? "is-active" : string.Empty)">
+                                    <button class="portal-header__nav-link portal-header__nav-dropdown-toggle dropdown-toggle @(isAdminLeaveRequestsPage || isAdminLeaveBalancesPage || isAdminOvertimeRequestsPage ? "is-active" : string.Empty)" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         Onay İşlemleri
                                     </button>
                                     <div class="dropdown-menu portal-header__nav-dropdown-menu">
                                         <a class="portal-header__nav-dropdown-item @(isAdminLeaveRequestsPage ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="LeaveRequests">İzin Talepleri</a>
+                                        <a class="portal-header__nav-dropdown-item @(isAdminLeaveBalancesPage ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="LeaveBalances">İzin Bakiyeleri</a>
                                         <a class="portal-header__nav-dropdown-item @(isAdminOvertimeRequestsPage ? "is-active" : string.Empty)" href="/Admin/OvertimeRequests">Mesai Talepleri</a>
                                     </div>
                                 </div>
