@@ -83,7 +83,8 @@ try
     builder.Services.AddScoped<ISurveyService, SurveyService>();
     builder.Services.AddScoped<IWorkflowNotificationService, SmtpWorkflowNotificationService>();
     builder.Services.AddScoped<ILeaveService, LeaveService>();
-    builder.Services.AddHostedService<LeaveBalanceRefreshService>();
+    builder.Services.AddScoped<MEC.Application.Service.LeaveService.AnnualLeaveAccrualJob>();
+    builder.Services.AddScoped<PortalCookieEvents>();
     builder.Services.AddScoped<IOvertimeService, OvertimeService>();
     builder.Services.AddScoped<IApiLogService, ApiLogService>();
     builder.Services.AddScoped<IUserActionLogService, UserActionLogService>();
@@ -95,6 +96,7 @@ try
     builder.Services.AddScoped<ILoanService, LoanService>();
     builder.Services.AddScoped<ILoanStatusService, LoanStatusService>();
     builder.Services.AddScoped<ISchoolService, SchoolService>();
+    builder.Services.AddScoped<ISchoolManagementService, SchoolManagementService>();
     builder.Services.AddScoped<ISchoolClassService, SchoolClassService>();
     builder.Services.AddScoped<IServiceHistoryService, ServiceHistoryService>();
 
@@ -115,9 +117,19 @@ try
             options.LoginPath = "/Account/Login";
             options.LogoutPath = "/Account/Logout";
             options.AccessDeniedPath = "/Account/AccessDenied";
+            options.EventsType = typeof(PortalCookieEvents);
         });
 
     var app = builder.Build();
+
+    if (args.Contains("--annual-leave-job", StringComparer.OrdinalIgnoreCase))
+    {
+        using var scope = app.Services.CreateScope();
+        var today = TurkeyTime.GetDate(DateTime.UtcNow);
+        await scope.ServiceProvider.GetRequiredService<MEC.Application.Service.LeaveService.AnnualLeaveAccrualJob>()
+            .RunAsync(today);
+        return;
+    }
 
     await TestApprovalUserSeeder.SeedAsync(
         app.Services,

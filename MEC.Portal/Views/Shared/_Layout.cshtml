@@ -6,6 +6,7 @@
     <title>@ViewData["Title"] | MEC Portal</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/responsive.css" asp-append-version="true" />
 </head>
 <body class="bg-light">
     @{
@@ -49,7 +50,7 @@
         var isLibraryPage = currentPath.Equals("/Library", StringComparison.OrdinalIgnoreCase) ||
                             currentPath.StartsWith("/Library/", StringComparison.OrdinalIgnoreCase);
         var isAdminLeavePage = isAdminLeaveRequestsPage || isAdminLeaveReportPage || isAdminLeaveAgreementPage || isAdminLeavePolicyPage || isAdminLeaveBalancesPage;
-        var isAdminSettingsPage = isAdminPortalUsersPage || isAdminSliderPage || isAdminBirthdayPopupPage || isAdminFoodMenuPage || isAdminSurveyPage;
+        var isAdminSettingsPage = currentPath.StartsWith("/Admin/Schools", StringComparison.OrdinalIgnoreCase) || isAdminPortalUsersPage || isAdminSliderPage || isAdminBirthdayPopupPage || isAdminFoodMenuPage || isAdminSurveyPage;
         var isAdminInventoryPage = isAdminAssetsPage || isAdminLoansPage;
         var isAdminOvertimePage = isAdminOvertimeRequestsPage || isAdminOvertimeReportPage;
         var isAnnouncementPage =
@@ -103,7 +104,7 @@
     }
 
     <header>
-        <nav class="navbar navbar-expand-lg portal-header mb-4">
+        <nav class="navbar navbar-expand-xl portal-header mb-4">
             <div class="container-fluid px-4 portal-header__inner">
                 <a class="navbar-brand portal-header__brand" asp-area="" asp-controller="Home" asp-action="Index">
                     <span class="portal-header__brand-mark">
@@ -198,6 +199,7 @@
                                             </button>
                                             <div class="portal-header__nav-submenu-menu">
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="PortalUsers">Portal Kullanıcıları</a>
+                                                <a class="portal-header__nav-submenu-item" asp-controller="SchoolSettings" asp-action="Index">Okullar</a>
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="Slider">Slider</a>
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="BirthdayPopup">Doğum Günü Popup</a>
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="FoodMenu">Yemek Menüsü</a>

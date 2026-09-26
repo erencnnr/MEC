@@ -9,6 +9,11 @@ namespace MEC.Domain.Entity.Employee
         [Column("name")]
         public string Name { get; set; } = string.Empty;
 
+        [Column("manager_employee_portal_id")]
+        public int? ManagerEmployeePortalId { get; set; }
+
+        public EmployeePortal? Manager { get; set; }
+
         public ICollection<EmployeePortalLocation> EmployeePortalLocations { get; set; } = new List<EmployeePortalLocation>();
     }
 }

@@ -86,11 +86,19 @@ static void ConfigureWebApiClient(IServiceProvider serviceProvider, HttpClient h
 {
     var configuration = serviceProvider.GetRequiredService<IConfiguration>();
     var baseUrl = configuration["WebApi:BaseUrl"] ?? "https://localhost:7103/";
+    var internalApiKey = configuration["InternalApi:ApiKey"];
 
     if (!string.IsNullOrWhiteSpace(baseUrl) &&
         Uri.TryCreate(baseUrl.EndsWith('/') ? baseUrl : baseUrl + "/", UriKind.Absolute, out var baseAddress))
     {
         httpClient.BaseAddress = baseAddress;
     }
+
+    if (string.IsNullOrWhiteSpace(internalApiKey))
+    {
+        throw new InvalidOperationException("Internal API key is not configured.");
+    }
+
+    httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-MEC-Internal-Key", internalApiKey.Trim());
 }
 

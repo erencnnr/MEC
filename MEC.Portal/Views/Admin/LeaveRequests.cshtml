@@ -63,7 +63,7 @@
                     <span>Sayfa @Model.CurrentPage / @Model.TotalPages</span>
                 </div>
 
-                <div class="table-responsive">
+                <div tabindex="0" role="region" aria-label="Tablo: diğer sütunlar için yatay kaydırın" class="table-responsive">
                     <table class="table leave-history-table admin-leave-table align-middle mb-0">
                         <thead>
                             <tr>
@@ -90,10 +90,7 @@
                                     <td>@item.LeaveType</td>
                                     <td>
                                         @FormatLeaveDays(item.RequestedDays) Gün
-                                        @if (item.MinimumBlockExceptionRequested)
-                                        {
-                                            <small class="d-block">5 günlük blok onayı isteniyor</small>
-                                        }
+
                                     </td>
                                     <td>@item.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
                                     <td>@item.EndDate.ToString("dd.MM.yyyy HH:mm")</td>

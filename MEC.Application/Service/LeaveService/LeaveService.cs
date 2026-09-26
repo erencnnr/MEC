@@ -325,7 +325,7 @@ public class LeaveService : ILeaveService
             EndDate = request.EndDate,
             LeaveTypeId = leaveType.Id,
             RequestedDays = requestedDays,
-            MinimumBlockExceptionRequested = request.MinimumBlockExceptionRequested,
+            MinimumBlockExceptionRequested = false,
             RemainingLeaveDays = employeePortal.LeaveDays,
             Reason = request.Reason.Trim(),
             Status = approvalRoute!.RequiresManagerApproval
@@ -1144,7 +1144,7 @@ public class LeaveService : ILeaveService
         }
     }
 
-    private async Task<bool> RecalculateEmployeeAnnualBalanceAsync(EmployeePortal employeePortal, DateTime asOfDate)
+    public async Task<bool> RecalculateEmployeeAnnualBalanceAsync(EmployeePortal employeePortal, DateTime asOfDate)
     {
         var agreement = (await _leaveAgreementRepository.GetAllAsync(
                 x => x.EmployeePortalId == employeePortal.Id))
@@ -1348,12 +1348,12 @@ public class LeaveService : ILeaveService
             var isManagerStage = leave.Status == (int)LeaveStatus.Pending;
             var isFinalStage = leave.Status == (int)LeaveStatus.PendingFinalApproval;
 
-            if (isManagerStage && !CanTakeManagerAction(actor, approvalRoute))
+            if (isManagerStage && !actor.IsAdministrator && !CanTakeManagerAction(actor, approvalRoute))
             {
                 return OperationResultModel.Fail("Bu izin talebi için okul müdürü onay yetkiniz bulunmuyor.");
             }
 
-            if (isFinalStage && !actor.IsFinalApprover)
+            if (isFinalStage && !actor.IsAdministrator && !actor.IsFinalApprover)
             {
                 return OperationResultModel.Fail("Bu izin talebi Genel Müdürlük onayı bekliyor.");
             }
@@ -1644,38 +1644,6 @@ public class LeaveService : ILeaveService
 
         if (string.Equals(code, LeaveTypeCodes.Annual, StringComparison.OrdinalIgnoreCase))
         {
-            if (employeePortal?.HireDate == null || employeePortal.HireDate.Value.Year <= 1900)
-            {
-                AddFieldError(result, "LeaveTypeId", "Yıllık izin hak edişini doğrulamak için işe giriş tarihi tanımlanmalıdır.");
-            }
-            else if (request.StartDate.Date < employeePortal.HireDate.Value.Date.AddYears(1))
-            {
-                AddFieldError(result, "StartDate", "Yıllık izin hakkı ilk çalışma yılı tamamlandıktan sonra kullanılabilir.");
-            }
-
-            if (requestedDays != 0.5m)
-            {
-                if (requestedDays < 5m)
-                {
-                    AddFieldError(
-                        result,
-                        "EndDate",
-                        "Yıllık izin en az 10 gün blok kullanılmalıdır. Karşılıklı onayla alt sınır 5 gündür; özel durumlarda yarım gün kullanılabilir.");
-                }
-                else if (requestedDays < 10m && !request.MinimumBlockExceptionRequested)
-                {
-                    AddFieldError(
-                        result,
-                        "MinimumBlockExceptionRequested",
-                        "5 ile 9,5 gün arasındaki yıllık izin için karşılıklı onay seçeneğini işaretleyiniz.");
-                }
-            }
-
-            if (employeePortal != null && requestedDays > employeePortal.LeaveDays)
-            {
-                AddFieldError(result, "EndDate", "Talep edilen yıllık izin mevcut izin bakiyesini aşıyor.");
-            }
-
             return;
         }
 
@@ -2017,8 +1985,8 @@ public class LeaveService : ILeaveService
     private static bool CanTakeAction(int status, ApprovalActorModel actor, ApprovalRouteModel? route)
     {
         return route != null &&
-               ((status == (int)LeaveStatus.Pending && CanTakeManagerAction(actor, route)) ||
-                (status == (int)LeaveStatus.PendingFinalApproval && actor.IsFinalApprover));
+               ((status == (int)LeaveStatus.Pending && (actor.IsAdministrator || CanTakeManagerAction(actor, route))) ||
+                (status == (int)LeaveStatus.PendingFinalApproval && (actor.IsAdministrator || actor.IsFinalApprover)));
     }
 
     private static bool CanTakeManagerAction(ApprovalActorModel actor, ApprovalRouteModel route)

@@ -1,0 +1,170 @@
+/* Shared layout: scroll wide data inside its panel, never squeeze columns together. */
+main, .admin-shell, .admin-content, .admin-content__surface,
+.inventory-page, .inventory-table-card, .leave-history-card,
+.profile-page, .profile-card, .dashboard-panel {
+    min-width: 0;
+    max-width: 100%;
+}
+.table-responsive, .admin-food-menu-days-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+}
+.table-responsive:focus-visible {
+    outline: 2px solid var(--brand-1);
+    outline-offset: 2px;
+}
+.table-responsive > table, .admin-food-menu-days-table {
+    table-layout: auto;
+    width: 100%;
+}
+.table-responsive th, .table-responsive td {
+    min-width: 7rem;
+    vertical-align: middle;
+    word-break: normal;
+}
+.table-responsive th { white-space: normal; }
+.table-responsive td { overflow-wrap: break-word; }
+.table-responsive input:not([type="checkbox"]):not([type="hidden"]):not([type="file"]),
+.table-responsive select { min-width: 7rem; max-width: 100%; }
+.table-responsive input[type="date"] { min-width: 10rem; }
+.table-responsive .leave-agreement-table { min-width: 1780px; table-layout: auto; }
+.leave-agreement-table th, .leave-agreement-table td {
+    width: auto;
+    max-width: none;
+    padding: 12px;
+}
+.leave-agreement-table td.leave-agreement-table__name-col,
+.leave-agreement-table td.leave-agreement-table__surname-col {
+    min-width: 9rem;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+.leave-agreement-table .leave-agreement-table__email-col { min-width: 16rem; }
+.leave-agreement-table .leave-agreement-table__actions-col { min-width: 12rem; }
+.inventory-page__header, .inventory-table-card__meta,
+.inventory-table-card__meta-actions, .inventory-page__actions { flex-wrap: wrap; gap: 12px; }
+.inventory-search { min-width: 0; max-width: 100%; }
+img, video { max-width: 100%; }
+.school-settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.school-settings-card { border: 1px solid var(--border-1); border-radius: 12px; background: white; min-width: 0; }
+.school-settings-card summary { padding: 20px; cursor: pointer; color: var(--brand-1); }
+.school-settings-card summary span { display: block; margin-top: 8px; overflow-wrap: anywhere; color: var(--text-2); }
+.school-settings-card form { display: grid; gap: 12px; padding: 0 20px 20px; }
+.school-settings-card select { width: 100%; min-width: 0; }
+.school-settings-card button { justify-self: start; }
+@media (max-width: 991px) {
+    .admin-food-menu-layout, .profile-layout, .dashboard-grid, .home-dual-feed,
+    .library-layout, .inventory-detail-grid { grid-template-columns: minmax(0, 1fr); }
+    .portal-header__nav-submenu { max-width: 100%; }
+}
+@media (max-width: 575px) {
+    body > .container-fluid.px-4, .portal-header__inner { padding-left: 12px !important; padding-right: 12px !important; }
+    .school-settings-grid, .leave-request-form-grid, .leave-detail-grid,
+    .profile-edit-grid, .dashboard-metrics, .home-stats,
+    .inventory-form-grid { grid-template-columns: minmax(0, 1fr); }
+    .inventory-table-card__meta-actions, .inventory-search,
+    .inventory-page__actions { width: 100%; }
+    .inventory-search__input { min-width: 0; width: 100%; }
+    .inventory-page__title { font-size: clamp(1.4rem, 6vw, 2rem); overflow-wrap: anywhere; }
+    .leave-request-actions { flex-wrap: wrap; }
+    .leave-request-actions > * { flex: 1 1 100%; text-align: center; }
+    .modal-dialog { margin: 12px; }
+}
+
+@media (max-width: 1199.98px) {
+    .portal-header__inner {
+        border-radius: 0;
+        padding-top: 12px;
+        padding-bottom: 16px;
+    }
+
+    .portal-header .navbar-collapse {
+        margin-top: 16px;
+    }
+
+    .portal-header__content {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        margin-left: 0;
+        gap: 16px;
+    }
+
+    .portal-header__nav {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr;
+        justify-self: auto;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        gap: 8px;
+    }
+
+    .portal-header__nav-link {
+        width: 100%;
+    }
+
+    .portal-header__nav-dropdown {
+        width: 100%;
+    }
+
+    .portal-header__nav-dropdown-toggle {
+        width: 100%;
+    }
+
+    .portal-header__nav-dropdown-menu {
+        position: static;
+        min-width: 0;
+        margin-top: 8px;
+        transform: none;
+        box-shadow: none;
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        display: none;
+        transition: none;
+    }
+
+    .portal-header__nav-dropdown:hover .portal-header__nav-dropdown-menu,
+    .portal-header__nav-dropdown:focus-within .portal-header__nav-dropdown-menu,
+    .portal-header__nav-dropdown .portal-header__nav-dropdown-menu.show {
+        display: block;
+    }
+
+    .portal-header__actions {
+        width: 100%;
+        min-width: 0;
+        justify-self: auto;
+        align-items: stretch;
+        justify-content: flex-start;
+        flex-direction: column;
+    }
+
+    .portal-header__welcome {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .portal-header__icon-links {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 1199.98px) {
+    .portal-header__inner { flex-wrap: wrap; }
+    .portal-header__nav-submenu-menu {
+        position: static; min-width: 0; max-width: 100%; margin-top: 8px;
+        opacity: 1; visibility: visible; pointer-events: auto; transform: none;
+        box-shadow: none; display: none;
+    }
+    .portal-header__nav-submenu:hover .portal-header__nav-submenu-menu,
+    .portal-header__nav-submenu:focus-within .portal-header__nav-submenu-menu { display: block; }
+}

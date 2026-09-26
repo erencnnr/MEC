@@ -566,7 +566,7 @@ namespace MEC.Portal.Controllers
                 LastName = model.LastName,
                 Email = model.Email,
                 PhoneNumber = model.PhoneNumber,
-                Title = model.Title,
+                Title = model.Title ?? string.Empty,
                 HireDate = model.HireDate,
                 TerminationDate = model.TerminationDate,
                 BirthDate = model.BirthDate,
@@ -599,6 +599,23 @@ namespace MEC.Portal.Controllers
             }
 
             TempData["PortalUserSuccess"] = result.Message;
+            return RedirectToAction(nameof(PortalUserDetail), new { id });
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost("/Admin/PortalUsers/{id:int}/Locations")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> PortalUserLocations(int id, List<int> locationIds)
+        {
+            if (!ModelState.IsValid)
+            {
+                TempData["PortalUserError"] = "Lokasyon seçimi geçersiz. Sayfayı yenileyip tekrar deneyin.";
+            }
+            else
+            {
+                var result = await _employeePortalService.UpdatePortalUserLocationsAsync(id, locationIds);
+                TempData[result.IsSuccess ? "PortalUserSuccess" : "PortalUserError"] = result.Message;
+            }
             return RedirectToAction(nameof(PortalUserDetail), new { id });
         }
 

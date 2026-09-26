@@ -105,6 +105,12 @@ namespace MEC.DAL.Config.Contexts
                 .HasIndex(x => x.Name)
                 .IsUnique();
 
+            modelBuilder.Entity<Location>()
+                .HasOne(x => x.Manager)
+                .WithMany()
+                .HasForeignKey(x => x.ManagerEmployeePortalId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<EmployeePortal>()
                 .Property(x => x.AddressText)
                 .HasColumnType("text");

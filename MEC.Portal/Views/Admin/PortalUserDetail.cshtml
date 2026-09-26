@@ -31,14 +31,17 @@
         }
 
         <div class="leave-detail-card admin-portal-user-card">
+            @if (TempData["PortalUserError"] is string errorMessage)
+            {
+                <div role="alert" class="announcement-form-alert announcement-form-alert--error">@errorMessage</div>
+            }
             <form method="post"
                   class="admin-portal-user-form"
-                  data-child-editor="true"
-                  data-manager-location-form="true">
+                  data-child-editor="true">
                 @Html.AntiForgeryToken()
                 <input asp-for="Id" type="hidden" />
 
-                <div asp-validation-summary="ModelOnly" class="announcement-form-alert announcement-form-alert--error"></div>
+                <div asp-validation-summary="All" role="alert" tabindex="-1" class="announcement-form-alert announcement-form-alert--error"></div>
 
                 <div class="admin-portal-user-loan-actions">
                     @if (Model.HasLoanRecords)
@@ -173,21 +176,16 @@
                                     <input type="checkbox"
                                            name="LocationIds"
                                            value="@locationOption.Value"
-                                           data-manager-location-input="true"
                                            checked="@(isSelected ? "checked" : null)" />
                                     <span>@locationOption.Text</span>
                                 </label>
                             }
                         </div>
                         <small class="admin-portal-user-field-note">Kullanıcının bağlı olduğu lokasyonların tamamını işaretleyebilirsiniz.</small>
-                        <div class="admin-portal-user-location-warning"
-                             data-manager-location-warning="true"
-                             role="status"
-                             hidden>
-                            <strong>Birden fazla okul seçildi.</strong>
-                            <span>Bu müdür, seçili okulların tamamındaki izin ve mesai taleplerini görebilecek.</span>
-                        </div>
                         <span asp-validation-for="LocationIds" class="announcement-form-validation"></span>
+                        <button type="submit" asp-controller="Admin" asp-action="PortalUserLocations" asp-route-id="@Model.Id"
+                                formnovalidate class="announcement-form-actions__save">Lokasyonları Kaydet</button>
+                        <small class="admin-portal-user-field-note">Bu düğme yalnızca lokasyon seçimini kaydeder. Diğer alanlardaki değişiklikler için sayfanın altındaki Kaydet düğmesini kullanın.</small>
                     </div>
 
                     <div class="leave-detail-field leave-detail-field--full">
@@ -219,7 +217,7 @@
 
                     <div class="leave-detail-field">
                         <span>İzin Hakkı</span>
-                        <input asp-for="LeaveDays" type="number" step="0.5" min="0" class="announcement-form-input" />
+                        <input asp-for="LeaveDays" type="number" step="0.5" min="-9999" class="announcement-form-input" />
                         <small class="admin-portal-user-field-note">Mevcut değer: @FormatLeaveDays(Model.LeaveDays) Gün</small>
                         <span asp-validation-for="LeaveDays" class="announcement-form-validation"></span>
                     </div>
@@ -247,14 +245,7 @@
                         </select>
                     </div>
 
-                    <div class="leave-detail-field">
-                        <span>Lokasyon Müdürü</span>
-                        <select asp-for="IsManager" class="announcement-form-input">
-                            <option value="false">Hayır</option>
-                            <option value="true">Evet</option>
-                        </select>
-                        <small class="admin-portal-user-field-note">Müdür, seçili lokasyonlardaki izin ve mesai taleplerinin ilk onayını verir.</small>
-                    </div>
+
                 </div>
 
                 <div class="profile-edit-section">
@@ -402,40 +393,24 @@
     </div>
 }
 
-<div class="modal fade"
-     id="multipleManagerLocationsModal"
-     tabindex="-1"
-     aria-labelledby="multipleManagerLocationsModalLabel"
-     aria-describedby="multipleManagerLocationsModalDescription"
-     aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content admin-portal-user-manager-location-modal">
-            <div class="modal-header">
-                <h2 class="modal-title fs-5" id="multipleManagerLocationsModalLabel">Birden Fazla Okul Ataması</h2>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
-            </div>
-            <div class="modal-body">
-                <p id="multipleManagerLocationsModalDescription">
-                    Müdürü başka bir okula da atamak istiyor musunuz? Bu müdür, seçili okulların tamamındaki izin ve mesai taleplerini görebilecek.
-                </p>
-                <div class="admin-portal-user-manager-location-modal__schools">
-                    <strong>Seçili okullar</strong>
-                    <span data-manager-location-summary="true"></span>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="announcement-form-actions__cancel" data-bs-dismiss="modal">Vazgeç</button>
-                <button type="button"
-                        class="announcement-form-actions__save"
-                        data-confirm-manager-locations="true">Evet, atamayı kaydet</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
+        (function () {
+            var form = document.querySelector(".admin-portal-user-form");
+            function showValidationErrors() {
+                var summary = form.querySelector("[data-valmsg-summary='true']");
+                if (summary && summary.classList.contains("validation-summary-errors")) {
+                    summary.focus();
+                    summary.scrollIntoView({ block: "center" });
+                }
+            }
+            $(form).on("invalid-form.validate", function () {
+                window.setTimeout(showValidationErrors, 0);
+            });
+            showValidationErrors();
+        })();
+
         (function () {
             var statusSelect = document.getElementById("IsDeleted");
             var acknowledgement = document.getElementById("ActiveLoanWarningAccepted");
@@ -455,93 +430,6 @@
             syncLoanWarningRequirement();
         })();
 
-        (function () {
-            var form = document.querySelector("[data-manager-location-form='true']");
-            var managerSelect = document.getElementById("IsManager");
-            var locationInputs = Array.from(document.querySelectorAll("[data-manager-location-input='true']"));
-            var warning = document.querySelector("[data-manager-location-warning='true']");
-            var modalElement = document.getElementById("multipleManagerLocationsModal");
-            var locationSummary = document.querySelector("[data-manager-location-summary='true']");
-            var confirmButton = document.querySelector("[data-confirm-manager-locations='true']");
 
-            if (!form || !managerSelect || !locationInputs.length || !warning || !modalElement || !locationSummary || !confirmButton) {
-                return;
-            }
-
-            var initialManagerValue = managerSelect.value;
-            var initialLocationSignature = getSelectedLocations()
-                .map(function (item) { return item.value; })
-                .sort()
-                .join(",");
-            var multipleLocationsConfirmed = false;
-
-            function getSelectedLocations() {
-                return locationInputs
-                    .filter(function (input) { return input.checked; })
-                    .map(function (input) {
-                        var label = input.closest("label");
-                        var labelText = label ? label.querySelector("span") : null;
-
-                        return {
-                            value: input.value,
-                            name: labelText ? labelText.textContent.trim() : input.value
-                        };
-                    });
-            }
-
-            function isManager() {
-                return managerSelect.value === "true";
-            }
-
-            function hasManagerAssignmentChanged(selectedLocations) {
-                var currentSignature = selectedLocations
-                    .map(function (item) { return item.value; })
-                    .sort()
-                    .join(",");
-
-                return initialManagerValue !== managerSelect.value || initialLocationSignature !== currentSignature;
-            }
-
-            function syncMultipleLocationWarning() {
-                var shouldWarn = isManager() && getSelectedLocations().length > 1;
-                warning.hidden = !shouldWarn;
-            }
-
-            function resetConfirmation() {
-                multipleLocationsConfirmed = false;
-                syncMultipleLocationWarning();
-            }
-
-            locationInputs.forEach(function (input) {
-                input.addEventListener("change", resetConfirmation);
-            });
-            managerSelect.addEventListener("change", resetConfirmation);
-
-            form.addEventListener("submit", function (event) {
-                var selectedLocations = getSelectedLocations();
-                var requiresConfirmation = isManager()
-                    && selectedLocations.length > 1
-                    && hasManagerAssignmentChanged(selectedLocations);
-
-                if (!requiresConfirmation || multipleLocationsConfirmed) {
-                    return;
-                }
-
-                event.preventDefault();
-                locationSummary.textContent = selectedLocations
-                    .map(function (item) { return item.name; })
-                    .join(", ");
-
-                bootstrap.Modal.getOrCreateInstance(modalElement).show();
-            });
-
-            confirmButton.addEventListener("click", function () {
-                multipleLocationsConfirmed = true;
-                bootstrap.Modal.getOrCreateInstance(modalElement).hide();
-                form.requestSubmit();
-            });
-
-            syncMultipleLocationWarning();
-        })();
     </script>
 }

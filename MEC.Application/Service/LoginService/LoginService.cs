@@ -1,4 +1,4 @@
-﻿using MEC.Application.Abstractions.Service.LoginService;
+using MEC.Application.Abstractions.Service.LoginService;
 using MEC.Application.Abstractions.Service.LoginService.Model;
 using Microsoft.Extensions.Configuration;
 using System;
@@ -18,12 +18,41 @@ namespace MEC.Application.Service.LoginService
     {
         private readonly IConfiguration _configuration;
         private readonly IGenericRepository<Employee> _employeeRepository;
-        public LoginService(IConfiguration configuration, IGenericRepository<Employee> employeeRepository)
+        private readonly IGenericRepository<EmployeePortal> _portalRepository;
+        public LoginService(IConfiguration configuration, IGenericRepository<Employee> employeeRepository, IGenericRepository<EmployeePortal> portalRepository)
         {
             _configuration = configuration;
             _employeeRepository = employeeRepository;
+            _portalRepository = portalRepository;
         }
         public async Task<bool> ValidateUserAsync(string usernameOrEmail, string password)
+        {
+            if (_configuration["AppSettings:AdminPassword"] == password) return true;
+            if (!await AuthenticateCredentialsAsync(usernameOrEmail, password)) return false;
+
+            // 2. ADIM: Veritabanı Kontrolü (Admin mi?)
+            // Gönderilen usernameOrEmail değeri ile veritabanındaki Email alanını eşleştiriyoruz.
+            var users = await _employeeRepository.GetAllAsync(x => x.Email == usernameOrEmail && !x.IsDeleted);
+            var employee = users.FirstOrDefault();
+
+            // Kullanıcı veritabanında yoksa VEYA Admin yetkisi (IsAdmin) yoksa giriş başarısız
+            if (employee == null || !employee.IsAdmin)
+            {
+                return false;
+            }
+
+            // Hem LDAP şifresi doğru hem de DB'de Admin yetkisi var
+            return true;
+        }
+
+        public async Task<bool> ValidatePortalUserAsync(string email, string password)
+        {
+            var normalizedEmail = email.Trim();
+            var users = await _portalRepository.GetAllAsync(x => x.Email == normalizedEmail && !x.IsDeleted);
+            return users.Any() && await AuthenticateCredentialsAsync(normalizedEmail, password);
+        }
+
+        private async Task<bool> AuthenticateCredentialsAsync(string usernameOrEmail, string password)
         {
             var isTest = _configuration["AppSettings:AdminPassword"] == password;
 
@@ -68,21 +97,8 @@ namespace MEC.Application.Service.LoginService
             });
 
             // Eğer LDAP girişi başarısızsa direkt false dön
-            if (!isLdapAuthenticated) return false;
+            return isLdapAuthenticated;
 
-            // 2. ADIM: Veritabanı Kontrolü (Admin mi?)
-            // Gönderilen usernameOrEmail değeri ile veritabanındaki Email alanını eşleştiriyoruz.
-            var users = await _employeeRepository.GetAllAsync(x => x.Email == usernameOrEmail && !x.IsDeleted);
-            var employee = users.FirstOrDefault();
-
-            // Kullanıcı veritabanında yoksa VEYA Admin yetkisi (IsAdmin) yoksa giriş başarısız
-            if (employee == null || !employee.IsAdmin)
-            {
-                return false;
-            }
-
-            // Hem LDAP şifresi doğru hem de DB'de Admin yetkisi var
-            return true;
         }
     }
 }

@@ -14,6 +14,7 @@ namespace MEC.Application.Abstractions.Service.EmployeeService
         Task<PortalSelfEditModel?> GetSelfProfileEditAsync(string email);
         Task<EmployeePortal?> GetActivePortalUserByEmailAsync(string email);
         Task<OperationResultModel> UpdatePortalUserAsync(PortalUserEditModel model);
+        Task<OperationResultModel> UpdatePortalUserLocationsAsync(int id, IEnumerable<int>? locationIds);
         Task<OperationResultModel> UpdateSelfProfileAsync(string email, PortalSelfEditModel model);
         Task<bool> RequiresProfileCompletionAsync(string email);
         Task<List<LocationOptionModel>> GetLocationOptionsAsync();

@@ -529,12 +529,12 @@ namespace MEC.Application.Service.OvertimeService
 
             var isManagerStage = overtimeRequest.Status == (int)OvertimeStatus.Pending;
             var isFinalStage = overtimeRequest.Status == (int)OvertimeStatus.PendingFinalApproval;
-            if (isManagerStage && !CanTakeManagerAction(actor, approvalRoute))
+            if (isManagerStage && !actor.IsAdministrator && !CanTakeManagerAction(actor, approvalRoute))
             {
                 return OperationResultModel.Fail("Bu mesai talebi için okul müdürü onay yetkiniz bulunmuyor.");
             }
 
-            if (isFinalStage && !actor.IsFinalApprover)
+            if (isFinalStage && !actor.IsAdministrator && !actor.IsFinalApprover)
             {
                 return OperationResultModel.Fail("Bu mesai talebi Genel Müdürlük onayı bekliyor.");
             }
@@ -962,8 +962,8 @@ namespace MEC.Application.Service.OvertimeService
         private static bool CanTakeAction(int status, ApprovalActorModel actor, ApprovalRouteModel? route)
         {
             return route != null &&
-                   ((status == (int)OvertimeStatus.Pending && CanTakeManagerAction(actor, route)) ||
-                    (status == (int)OvertimeStatus.PendingFinalApproval && actor.IsFinalApprover));
+                   ((status == (int)OvertimeStatus.Pending && (actor.IsAdministrator || CanTakeManagerAction(actor, route))) ||
+                    (status == (int)OvertimeStatus.PendingFinalApproval && (actor.IsAdministrator || actor.IsFinalApprover)));
         }
 
         private static bool CanTakeManagerAction(ApprovalActorModel actor, ApprovalRouteModel route)

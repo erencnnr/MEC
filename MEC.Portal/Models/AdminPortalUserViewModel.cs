@@ -51,7 +51,7 @@ namespace MEC.Portal.Models
         [RegularExpression(@"^(?:0\d{10}|0\d{3} \d{3} \d{2} \d{2})$", ErrorMessage = "Telefon numarası 0 ile başlayan 11 haneli olmalıdır.")]
         public string PhoneNumber { get; set; } = string.Empty;
 
-        public string Title { get; set; } = string.Empty;
+        public string? Title { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime? HireDate { get; set; }
@@ -75,7 +75,7 @@ namespace MEC.Portal.Models
 
         public string? EducationDepartment { get; set; }
 
-        [Range(typeof(decimal), "0", "9999")]
+        [Range(typeof(decimal), "-9999", "9999")]
         public decimal LeaveDays { get; set; }
 
         public bool IsAdmin { get; set; }

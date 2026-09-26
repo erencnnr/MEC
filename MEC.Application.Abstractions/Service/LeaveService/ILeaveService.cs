@@ -31,6 +31,7 @@ namespace MEC.Application.Abstractions.Service.LeaveService
         Task<AdminLeaveBalanceResultModel> GetAdminLeaveBalancesAsync(AdminLeaveBalanceQueryModel query);
         Task<OperationResultModel> UpdateSaturdayPolicyAsync(AdminSaturdayPolicyUpdateModel model);
         Task RecalculateAllAnnualLeaveBalancesAsync();
+        Task<bool> RecalculateEmployeeAnnualBalanceAsync(MEC.Domain.Entity.Employee.EmployeePortal employee, DateTime asOfDate);
         Task<AdminLeaveReportResultModel> GetAdminLeaveReportAsync(AdminLeaveReportQueryModel query);
         Task<LeaveReportExportModel> ExportAdminLeaveReportAsync(AdminLeaveReportQueryModel query);
         Task<OperationResultModel> UpdateLeaveStatusWithLogAsync(LeaveStatusUpdateRequestModel request);

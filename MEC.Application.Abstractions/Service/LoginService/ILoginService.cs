@@ -1,4 +1,4 @@
-﻿using MEC.Application.Abstractions.Application;
+using MEC.Application.Abstractions.Application;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +9,7 @@ namespace MEC.Application.Abstractions.Service.LoginService
 {
     public interface ILoginService : IApplicationService
     {
+        Task<bool> ValidatePortalUserAsync(string email, string password);
         Task<bool> ValidateUserAsync(string usernameOrEmail, string password);
     }
 }

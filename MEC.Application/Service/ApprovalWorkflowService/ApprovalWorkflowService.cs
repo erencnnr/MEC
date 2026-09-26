@@ -10,15 +10,18 @@ namespace MEC.Application.Service.ApprovalWorkflowService
         private readonly IGenericRepository<EmployeePortal> _employeePortalRepository;
         private readonly IGenericRepository<EmployeePortalLocation> _employeePortalLocationRepository;
         private readonly ApprovalWorkflowSettings _settings;
+        private readonly IGenericRepository<Location> _locations;
 
         public ApprovalWorkflowService(
             IGenericRepository<EmployeePortal> employeePortalRepository,
             IGenericRepository<EmployeePortalLocation> employeePortalLocationRepository,
-            ApprovalWorkflowSettings settings)
+            ApprovalWorkflowSettings settings,
+            IGenericRepository<Location> locations)
         {
             _employeePortalRepository = employeePortalRepository;
             _employeePortalLocationRepository = employeePortalLocationRepository;
             _settings = settings;
+            _locations = locations;
         }
 
         public async Task<ApprovalActorModel?> GetActorAsync(string email)
@@ -38,11 +41,8 @@ namespace MEC.Application.Service.ApprovalWorkflowService
                 return null;
             }
 
-            var locationIds = (await _employeePortalLocationRepository.GetAllAsync(
-                    x => x.EmployeePortalId == employee.Id))
-                .Select(x => x.LocationId)
-                .Distinct()
-                .ToList();
+            var locationIds = (await _locations.GetAllAsync(x => x.ManagerEmployeePortalId == employee.Id))
+                .Select(x => x.Id).Distinct().ToList();
 
             return new ApprovalActorModel
             {
@@ -50,7 +50,7 @@ namespace MEC.Application.Service.ApprovalWorkflowService
                 Email = employee.Email,
                 DisplayName = BuildDisplayName(employee),
                 IsAdministrator = employee.IsAdmin,
-                IsLocationManager = employee.IsManager,
+                IsLocationManager = locationIds.Count > 0,
                 IsFinalApprover = EmailsEqual(employee.Email, _settings.FinalApproverEmail),
                 LocationIds = locationIds
             };
@@ -89,26 +89,14 @@ namespace MEC.Application.Service.ApprovalWorkflowService
                     x => activeEmployeeIds.Contains(x.EmployeePortalId),
                     x => x.Location!))
                 .ToList();
-            var allLocationIds = employeeAssignments
-                .Select(x => x.LocationId)
-                .Distinct()
-                .ToList();
-
-            var managerAssignments = allLocationIds.Count == 0
-                ? new List<EmployeePortalLocation>()
-                : (await _employeePortalLocationRepository.GetAllAsync(
-                        x => allLocationIds.Contains(x.LocationId),
-                        x => x.EmployeePortal!))
-                    .ToList();
-
+            var schools = (await _locations.GetAllAsync(x => true, x => x.Manager!)).ToList();
             var finalApprover = await ResolveFinalApproverAsync();
             var assignmentsByEmployee = employeeAssignments.ToLookup(x => x.EmployeePortalId);
-            var managersByLocation = managerAssignments
-                .Where(x => x.EmployeePortal != null &&
-                            !x.EmployeePortal.IsDeleted &&
-                            x.EmployeePortal.IsManager &&
-                            !string.IsNullOrWhiteSpace(x.EmployeePortal.Email))
-                .ToLookup(x => x.LocationId, x => x.EmployeePortal!);
+            var managersByLocation = schools
+                .Where(x => x.Manager != null && !x.Manager.IsDeleted &&
+                            (!x.Manager.TerminationDate.HasValue || x.Manager.TerminationDate > DateTime.Today) &&
+                            !string.IsNullOrWhiteSpace(x.Manager.Email))
+                .ToLookup(x => x.Id, x => x.Manager!);
             var routes = new Dictionary<int, ApprovalRouteModel>();
 
             foreach (var employee in employees)
@@ -136,7 +124,7 @@ namespace MEC.Application.Service.ApprovalWorkflowService
                     EmployeePortalId = employee.Id,
                     EmployeeEmail = employee.Email,
                     EmployeeName = BuildDisplayName(employee),
-                    EmployeeIsLocationManager = employee.IsManager,
+                    EmployeeIsLocationManager = schools.Any(x => x.ManagerEmployeePortalId == employee.Id),
                     LocationIds = locationIds,
                     LocationNames = string.Join(", ", assignments
                     .Select(x => x.Location?.Name)

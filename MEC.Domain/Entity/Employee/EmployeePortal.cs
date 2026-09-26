@@ -34,6 +34,9 @@ namespace MEC.Domain.Entity.Employee
         [Column(TypeName = "decimal(10,2)")]
         public decimal LeaveDays { get; set; }
 
+        [Column("annual_leave_processed_through", TypeName = "date")]
+        public DateTime? AnnualLeaveProcessedThrough { get; set; }
+
         public bool IsAdmin { get; set; }
         public bool IsManager { get; set; }
         public bool IsDeleted { get; set; }

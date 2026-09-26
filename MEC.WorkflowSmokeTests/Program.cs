@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using System.Linq.Expressions;
 using MEC.Application.Abstractions.Service.ApprovalWorkflowService.Model;
 using MEC.Application.Abstractions.Service.LeaveService.Model;
@@ -51,6 +52,12 @@ var finalApprover = new EmployeePortal
     Email = "mustafa.meral@mecokullari.k12.tr"
 };
 
+kosuyolu.ManagerEmployeePortalId = manager.Id;
+kosuyolu.Manager = manager;
+bahcekoy.ManagerEmployeePortalId = otherManager.Id;
+bahcekoy.Manager = otherManager;
+var locations = new MemoryRepository<Location>(kosuyolu, bahcekoy);
+
 var employees = new MemoryRepository<EmployeePortal>(employee, manager, otherManager, finalApprover);
 var assignments = new MemoryRepository<EmployeePortalLocation>(
     Link(1, employee, kosuyolu),
@@ -59,14 +66,16 @@ var assignments = new MemoryRepository<EmployeePortalLocation>(
 var workflow = new ApprovalWorkflowService(
     employees,
     assignments,
-    new ApprovalWorkflowSettings());
+    new ApprovalWorkflowSettings(), locations);
 
 var bulkRoutes = await workflow.ResolveRoutesAsync(new[] { employee.Id, manager.Id, 999 });
+Check(!bulkRoutes[employee.Id].EmployeeIsLocationManager && bulkRoutes[manager.Id].EmployeeIsLocationManager,
+    "Bir okulda çalışmak müdürlük yetkisi vermemeli; okul müdürü ataması esas alınmalı.");
 Check(bulkRoutes.Count == 2 &&
       bulkRoutes[employee.Id].ManagerApprovers.Single().Email == manager.Email &&
       bulkRoutes[manager.Id].ManagerApprovers.Count == 0,
     "Toplu onay rotası çözümü tekil çözümle aynı kapsamı üretmeli.");
-Check(employees.GetAllCallCount == 2 && assignments.GetAllCallCount == 2,
+Check(employees.GetAllCallCount == 2 && assignments.GetAllCallCount == 1 && locations.GetAllCallCount == 1,
     "Toplu onay rotası çözümü çalışan sayısıyla artan sorgular üretmemeli.");
 
 var libraryRoot = new LibraryFolder { Id = 100, Name = "Kök", DisplayOrder = 1 };
@@ -132,9 +141,7 @@ var fiveDayWithoutApproval = await leaveService.ValidateLeaveRequestAsync(new Le
     EndDate = new DateTime(2026, 8, 21, 18, 0, 0),
     Reason = "Beş günlük blok testi"
 });
-Check(!fiveDayWithoutApproval.IsSuccess &&
-      fiveDayWithoutApproval.FieldErrors.ContainsKey("MinimumBlockExceptionRequested"),
-    "5 günlük yıllık izin karşılıklı onay seçilmeden kabul edilmemeli.");
+Check(fiveDayWithoutApproval.IsSuccess, "5 günlük yıllık izin ek onay kutusu olmadan kabul edilmeli.");
 
 var fiveDayWithApproval = await leaveService.ValidateLeaveRequestAsync(new LeaveRequestCreateModel
 {
@@ -398,12 +405,115 @@ Console.WriteLine("PASS: Mustafa Meral ret akışı ve bakiye koruması");
 Console.WriteLine("PASS: Bir kullanıcıya birden fazla lokasyon atanması");
 Console.WriteLine("PASS: Kıdem ve yaşa bağlı yıllık izin hak edişi");
 Console.WriteLine("PASS: Cumartesi parametresi ve yarım gün tatil hesabı");
-Console.WriteLine("PASS: 10 günlük blok, 5 günlük karşılıklı onay ve yarım gün istisnası");
+Console.WriteLine("PASS: Blok sınırı olmadan yıllık izin talebi");
 Console.WriteLine("PASS: Mutabakat açılış bakiyesi ve 2026 bilgi alanlarının ayrılması");
 Console.WriteLine("PASS: Mazeret izni süre sınırları");
 Console.WriteLine("PASS: Okul müdürünün izin bakiyesi lokasyon kapsamı");
 Console.WriteLine("PASS: Mustafa Meral'in tüm okullarda izin bakiyesi araması");
-Console.WriteLine("SMOKE TEST RESULT: 15/15 başarılı");
+// New regression scenarios: independent of the fixed historical workflow fixtures.
+var anniversaryEmployee = new EmployeePortal { HireDate = new DateTime(2025, 9, 27), LeaveDays = -2m };
+Check(AnnualLeaveAccrualCalculator.PendingDays(anniversaryEmployee, new DateTime(2026, 9, 26)) == 0m,
+    "Yıl dönümünden önce izin eklenmemeli.");
+Check(AnnualLeaveAccrualCalculator.PendingDays(anniversaryEmployee, new DateTime(2026, 9, 27)) == 14m,
+    "Mutabakatı olmayan personelin ilk yıl dönümünde 14 gün eklenmeli.");
+anniversaryEmployee.AnnualLeaveProcessedThrough = new DateTime(2026, 9, 27);
+Check(AnnualLeaveAccrualCalculator.PendingDays(anniversaryEmployee, new DateTime(2026, 9, 27)) == 0m,
+    "Aynı gün tekrarlanan job tekrar hak ediş üretmemeli.");
+anniversaryEmployee.AnnualLeaveProcessedThrough = new DateTime(2026, 9, 26);
+Check(AnnualLeaveAccrualCalculator.PendingDays(anniversaryEmployee, new DateTime(2026, 9, 29)) == 14m,
+    "Kaçırılan günün hak edişi sonraki çalıştırmada yakalanmalı.");
+anniversaryEmployee.TerminationDate = new DateTime(2026, 9, 26);
+Check(AnnualLeaveAccrualCalculator.PendingDays(anniversaryEmployee, new DateTime(2026, 9, 29)) == 0m,
+    "İşten çıktıktan sonra hak ediş oluşmamalı.");
+var leapEmployee = new EmployeePortal { HireDate = new DateTime(2024, 2, 29) };
+Check(AnnualLeaveAccrualCalculator.PendingDays(leapEmployee, new DateTime(2025, 2, 28)) == 14m,
+    "29 Şubat işe giriş yıl dönümü 28 Şubat'ta işlenmeli.");
+var veteran = new EmployeePortal { HireDate = new DateTime(2000, 1, 1) };
+Check(AnnualLeaveAccrualCalculator.PendingDays(veteran, new DateTime(2026, 9, 27)) == 0m,
+    "İlk job geçmiş yılların haklarını tekrar eklememeli.");
+Check(AnnualLeaveEntitlementCalculator.CalculateEntitlement(new DateTime(2021, 9, 27), null, new DateTime(2026, 9, 27)) == 14m,
+    "Tam beş yılda 14 gün, altıncı yıl dönümünde 20 gün olmalı.");
+
+var zeroEmployee = new EmployeePortal { Id = 90, FirstName = "Sıfır", LastName = "Bakiye", Email = "zero@mec.local", HireDate = DateTime.Today };
+employees.Items.Add(zeroEmployee);
+assignments.Items.Add(Link(90, zeroEmployee, kosuyolu));
+foreach (var type in new[] { annualType, marriageType })
+{
+    var validation = await leaveService.ValidateLeaveRequestAsync(new LeaveRequestCreateModel
+    {
+        UserEmail = zeroEmployee.Email, LeaveTypeId = type.Id,
+        StartDate = new DateTime(2026, 10, 5, 9, 0, 0), EndDate = new DateTime(2026, 10, 5, 18, 0, 0),
+        Reason = "Sıfır bakiye ve ilk yıl öncesi talep"
+    });
+    Check(validation.IsSuccess, "Sıfır bakiye hiçbir izin türünü engellememeli: " + type.Name);
+}
+var administrator = new EmployeePortal { Id = 91, Email = "assigned-admin@mec.local", IsAdmin = true };
+employees.Items.Add(administrator);
+var negativeLeave = new Leave { Id = 91, EmployeeId = zeroEmployee.Id, LeaveTypeId = annualType.Id,
+    LeaveType = annualType, StartDate = new DateTime(2026, 10, 5), EndDate = new DateTime(2026, 10, 6),
+    RequestedDays = 1, Status = (int)LeaveStatus.Pending };
+leaves.Items.Add(negativeLeave);
+for (var stage = 0; stage < 2; stage++)
+{
+    var approved = await leaveService.UpdateLeaveStatusWithLogAsync(new LeaveStatusUpdateRequestModel
+    { LeaveId = negativeLeave.Id, Status = (int)LeaveStatus.Approved, CurrentUser = administrator.Email, DecisionBy = "Atanmış admin" });
+    Check(approved.IsSuccess, "Admin yetkisi verilen hesap her iki onay aşamasını çalıştırabilmeli.");
+}
+Check(zeroEmployee.LeaveDays == -1m, "Nihai onay sıfır bakiyeyi eksi bire düşürmeli.");
+await leaveService.UpdateLeaveStatusAsync(negativeLeave.Id, (int)LeaveStatus.Approved);
+Check(zeroEmployee.LeaveDays == -1m, "Aynı onayın tekrarı bakiyeyi tekrar düşürmemeli.");
+await leaveService.UpdateLeaveStatusAsync(negativeLeave.Id, (int)LeaveStatus.Cancelled);
+Check(zeroEmployee.LeaveDays == 0m, "İptal edilen yıllık izin bakiyeye geri eklenmeli.");
+var paidLeave = new Leave { Id = 92, EmployeeId = zeroEmployee.Id, LeaveTypeId = marriageType.Id,
+    LeaveType = marriageType, RequestedDays = 1, Status = (int)LeaveStatus.Pending };
+leaves.Items.Add(paidLeave);
+await leaveService.UpdateLeaveStatusAsync(paidLeave.Id, (int)LeaveStatus.Approved);
+Check(zeroEmployee.LeaveDays == 0m, "Evlilik izni yıllık izin bakiyesini azaltmamalı.");
+
+kosuyolu.ManagerEmployeePortalId = otherManager.Id;
+kosuyolu.Manager = otherManager;
+var oldActor = await workflow.GetActorAsync(manager.Email);
+var newActor = await workflow.GetActorAsync(otherManager.Email);
+var reassignedRoute = await workflow.ResolveRouteAsync(zeroEmployee.Id);
+Check(oldActor?.IsLocationManager == false && newActor!.LocationIds.Contains(kosuyolu.Id),
+    "Müdür yetkisi çalıştığı lokasyondan değil okul atamasından türemeli.");
+Check(reassignedRoute!.ManagerApprovers.Single().Email == otherManager.Email,
+    "Müdür değişince yeni talepler yeni müdüre yönlenmeli.");
+administrator.IsAdmin = false;
+Check(!(await workflow.GetActorAsync(administrator.Email))!.IsAdministrator,
+    "Kaldırılan admin rolü güncel kayıttan okunmalı.");
+Console.WriteLine("PASS: Job yıl dönümü, tekrar, kaçırılan gün, 29 Şubat ve işten çıkış");
+Console.WriteLine("PASS: Sıfır bakiye, negatif bakiye, iptal ve yıllık olmayan izin");
+Console.WriteLine("PASS: Atanan admin yetkisi ve okul müdürü değişikliği");
+var loginConfiguration = new TestConfiguration();
+var loginService = new MEC.Application.Service.LoginService.LoginService(loginConfiguration,
+    new MemoryRepository<Employee>(), employees);
+Check(await loginService.ValidatePortalUserAsync(" " + zeroEmployee.Email + " ", "test-only-password"),
+    "Aktif portal kullanıcısı eski employee admin kaydı olmadan oturum açabilmeli.");
+zeroEmployee.IsDeleted = true;
+Check(!await loginService.ValidatePortalUserAsync(zeroEmployee.Email, "test-only-password"),
+    "Pasif portal kullanıcısı oturum açamamalı.");
+Console.WriteLine("PASS: Portal girişi employee_portal kaydını kullanır, pasif kullanıcıyı reddeder");
+var locationEditUser = new EmployeePortal { Id = 1001, Email = "location.test@example.invalid", IsAdmin = true, LeaveDays = 17 };
+var locationEditAssignments = new MemoryRepository<EmployeePortalLocation>();
+var locationEditService = new MEC.Application.Service.EmployeeService.EmployeePortalService(
+    new MemoryRepository<EmployeePortal>(locationEditUser), new MemoryRepository<EmployeePortalChild>(),
+    locationEditAssignments, locations, new MemoryRepository<Leave>(), new MemoryRepository<MEC.Domain.Entity.Loan.Loan>());
+var locationSave = await locationEditService.UpdatePortalUserLocationsAsync(locationEditUser.Id, new[] { kosuyolu.Id, bahcekoy.Id, kosuyolu.Id });
+Check(locationSave.IsSuccess && locationEditAssignments.Items.Count == 2,
+    "Eksik profil alanları lokasyon kaydını engellememeli; tekrar eden seçimler tek kaydedilmeli.");
+Check(locationEditUser.IsAdmin && locationEditUser.LeaveDays == 17,
+    "Lokasyon kaydı yetki veya izin bakiyesini değiştirmemeli.");
+locationSave = await locationEditService.UpdatePortalUserLocationsAsync(locationEditUser.Id, new[] { 999999 });
+Check(!locationSave.IsSuccess && locationEditAssignments.Items.Count == 2,
+    "Geçersiz lokasyon seçimi mevcut atamaları silmemeli.");
+await locationEditService.UpdatePortalUserLocationsAsync(locationEditUser.Id, new[] { bahcekoy.Id });
+Check(locationEditAssignments.Items.Single().LocationId == bahcekoy.Id, "Lokasyon seçimi güncellenebilmeli.");
+await locationEditService.UpdatePortalUserLocationsAsync(locationEditUser.Id, Array.Empty<int>());
+Check(locationEditAssignments.Items.Count == 0, "Tüm lokasyon seçimleri kaldırılabilmeli.");
+Console.WriteLine("PASS: Lokasyonlar eksik profilden bağımsız eklenir, değiştirilir ve kaldırılır");
+Console.WriteLine("SMOKE TEST RESULT: Tüm kontroller başarılı");
+
 
 static EmployeePortalLocation Link(int id, EmployeePortal employee, Location location)
 {
@@ -497,4 +607,12 @@ sealed class CaptureNotifications : IWorkflowNotificationService
     public Task NotifyOvertimeRequestCreatedAsync(OvertimeRequestCreatedNotificationModel model) => Task.CompletedTask;
     public Task NotifyOvertimeRequestCancelledAsync(OvertimeRequestCancelledNotificationModel model) => Task.CompletedTask;
     public Task NotifyOvertimeRequestDecisionAsync(OvertimeRequestDecisionNotificationModel model) => Task.CompletedTask;
+}
+
+sealed class TestConfiguration : IConfiguration
+{
+    public string? this[string key] { get => key == "AppSettings:AdminPassword" ? "test-only-password" : null; set => throw new NotSupportedException(); }
+    public IEnumerable<IConfigurationSection> GetChildren() => Array.Empty<IConfigurationSection>();
+    public Microsoft.Extensions.Primitives.IChangeToken GetReloadToken() => throw new NotSupportedException();
+    public IConfigurationSection GetSection(string key) => throw new NotSupportedException();
 }

@@ -181,15 +181,6 @@
                             <span asp-validation-for="LeaveTypeId" class="leave-request-validation"></span>
                         </div>
 
-                        <div class="leave-request-field leave-request-field--full" id="minimumBlockExceptionField" hidden>
-                            <label class="leave-request-checkbox" for="MinimumBlockExceptionRequested">
-                                <input asp-for="MinimumBlockExceptionRequested" type="checkbox" />
-                                <span>10 günlük blok alt sınırını karşılıklı onayla 5 güne indir</span>
-                            </label>
-                            <span class="leave-request-help">Bu seçenek yalnızca 5 ile 9,5 gün arasındaki yıllık izin taleplerinde kullanılır ve mevcut onay akışında yönetici onayına sunulur.</span>
-                            <span asp-validation-for="MinimumBlockExceptionRequested" class="leave-request-validation"></span>
-                        </div>
-
                         <div class="leave-request-field leave-request-field--full">
                             <label asp-for="Attachment">Ek</label>
                             <input asp-for="Attachment" class="leave-request-input leave-request-input--file" type="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.txt,.doc,.docx,.xls,.xlsx" />
@@ -254,8 +245,6 @@
             const endDateInput = document.getElementById("EndDatePicker");
             const startTimeInput = document.getElementById("StartTimePicker");
             const endTimeInput = document.getElementById("EndTimePicker");
-            const leaveTypeInput = document.getElementById("LeaveTypeId");
-            const minimumBlockExceptionField = document.getElementById("minimumBlockExceptionField");
             let startDatePicker = null;
             let endDatePicker = null;
 
@@ -276,16 +265,6 @@
                 });
 
                 return !countSaturday;
-            }
-
-            function updateMinimumBlockExceptionVisibility() {
-                const selectedOption = leaveTypeInput.options[leaveTypeInput.selectedIndex];
-                const isAnnualLeave = selectedOption && selectedOption.dataset.code === "ANNUAL";
-                minimumBlockExceptionField.hidden = !isAnnualLeave;
-
-                if (!isAnnualLeave) {
-                    document.getElementById("MinimumBlockExceptionRequested").checked = false;
-                }
             }
 
             function isHoliday(date) {
@@ -498,8 +477,6 @@
                 }
             };
 
-            leaveTypeInput.addEventListener("change", updateMinimumBlockExceptionVisibility);
-            updateMinimumBlockExceptionVisibility();
 
             endDatePicker = flatpickr("#EndDatePicker", {
                 ...flatpickrConfig,

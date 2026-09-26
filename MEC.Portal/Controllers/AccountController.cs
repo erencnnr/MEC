@@ -1,4 +1,4 @@
-﻿using MEC.Application.Abstractions.Service.EmployeeService;
+using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.LoginService;
 using MEC.Application.Abstractions.Service.ApprovalWorkflowService.Model;
 using MEC.Portal.Models;
@@ -50,7 +50,8 @@ namespace MEC.Portal.Controllers
                 return View(model);
             }
 
-            bool isAuthenticated = await _loginService.ValidateUserAsync(model.Email, model.Password);
+            model.Email = model.Email.Trim();
+            bool isAuthenticated = await _loginService.ValidatePortalUserAsync(model.Email, model.Password);
             
             if (isAuthenticated)
             {

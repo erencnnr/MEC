@@ -1,0 +1,39 @@
+@model MEC.Application.Abstractions.Service.SchoolService.SchoolManagementModel
+@{
+    ViewData["Title"] = "Okullar";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+<section class="inventory-page">
+    <div class="inventory-page__header">
+        <div>
+            <h1 class="inventory-page__title">Okullar</h1>
+            <p class="inventory-page__subtitle">Okulu açarak izin ve mesai taleplerini değerlendirecek müdürü seçin.</p>
+        </div>
+    </div>
+    @if (TempData["SchoolMessage"] is string message)
+    {
+        <div class="inventory-inline-alert" role="status">@message</div>
+    }
+    <div class="school-settings-grid">
+        @foreach (var school in Model.Schools)
+        {
+            <details class="school-settings-card">
+                <summary>
+                    <strong>@school.Name</strong>
+                    <span>@(Model.Users.FirstOrDefault(x => x.Id == school.ManagerId)?.Name ?? "Müdür seçilmedi")</span>
+                </summary>
+                <form method="post" asp-controller="SchoolSettings" asp-action="AssignManager" asp-route-id="@school.Id">
+                    <label for="manager-@school.Id">Okul müdürü</label>
+                    <select id="manager-@school.Id" name="managerId" class="inventory-select">
+                        <option value="">Müdür seçilmedi</option>
+                        @foreach (var user in Model.Users)
+                        {
+                            <option value="@user.Id" selected="@(user.Id == school.ManagerId)">@user.Name</option>
+                        }
+                    </select>
+                    <button type="submit" class="inventory-button">Kaydet</button>
+                </form>
+            </details>
+        }
+    </div>
+</section>

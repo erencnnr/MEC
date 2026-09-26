@@ -354,6 +354,7 @@ internal static class TestApprovalUserSeeder
         {
             var user = usersByEmail[definition.Email];
             var location = locations[definition.LocationIndex];
+            if (definition.IsManager) location.ManagerEmployeePortalId = user.Id;
             if (currentAssignments.Contains((user.Id, location.Id)))
             {
                 continue;

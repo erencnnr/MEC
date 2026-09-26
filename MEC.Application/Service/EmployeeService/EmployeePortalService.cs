@@ -231,7 +231,7 @@ namespace MEC.Application.Service.EmployeeService
             portalUser.BirthDate = NormalizeOptionalDate(model.BirthDate);
             portalUser.LeaveDays = model.LeaveDays;
             portalUser.IsAdmin = model.IsAdmin;
-            portalUser.IsManager = model.IsManager;
+            // School manager assignments are maintained in school settings.
             portalUser.IsDeleted = model.IsDeleted;
             portalUser.AddressText = NormalizeOptionalText(model.AddressText);
             portalUser.MaritalStatus = model.MaritalStatus;
@@ -244,6 +244,20 @@ namespace MEC.Application.Service.EmployeeService
             await ReplaceLocationsAsync(model.Id, normalizedLocationIds);
             await ReplaceChildrenAsync(model.Id, childValidation.Children);
             return OperationResultModel.Success("Portal kullanÄ±cÄ±sÄ± gÃ¼ncellendi.");
+        }
+
+        public async Task<OperationResultModel> UpdatePortalUserLocationsAsync(int id, IEnumerable<int>? locationIds)
+        {
+            if (await _repository.GetByIdAsync(id) == null)
+                return OperationResultModel.Fail("Portal kullanıcısı bulunamadı.");
+
+            var selectedIds = NormalizeLocationIds(locationIds);
+            var existingIds = (await _locationRepository.GetAllAsync()).Select(x => x.Id).ToHashSet();
+            if (selectedIds.Any(x => !existingIds.Contains(x)))
+                return OperationResultModel.Fail("Seçilen lokasyon bulunamadı. Sayfayı yenileyip tekrar deneyin.");
+
+            await ReplaceLocationsAsync(id, selectedIds);
+            return OperationResultModel.Success("Kullanıcının lokasyonları kaydedildi.");
         }
 
         public async Task<OperationResultModel> UpdateSelfProfileAsync(string email, PortalSelfEditModel model)

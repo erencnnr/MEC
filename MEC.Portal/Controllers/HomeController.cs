@@ -13,6 +13,7 @@ namespace MEC.Portal.Controllers
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
+        private readonly MEC.Application.Abstractions.Service.ApprovalWorkflowService.IApprovalWorkflowService _workflow;
         private readonly IAnnouncementService _announcementService;
         private readonly IEmployeePortalService _employeePortalService;
         private readonly ISliderService _sliderService;
@@ -27,9 +28,11 @@ namespace MEC.Portal.Controllers
             ISliderService sliderService,
             ISliderImageApiClient sliderImageApiClient,
             IBirthdayPopupService birthdayPopupService,
-            IBirthdayPopupImageApiClient birthdayPopupImageApiClient)
+            IBirthdayPopupImageApiClient birthdayPopupImageApiClient,
+            MEC.Application.Abstractions.Service.ApprovalWorkflowService.IApprovalWorkflowService workflow)
         {
             _logger = logger;
+            _workflow = workflow;
             _announcementService = announcementService;
             _employeePortalService = employeePortalService;
             _sliderService = sliderService;
@@ -50,7 +53,8 @@ namespace MEC.Portal.Controllers
 
             var canViewAllEmployees = currentPortalUser != null &&
                                       (currentPortalUser.IsAdmin || User.IsInRole("FinalApprover"));
-            var canViewLocationEmployees = currentPortalUser?.IsManager == true;
+            var actor = await _workflow.GetActorAsync(User.Identity?.Name ?? string.Empty);
+            var canViewLocationEmployees = actor?.IsLocationManager == true;
             var canViewEmployeeDirectory = canViewAllEmployees || canViewLocationEmployees;
             var visibleEmployees = new List<EmployeePortal>();
 
@@ -60,9 +64,7 @@ namespace MEC.Portal.Controllers
 
                 if (!canViewAllEmployees)
                 {
-                    var managerLocationIds = currentPortalUser!.EmployeePortalLocations
-                        .Select(x => x.LocationId)
-                        .ToHashSet();
+                    var managerLocationIds = actor!.LocationIds.ToHashSet();
 
                     visibleEmployees = visibleEmployees
                         .Where(x => x.EmployeePortalLocations.Any(assignment => managerLocationIds.Contains(assignment.LocationId)))

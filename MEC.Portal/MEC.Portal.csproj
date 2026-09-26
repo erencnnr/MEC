@@ -20,4 +20,10 @@
     <ProjectReference Include="..\MEC.Domain\MEC.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Scripts\*.ps1" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="DatabaseScripts\mysql_school_managers_annual_job.sql" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="Docs\annual-leave-job-deployment.md" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
