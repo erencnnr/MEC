@@ -1,0 +1,8 @@
+@model MEC.Application.Service.LeaveService.PolicyPreview
+@{ ViewData["SettingsSection"] = Model.Year.HasValue ? "calendar" : "policy"; ViewData["Title"]="Takvim değişikliği önizlemesi"; Layout="~/Views/Shared/_SettingsLayout.cshtml"; }
+<link rel="stylesheet" href="~/css/leave-accounting.css" /><section class="leave-accounting"><h1>Değişiklik önizlemesi</h1>
+<p>Yalnız henüz başlamamış izinler güncellenir. Onaylı yıllık izinlerde fark bakiyeye birlikte işlenir.</p>
+<div class="accounting-table"><table><thead><tr><th>İzin</th><th>Personel</th><th>Eski gün</th><th>Yeni gün</th><th>Bakiye farkı</th></tr></thead><tbody>
+@foreach(var row in Model.Changes){<tr><td>@row.LeaveId</td><td>@row.EmployeeId</td><td>@row.Before</td><td>@row.After</td><td>@(row.Status == 1 && row.Annual ? row.Before-row.After : 0)</td></tr>}
+</tbody></table></div><form action="/Admin/LeaveAccounts/PolicyPublish" method="post">@Html.AntiForgeryToken()
+<input type="hidden" name="year" value="@Model.Year" /><input type="hidden" name="effectiveFrom" value="@Model.EffectiveFrom?.ToString("yyyy-MM-dd")" /><input type="hidden" name="countSaturday" value="@Model.CountSaturday.ToString().ToLowerInvariant()" /><input type="hidden" name="token" value="@Model.Token" /><button>Onayla ve kullanıma aç</button></form></section>

@@ -36,6 +36,7 @@ namespace MEC.Application.Abstractions.Service.LeaveService.Model
 
     public class AdminLeaveAgreementUpdateModel
     {
+        public string CurrentUser { get; set; } = string.Empty;
         public int Id { get; set; }
         public decimal AgreedLeaveDays { get; set; }
         public DateTime? BalanceAsOfDate { get; set; }
@@ -46,6 +47,7 @@ namespace MEC.Application.Abstractions.Service.LeaveService.Model
 
     public class AdminLeaveAgreementPdfUpdateModel
     {
+        public string CurrentUser { get; set; } = string.Empty;
         public int Id { get; set; }
         public string FileName { get; set; } = string.Empty;
         public string OriginalFileName { get; set; } = string.Empty;

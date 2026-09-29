@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.AspNetCore.Authorization;
 using ClosedXML.Excel;
 using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.LeaveService;
@@ -277,6 +278,7 @@ namespace MEC.Portal.Controllers
             return RedirectToAction(nameof(RequestLeave));
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost("/Leave/BulkLeaveUpload")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> BulkLeaveUpload(IFormFile? file)
@@ -313,6 +315,7 @@ namespace MEC.Portal.Controllers
             return Json(CreateBulkLeaveResponse(result, errorReportUrl));
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpGet("/Leave/BulkLeaveUpload/ErrorReport/{token}")]
         public IActionResult DownloadBulkLeaveErrorReport(string token)
         {
@@ -330,6 +333,7 @@ namespace MEC.Portal.Controllers
                 fileName);
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpGet("/Leave/BulkLeaveUpload/Template")]
         public IActionResult DownloadBulkLeaveUploadTemplate()
         {

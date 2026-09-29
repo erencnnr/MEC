@@ -63,7 +63,8 @@ namespace MEC.DAL.Config.Applicaiton.EntityFramework
 
         public void Update(T entity)
         {
-            _dbSet.Update(entity);
+            // Preserve property-level changes on tracked entities.
+            if (_context.Entry(entity).State == EntityState.Detached) _dbSet.Update(entity);
             _context.SaveChanges(); 
         }
     }

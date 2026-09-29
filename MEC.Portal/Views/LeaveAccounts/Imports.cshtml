@@ -1,0 +1,13 @@
+@model List<MEC.Domain.Entity.Leave.LeaveImportBatch>
+@{
+    ViewData["SettingsSection"] = "imports";Layout="~/Views/Shared/_SettingsLayout.cshtml";ViewData["Title"]="Excel yükleme geçmişi";}
+<link rel="stylesheet" href="~/css/leave-accounting.css" />
+<div class="leave-accounting"><h1>Excel yükleme geçmişi</h1>
+@foreach(var batch in Model){<details><summary>@batch.CreatedDate?.ToString("dd.MM.yyyy HH:mm") · @batch.Actor</summary>
+@if(string.IsNullOrEmpty(batch.ResultJson)){<p>Sonuç tamamlanmamış. Aynı dosya yeniden gönderildiğinde başarılı satırlar atlanır.</p>}
+else{var result=System.Text.Json.JsonSerializer.Deserialize<MEC.Application.Abstractions.Service.LeaveService.Model.BulkLeaveUploadResultModel>(batch.ResultJson)!;
+<p>@result.Message</p><div class="accounting-table"><table><thead><tr><th>Satır</th><th>E-posta</th><th>Sonuç</th></tr></thead><tbody>
+@foreach(var row in result.UpdatedUsers){<tr><td></td><td>@row.Email</td><td>Gün eklendi. Bakiye: @row.NewLeaveDays</td></tr>}
+@foreach(var row in result.FailedRows){<tr><td>@row.RowNumber</td><td>@row.Email</td><td>@row.ErrorMessage</td></tr>}
+</tbody></table></div>}</details>}
+</div>

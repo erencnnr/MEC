@@ -53,6 +53,7 @@ namespace MEC.Application.Abstractions.Service.EmployeeService.Model
 
     public class PortalUserEditModel
     {
+        public string CurrentUser { get; set; } = string.Empty;
         public int Id { get; set; }
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;

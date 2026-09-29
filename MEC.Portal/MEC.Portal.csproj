@@ -22,6 +22,8 @@
 
   <ItemGroup>
     <None Update="Scripts\*.ps1" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="DatabaseScripts\mysql_leave_accounting.sql" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="Docs\leave-accounting-deployment.md" CopyToPublishDirectory="PreserveNewest" />
     <None Update="DatabaseScripts\mysql_school_managers_annual_job.sql" CopyToPublishDirectory="PreserveNewest" />
     <None Update="Docs\annual-leave-job-deployment.md" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>

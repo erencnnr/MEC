@@ -114,6 +114,11 @@ internal static class TestApprovalUserSeeder
 
         using var scope = services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        if (await dbContext.LeaveAccounts.AnyAsync())
+        {
+            logger.LogInformation("İzin hesapları mevcut; test verileri tarih ve bakiye kayıtlarını korumak için yeniden yazılmadı.");
+            return;
+        }
         var now = DateTime.Now;
 
         var locations = await EnsureLocationsAsync(dbContext, now);

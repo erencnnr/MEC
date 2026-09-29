@@ -50,7 +50,7 @@
         var isLibraryPage = currentPath.Equals("/Library", StringComparison.OrdinalIgnoreCase) ||
                             currentPath.StartsWith("/Library/", StringComparison.OrdinalIgnoreCase);
         var isAdminLeavePage = isAdminLeaveRequestsPage || isAdminLeaveReportPage || isAdminLeaveAgreementPage || isAdminLeavePolicyPage || isAdminLeaveBalancesPage;
-        var isAdminSettingsPage = currentPath.StartsWith("/Admin/Schools", StringComparison.OrdinalIgnoreCase) || isAdminPortalUsersPage || isAdminSliderPage || isAdminBirthdayPopupPage || isAdminFoodMenuPage || isAdminSurveyPage;
+        var isAdminSettingsPage = ViewData["IsSettingsPage"] is true || currentPath.Equals("/Admin/Settings", StringComparison.OrdinalIgnoreCase) || currentPath.StartsWith("/Admin/Schools", StringComparison.OrdinalIgnoreCase) || isAdminPortalUsersPage || isAdminSliderPage || isAdminBirthdayPopupPage || isAdminFoodMenuPage || isAdminSurveyPage;
         var isAdminInventoryPage = isAdminAssetsPage || isAdminLoansPage;
         var isAdminOvertimePage = isAdminOvertimeRequestsPage || isAdminOvertimeReportPage;
         var isAnnouncementPage =
@@ -176,6 +176,7 @@
                                             </button>
                                             <div class="portal-header__nav-submenu-menu">
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveRequests">İzin Talepleri</a>
+                                        @if(User.IsInRole("Admin") || User.IsInRole("FinalApprover")){<a class="portal-header__nav-dropdown-item" href="/Admin/LeaveCancellations">İptal Talepleri</a>}
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveReport">İzin Raporu</a>
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveBalances">İzin Bakiyeleri</a>
                                                 <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="LeaveAgreement">İzin Mutabakat</a>
@@ -193,19 +194,7 @@
                                             </div>
                                         </div>
 
-                                        <div class="portal-header__nav-submenu">
-                                            <button class="portal-header__nav-dropdown-item portal-header__nav-submenu-toggle" type="button">
-                                                Ayarlar
-                                            </button>
-                                            <div class="portal-header__nav-submenu-menu">
-                                                <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="PortalUsers">Portal Kullanıcıları</a>
-                                                <a class="portal-header__nav-submenu-item" asp-controller="SchoolSettings" asp-action="Index">Okullar</a>
-                                                <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="Slider">Slider</a>
-                                                <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="BirthdayPopup">Doğum Günü Popup</a>
-                                                <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="FoodMenu">Yemek Menüsü</a>
-                                                <a class="portal-header__nav-submenu-item" asp-controller="Admin" asp-action="Surveys">Anket Yönetimi</a>
-                                            </div>
-                                        </div>
+                                        <a class="portal-header__nav-dropdown-item @(isAdminSettingsPage ? "is-active" : "")" href="/Admin/Settings">Ayarlar</a>
                                     </div>
                                 </div>
                             }
@@ -217,6 +206,7 @@
                                     </button>
                                     <div class="dropdown-menu portal-header__nav-dropdown-menu">
                                         <a class="portal-header__nav-dropdown-item @(isAdminLeaveRequestsPage ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="LeaveRequests">İzin Talepleri</a>
+                                        @if(User.IsInRole("Admin") || User.IsInRole("FinalApprover")){<a class="portal-header__nav-dropdown-item" href="/Admin/LeaveCancellations">İptal Talepleri</a>}
                                         <a class="portal-header__nav-dropdown-item @(isAdminLeaveBalancesPage ? "is-active" : string.Empty)" asp-controller="Admin" asp-action="LeaveBalances">İzin Bakiyeleri</a>
                                         <a class="portal-header__nav-dropdown-item @(isAdminOvertimeRequestsPage ? "is-active" : string.Empty)" href="/Admin/OvertimeRequests">Mesai Talepleri</a>
                                     </div>

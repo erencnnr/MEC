@@ -1,0 +1,38 @@
+@{
+    Layout = "_Layout";
+    var selected = ViewData["SettingsSection"]?.ToString() ?? "overview";
+    ViewData["IsSettingsPage"] = true;
+}
+
+<link rel="stylesheet" href="~/css/admin-settings.css" asp-append-version="true" />
+<div class="settings-shell">
+    <aside class="settings-sidebar" aria-label="Ayarlar">
+        <div class="settings-sidebar__heading">Ayarlar</div>
+        <button class="settings-sidebar__toggle" type="button" data-bs-toggle="collapse"
+                data-bs-target="#settingsNavigation" aria-expanded="false" aria-controls="settingsNavigation">
+            Ayarlar menüsü
+        </button>
+        <nav id="settingsNavigation" class="settings-sidebar__navigation collapse" aria-label="Ayarlar bölümleri">
+            <a href="/Admin/Settings" class="settings-sidebar__link @(selected == "overview" ? "is-active" : "")"
+               aria-current="@(selected == "overview" ? "page" : null)">Genel Bakış</a>
+            @foreach (var group in AdminSettingsNavigation.Groups)
+            {
+                <div class="settings-sidebar__group">
+                    <div class="settings-sidebar__label">@group.Title</div>
+                    @foreach (var item in group.Links)
+                    {
+                        <a href="@item.Url" class="settings-sidebar__link @(selected == item.Key ? "is-active" : "")"
+                           aria-current="@(selected == item.Key ? "page" : null)">@item.Title</a>
+                    }
+                </div>
+            }
+        </nav>
+    </aside>
+    <div class="settings-content">
+        @RenderBody()
+    </div>
+</div>
+
+@section Scripts {
+    @await RenderSectionAsync("Scripts", required: false)
+}

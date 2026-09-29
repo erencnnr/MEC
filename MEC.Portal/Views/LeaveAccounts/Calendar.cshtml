@@ -1,0 +1,50 @@
+@model MEC.Portal.Controllers.CalendarEditPage
+@{
+    ViewData["SettingsSection"] = "calendar"; ViewData["Title"] = "Tatil takvimi"; Layout = "~/Views/Shared/_SettingsLayout.cshtml"; var current = Model.Calendars.FirstOrDefault(x => x.Year == Model.Year); }
+<link rel="stylesheet" href="~/css/leave-accounting.css" />
+<section class="leave-accounting"><h1>Tatil takvimi</h1>
+@if (TempData["AccountingMessage"] is string message) {
+    var failed = TempData["AccountingError"] is true;
+    <div id="calendar-message" class="calendar-message" role="@(failed ? "alert" : "status")" tabindex="-1">
+        <strong>@(failed ? "İşlem tamamlanamadı" : "İşlem sonucu")</strong><p>@message</p>
+    </div>
+}
+<p>Personel izin tarihini seçtiğinde ilgili yıl otomatik kullanılır. Taslak değişiklikler kullanıma açılana kadar mevcut takvim geçerlidir.</p>
+<form method="get"><label>Yıl<input name="year" type="number" min="2000" max="@(MEC.Domain.Common.LeaveAccountingRules.Now.Year+10)" value="@Model.Year" /></label><button>Göster</button></form>
+<p>Durum: <strong>@(current?.IsApproved == true ? "Kullanımda" : "Onay bekliyor")</strong></p>
+<form id="calendar-import" action="/Admin/LeaveAccounts/Calendar/Import" method="post">@Html.AntiForgeryToken()<input type="hidden" name="year" value="@Model.Year" /><button type="submit">Resmî takvimi getir</button><span id="calendar-import-progress" role="status" hidden>@Model.Year yılı Diyanet listesinden getiriliyor. Bu işlem 25 saniye sürebilir.</span></form>
+<p>Aktarım, @Model.Year yılı için bayramları ve arifeleri listeye ekler; takvim onayınızdan sonra kullanılır.</p>
+<p>Bayramlar, arifelerin başlangıç saati ve sabit tatilleri kontrol edin. Bitiş saati izin dışı aralığın sonudur. Eksik satırları elle ekleyebilirsiniz.</p>
+<form action="/Admin/LeaveAccounts/Calendar/Save" method="post">
+@Html.AntiForgeryToken()<input type="hidden" name="year" value="@Model.Year" />
+<div class="accounting-table"><table><thead><tr><th>Tatil</th><th>Başlangıç</th><th>Bitiş</th></tr></thead><tbody id="calendar-rows">
+@for(var i=0;i<Model.Days.Count;i++) {
+<tr><td><input name="days[@i].Name" value="@Model.Days[i].Name" maxlength="200" /></td><td><input name="days[@i].Start" type="datetime-local" value="@Model.Days[i].Start.ToString("yyyy-MM-ddTHH:mm")" /></td><td><input name="days[@i].End" type="datetime-local" value="@Model.Days[i].End.ToString("yyyy-MM-ddTHH:mm")" /></td></tr>
+}
+</tbody></table></div><p>Bir satırı kaldırmak için adını boşaltıp taslağı kaydedin.</p>
+<button type="button" id="calendar-add">Tatil ekle</button><button type="submit">Taslağı kaydet</button>
+</form>
+<form action="/Admin/LeaveAccounts/PolicyPreview" method="post">@Html.AntiForgeryToken()<input type="hidden" name="year" value="@Model.Year" /><button>Kontrol ettim, etkisini göster</button></form>
+<h2>Yıllar</h2>@foreach(var calendar in Model.Calendars) { <p><a href="?year=@calendar.Year">@calendar.Year</a> · @(calendar.IsApproved ? "Kullanımda" : "Eksik / onaysız")</p> }
+</section>
+<template id="calendar-row"><tr><td><input name="days[INDEX].Name" maxlength="200" /></td><td><input name="days[INDEX].Start" type="datetime-local" /></td><td><input name="days[INDEX].End" type="datetime-local" /></td></tr></template>
+<script>document.getElementById('calendar-add').addEventListener('click',function(){var rows=document.getElementById('calendar-rows');var fragment=document.getElementById('calendar-row').content.cloneNode(true);fragment.querySelectorAll('input').forEach(function(input){input.name=input.name.replace('INDEX',rows.children.length);});rows.appendChild(fragment);});</script>
+<script>
+(function () {
+    var form = document.getElementById('calendar-import');
+    var button = form.querySelector('button');
+    var progress = document.getElementById('calendar-import-progress');
+    form.addEventListener('submit', function () {
+        button.disabled = true;
+        button.textContent = 'Takvim getiriliyor…';
+        progress.hidden = false;
+        form.setAttribute('aria-busy', 'true');
+    });
+    window.addEventListener('pageshow', function () {
+        button.disabled = false;
+        button.textContent = 'Resmî takvimi getir';
+        progress.hidden = true;
+        form.removeAttribute('aria-busy');
+    });
+})();
+</script>

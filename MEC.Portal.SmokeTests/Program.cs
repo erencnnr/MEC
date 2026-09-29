@@ -114,11 +114,29 @@ app.MapGet("/preview/{page}", async (HttpContext http, string page) =>
             StartDate = new DateTime(2026, 9, 28), EndDate = new DateTime(2026, 9, 30),
             StatusLabel = "Okul Müdürü Onayı Bekliyor", CanTakeAction = true } }
     });
+    samples["settings"] = ("/Views/AdminSettings/Index.cshtml", new object());
+    samples["account"] = ("/Views/LeaveAccounts/Account.cshtml", new MEC.Application.Service.LeaveService.AccountPage {
+        Employee=new MEC.Domain.Entity.Employee.EmployeePortal{Id=1,FirstName="Örnek",LastName="Çalışan",HireDate=new DateTime(2025,9,28)},
+        Account=new MEC.Domain.Entity.Leave.LeaveAccount{Balance=28,NeedsReview=true},
+        Movements=[new(){EffectiveDate=new DateTime(2026,9,28),Days=14,Kind="AnnualAccrual",Actor="annual-job",Reason="1. çalışma yılı hak edişi"}]
+    });
+    samples["calendar"]=("/Views/LeaveAccounts/Calendar.cshtml",new MEC.Portal.Controllers.CalendarEditPage(2027,[],MEC.Application.Service.LeaveService.LeaveCalendarService.FixedDays(2027)));
+    samples["calendar-import-error"] = samples["calendar"];
+    samples["policy"]=("/Views/LeaveAccounts/Policy.cshtml",new object());
+    samples["policy-preview"]=("/Views/LeaveAccounts/PolicyPreview.cshtml",new MEC.Application.Service.LeaveService.PolicyPreview(2027,null,false,[new(1,1,1,3,2,true)],"preview"));
+    samples["jobs"]=("/Views/LeaveAccounts/Jobs.cshtml",new List<MEC.Domain.Entity.Leave.LeaveJobResult>{new(){EmployeeId=1,BusinessDate=new DateTime(2026,9,28),Success=false,Error="İşe giriş eksik"}});
+    var cancellationExample = new MEC.Application.Service.LeaveService.CancellationListItem {
+        Id=1, LeaveId=1, EmployeeId=1, EmployeeName="Örnek Çalışan", Email="ornek@mec.local", RequestedBy="ornek@mec.local",
+        LeaveType="Yıllık İzin", Days=3, StartDate=new DateTime(2026,10,12,9,0,0), EndDate=new DateTime(2026,10,14,18,0,0),
+        RequestedAt=new DateTime(2026,9,29,10,30,0), Reason="Seyahat planım değiştiği için iznimi iptal etmek istiyorum." };
+    samples["cancellations"]=("/Views/LeaveCancellations/Index.cshtml",new MEC.Application.Service.LeaveService.CancellationListPage { TotalCount=1, Items=[cancellationExample] });
+    samples["cancellation-detail"]=("/Views/LeaveCancellations/Detail.cshtml",new CancellationDetailViewModel { Item=cancellationExample });
+    samples["imports"]=("/Views/LeaveAccounts/Imports.cshtml",new List<MEC.Domain.Entity.Leave.LeaveImportBatch>{new(){Actor="admin@mec.local",CreatedDate=DateTime.UtcNow,ResultJson=System.Text.Json.JsonSerializer.Serialize(new MEC.Application.Abstractions.Service.LeaveService.Model.BulkLeaveUploadResultModel{Message="1 kullanıcıya gün eklendi.",UpdatedUsers=[new(){Email="ornek@mec.local",NewLeaveDays=28}]})}});
     samples["login"] = ("/Views/Account/Login.cshtml", new LoginViewModel());
     if (!samples.TryGetValue(page, out var sample)) return Results.NotFound();
     http.User = new ClaimsPrincipal(new ClaimsIdentity(new[]
     {
-        new Claim(ClaimTypes.Name, "preview@mec.local"), new Claim(ClaimTypes.Role, "Admin")
+        new Claim(ClaimTypes.Name, "preview@mec.local"), new Claim(ClaimTypes.Role, http.Request.Query["role"].FirstOrDefault() ?? "Admin")
     }, "Preview"));
     var actionContext = new ActionContext(http, new RouteData(), new ActionDescriptor());
     var engine = http.RequestServices.GetRequiredService<IRazorViewEngine>();
@@ -127,9 +145,16 @@ app.MapGet("/preview/{page}", async (HttpContext http, string page) =>
     using var writer = new StringWriter();
     var viewData = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary()) { Model = sample.Model };
     var tempData = new TempDataDictionary(http, http.RequestServices.GetRequiredService<ITempDataProvider>());
+    if (page == "calendar-import-error")
+    {
+        tempData["AccountingError"] = true;
+        tempData["AccountingMessage"] = "Diyanet erişimi reddetti (403); takvim aktarılmadı. Tatilleri elle girebilirsiniz.";
+    }
     await view.View.RenderAsync(new ViewContext(actionContext, view.View, viewData, tempData, writer, new HtmlHelperOptions()));
     return Results.Content(writer.ToString(), "text/html");
 });
+// Preview-only destination for checking list row navigation, without live controllers or database writes.
+app.MapGet("/Admin/LeaveCancellations/{id:int}", () => Results.Redirect("/preview/cancellation-detail"));
 app.Run("http://127.0.0.1:5187");
 
 sealed class TestActors : IApprovalWorkflowService

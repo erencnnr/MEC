@@ -3,6 +3,7 @@ using MEC.Application.Abstractions.Service.EmployeeService;
 using MEC.Application.Abstractions.Service.EmployeeService.Model;
 using MEC.DAL.Config.Abstractions.Common;
 using MEC.Domain.Common;
+using MEC.Application.Service.LeaveService;
 using MEC.Domain.Common.Enum;
 using MEC.Domain.Entity.Employee;
 using MEC.Domain.Entity.Leave;
@@ -12,6 +13,7 @@ namespace MEC.Application.Service.EmployeeService
 {
     public class EmployeePortalService : IEmployeePortalService
     {
+        private readonly LeaveAccountingService? _accounting;
         private readonly IGenericRepository<EmployeePortal> _repository;
         private readonly IGenericRepository<EmployeePortalChild> _childRepository;
         private readonly IGenericRepository<EmployeePortalLocation> _employeePortalLocationRepository;
@@ -25,8 +27,9 @@ namespace MEC.Application.Service.EmployeeService
             IGenericRepository<EmployeePortalLocation> employeePortalLocationRepository,
             IGenericRepository<Location> locationRepository,
             IGenericRepository<Leave> leaveRepository,
-            IGenericRepository<Loan> loanRepository)
+            IGenericRepository<Loan> loanRepository, LeaveAccountingService? accounting = null)
         {
+            _accounting = accounting;
             _repository = repository;
             _childRepository = childRepository;
             _employeePortalLocationRepository = employeePortalLocationRepository;
@@ -179,6 +182,14 @@ namespace MEC.Application.Service.EmployeeService
 
         public async Task<OperationResultModel> UpdatePortalUserAsync(PortalUserEditModel model)
         {
+            if (_accounting != null && !_accounting.InTransaction)
+            {
+                try { return await _accounting.WithEmployeeAsync(model.Id, async _ => {
+                    var outcome = await UpdatePortalUserAsync(model);
+                    if (!outcome.IsSuccess) throw new InvalidOperationException(outcome.Message);
+                    return outcome;
+                }); } catch (InvalidOperationException ex) { return OperationResultModel.Fail(ex.Message); }
+            }
             if (string.IsNullOrWhiteSpace(model.PhoneNumber))
             {
                 return OperationResultModel.Fail("Telefon alanÄ± zorunludur.");
@@ -221,6 +232,8 @@ namespace MEC.Application.Service.EmployeeService
                 }
             }
 
+            if (_accounting != null)
+                await _accounting.ValidateProfileChangeAsync(portalUser, hireDate, NormalizeOptionalDate(model.BirthDate), terminationDate, model.IsDeleted, model.CurrentUser);
             portalUser.FirstName = TurkishNameFormatter.Format(model.FirstName);
             portalUser.LastName = TurkishNameFormatter.Format(model.LastName);
             portalUser.Email = model.Email.Trim();
@@ -229,7 +242,7 @@ namespace MEC.Application.Service.EmployeeService
             portalUser.HireDate = hireDate;
             portalUser.TerminationDate = terminationDate;
             portalUser.BirthDate = NormalizeOptionalDate(model.BirthDate);
-            portalUser.LeaveDays = model.LeaveDays;
+            // Balances are only written by the accounting service.
             portalUser.IsAdmin = model.IsAdmin;
             // School manager assignments are maintained in school settings.
             portalUser.IsDeleted = model.IsDeleted;

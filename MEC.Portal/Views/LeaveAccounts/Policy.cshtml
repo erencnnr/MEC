@@ -1,0 +1,8 @@
+@{
+    ViewData["SettingsSection"] = "policy"; ViewData["Title"]="Cumartesi kuralı"; Layout="~/Views/Shared/_SettingsLayout.cshtml"; }
+<link rel="stylesheet" href="~/css/leave-accounting.css" /><section class="leave-accounting"><h1>Cumartesi kuralı</h1>
+@if(TempData["AccountingMessage"] is string message){<p role="status">@message</p>}
+<p>Başlamış izinler korunur. Henüz başlamamış izinlerin gün ve bakiye farkını onaylamadan önce göreceksiniz.</p>
+<form action="/Admin/LeaveAccounts/PolicyPreview" method="post">@Html.AntiForgeryToken()
+<label>Yürürlük tarihi<input name="effectiveFrom" type="date" required /></label>
+<label><input name="countSaturday" type="checkbox" value="true" /> Cumartesiyi izinden say</label><button>Etkiyi göster</button></form></section>

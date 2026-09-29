@@ -1,4 +1,5 @@
 using System.Globalization;
+using MEC.Application.Service.LeaveService;
 using System.IO;
 using System.Net.Mail;
 using ClosedXML.Excel;
@@ -20,6 +21,7 @@ using MEC.Domain.Entity.Leave;
 
 public class LeaveService : ILeaveService
 {
+    private readonly LeaveAccountingService? _accounting;
     private readonly IGenericRepository<Leave> _leaveRepository;
     private readonly IGenericRepository<EmployeePortal> _employeePortalRepository;
     private readonly IGenericRepository<LeaveType> _leaveTypeRepository;
@@ -45,8 +47,10 @@ public class LeaveService : ILeaveService
         IAnnouncementService announcementService,
         IUserActionLogService userActionLogService,
         IWorkflowNotificationService workflowNotificationService,
-        IApprovalWorkflowService approvalWorkflowService)
+        IApprovalWorkflowService approvalWorkflowService,
+        LeaveAccountingService? accounting = null)
     {
+        _accounting = accounting;
         _leaveRepository = leaveRepository;
         _employeePortalRepository = employeePortalRepository;
         _leaveTypeRepository = leaveTypeRepository;
@@ -72,6 +76,8 @@ public class LeaveService : ILeaveService
 
     public async Task<bool> UpdateLeaveStatusAsync(int leaveId, int status, string? decisionBy = null)
     {
+        if (_accounting != null)
+            return await _accounting.SetStatusAsync(leaveId, status, decisionBy ?? "system");
         var leave = (await _leaveRepository.GetAllAsync(x => x.Id == leaveId, x => x.LeaveType)).FirstOrDefault();
 
         if (leave == null)
@@ -111,7 +117,7 @@ public class LeaveService : ILeaveService
 
         if (statusChanged && affectsAnnualBalance && employeePortal != null)
         {
-            var recalculatedFromAgreement = await RecalculateEmployeeAnnualBalanceAsync(employeePortal, DateTime.Today);
+            var recalculatedFromAgreement = await RecalculateEmployeeAnnualBalanceAsync(employeePortal, LeaveAccountingRules.Now.Date);
             if (!recalculatedFromAgreement)
             {
                 if (previousStatus != (int)LeaveStatus.Approved && status == (int)LeaveStatus.Approved)
@@ -148,8 +154,11 @@ public class LeaveService : ILeaveService
             .ToList();
     }
 
+    private Task NotifyAfterCommitAsync(Func<Task> notify) => _accounting == null ? notify() : _accounting.NotifyAsync(notify);
+
     public async Task<List<HolidayCalendarItemModel>> GetHolidayCalendarItemsAsync()
     {
+        if (_accounting != null) return await _accounting.GetPublishedHolidaysAsync();
         var holidays = await _holidayRepository.GetAllAsync(x => x.EndDate > x.StartDate);
 
         var calendarItems = holidays
@@ -164,7 +173,7 @@ public class LeaveService : ILeaveService
             })
             .ToList();
 
-        var currentYear = DateTime.Today.Year;
+        var currentYear = LeaveAccountingRules.Now.Date.Year;
         foreach (var statutoryHoliday in GetFixedStatutoryHolidays(
                      new DateTime(currentYear - 1, 1, 1),
                      new DateTime(currentYear + 2, 12, 31, 23, 59, 59)))
@@ -262,7 +271,7 @@ public class LeaveService : ILeaveService
             }
             else
             {
-                await RecalculateEmployeeAnnualBalanceAsync(employeePortal, DateTime.Today);
+                await RecalculateEmployeeAnnualBalanceAsync(employeePortal, LeaveAccountingRules.Now.Date);
             }
         }
 
@@ -279,6 +288,11 @@ public class LeaveService : ILeaveService
         if (result.SelectedLeaveType != null && result.RequestedDays > 0)
         {
             ValidateLeaveTypeSpecificRules(result, request, employeePortal);
+            if (_accounting != null && employeePortal != null)
+            {
+                var error = await _accounting.ValidateDatesAsync(employeePortal, request.StartDate, request.EndDate);
+                if (error != null) AddFieldError(result, "StartDate", error);
+            }
         }
 
         result.IsSuccess = result.FieldErrors.Count == 0;
@@ -290,6 +304,16 @@ public class LeaveService : ILeaveService
 
     public async Task<OperationResultModel<LeaveRequestCreateResultModel>> CreateLeaveRequestAsync(LeaveRequestCreateModel request)
     {
+        if (_accounting != null && !_accounting.InTransaction)
+        {
+            var target = (await _employeePortalRepository.GetAllAsync(x => x.Email == request.UserEmail && !x.IsDeleted)).FirstOrDefault();
+            if (target == null) return OperationResultModel<LeaveRequestCreateResultModel>.Fail("Kullanıcı bulunamadı.");
+            try { return await _accounting.WithEmployeeAsync(target.Id, async _ => {
+                var outcome = await CreateLeaveRequestAsync(request);
+                if (!outcome.IsSuccess) throw new InvalidOperationException(outcome.Message);
+                return outcome;
+            }); } catch (InvalidOperationException ex) { return OperationResultModel<LeaveRequestCreateResultModel>.Fail(ex.Message); }
+        }
         var employeePortal = (await _employeePortalRepository.GetAllAsync(x => x.Email == request.UserEmail && !x.IsDeleted)).FirstOrDefault();
         if (employeePortal == null)
         {
@@ -335,6 +359,7 @@ public class LeaveService : ILeaveService
         };
 
         await _leaveRepository.AddAsync(leaveRequest);
+        if (_accounting != null) await _accounting.CaptureCalculationAsync(leaveRequest);
 
         return OperationResultModel<LeaveRequestCreateResultModel>.Success(
             new LeaveRequestCreateResultModel { LeaveId = leaveRequest.Id },
@@ -375,7 +400,7 @@ public class LeaveService : ILeaveService
             ? new List<ApprovalRecipientModel> { approvalRoute.FinalApprover }
             : approvalRoute.ManagerApprovers;
 
-        await _workflowNotificationService.NotifyLeaveRequestCreatedAsync(new LeaveRequestCreatedNotificationModel
+        await NotifyAfterCommitAsync(() => _workflowNotificationService.NotifyLeaveRequestCreatedAsync(new LeaveRequestCreatedNotificationModel
         {
             LeaveId = leave.Id,
             EmployeeName = BuildPortalName(employeePortal),
@@ -390,11 +415,21 @@ public class LeaveService : ILeaveService
             Approvers = ToNotificationRecipients(approvers),
             TriggeredByUser = string.IsNullOrWhiteSpace(request.UserEmail) ? BuildPortalName(employeePortal) : request.UserEmail,
             IpAddress = string.IsNullOrWhiteSpace(request.IpAddress) ? "unknown" : request.IpAddress
-        });
+        }));
     }
 
     public async Task<OperationResultModel> CancelLeaveRequestAsync(LeaveCancelRequestModel request)
     {
+        if (_accounting != null && !_accounting.InTransaction)
+        {
+            var target = await _leaveRepository.GetByIdAsync(request.LeaveId);
+            if (target == null) return OperationResultModel.Fail("İzin bulunamadı.");
+            try { return await _accounting.WithEmployeeAsync(target.EmployeeId, async _ => {
+                var outcome = await CancelLeaveRequestAsync(request);
+                if (!outcome.IsSuccess) throw new InvalidOperationException(outcome.Message);
+                return outcome;
+            }); } catch (InvalidOperationException ex) { return OperationResultModel.Fail(ex.Message); }
+        }
         if (string.IsNullOrWhiteSpace(request.UserEmail))
         {
             return OperationResultModel.Fail("Kullanıcı kaydı bulunamadı.");
@@ -448,7 +483,7 @@ public class LeaveService : ILeaveService
                 request.MethodName,
                 $"İzin talebi iptal edildi. İzin Id: {leave.Id}, Çalışan: {employeeName}, Başlangıç: {leave.StartDate:dd.MM.yyyy HH:mm}, Bitiş: {leave.EndDate:dd.MM.yyyy HH:mm}.");
 
-            await _workflowNotificationService.NotifyLeaveRequestCancelledAsync(new LeaveRequestCancelledNotificationModel
+            await NotifyAfterCommitAsync(() => _workflowNotificationService.NotifyLeaveRequestCancelledAsync(new LeaveRequestCancelledNotificationModel
             {
                 LeaveId = leave.Id,
                 EmployeeName = employeeName,
@@ -456,10 +491,10 @@ public class LeaveService : ILeaveService
                 EndDate = leave.EndDate,
                 Reason = leave.Reason,
                 CancelledBy = cancelledBy,
-                Approvers = ToNotificationRecipients(GetCurrentApprovers(leave.Status, approvalRoute)),
+                Approvers = ToNotificationRecipients((approvalRoute?.ManagerApprovers ?? new()).Concat(approvalRoute == null ? Array.Empty<ApprovalRecipientModel>() : new[] { approvalRoute.FinalApprover })),
                 TriggeredByUser = currentUser,
                 IpAddress = string.IsNullOrWhiteSpace(request.IpAddress) ? "unknown" : request.IpAddress
-            });
+            }));
 
             return OperationResultModel.Success("İzin talebi iptal edildi.");
         }
@@ -478,6 +513,17 @@ public class LeaveService : ILeaveService
 
     public async Task DeleteLeaveAsync(int id)
     {
+        if (_accounting != null)
+        {
+            var target = await _leaveRepository.GetByIdAsync(id);
+            if (target == null) return;
+            await _accounting.WithEmployeeAsync(target.EmployeeId, async _ => {
+                var pending = await _leaveRepository.GetByIdAsync(id);
+                if (pending.Status != 0 && pending.Status != 4) throw new InvalidOperationException("Sonuçlanan izin silinemez.");
+                _leaveRepository.Delete(pending); return true;
+            });
+            return;
+        }
         var leave = await _leaveRepository.GetByIdAsync(id);
         if (leave != null)
         {
@@ -487,7 +533,7 @@ public class LeaveService : ILeaveService
 
     public async Task<LeaveHistoryResultModel> GetLeaveHistoryAsync(LeaveHistoryQueryModel query)
     {
-        var currentYear = DateTime.Today.Year;
+        var currentYear = LeaveAccountingRules.Now.Date.Year;
         var selectedSort = string.Equals(query.Sort, "created_asc", StringComparison.OrdinalIgnoreCase)
             ? "created_asc"
             : "created_desc";
@@ -777,13 +823,8 @@ public class LeaveService : ILeaveService
                 continue;
             }
 
-            if (row.AgreedLeaveDays.Value < 0)
-            {
-                errorMessages.Add($"{row.RowNumber}. satır: Mutabık kalınan izin gün değeri negatif olamaz.");
-                continue;
-            }
 
-            if (!row.BalanceAsOfDate.HasValue || row.BalanceAsOfDate.Value.Date > DateTime.Today)
+            if (!row.BalanceAsOfDate.HasValue || row.BalanceAsOfDate.Value.Date > LeaveAccountingRules.Now.Date)
             {
                 errorMessages.Add($"{row.RowNumber}. satır: Mutabakat tarihi boş bırakılamaz ve bugünden ileri olamaz.");
                 continue;
@@ -808,6 +849,13 @@ public class LeaveService : ILeaveService
                 continue;
             }
 
+            if (_accounting != null)
+            {
+                try { await _accounting.SaveAgreementAsync(portalUser.Id, row.AgreedLeaveDays.Value, row.BalanceAsOfDate.Value,
+                    row.CurrentYearEarnedDays.Value, row.CurrentYearUsedDays.Value, false, request.CurrentUser); updatedCount++; }
+                catch (InvalidOperationException ex) { errorMessages.Add($"{row.RowNumber}. satır: {ex.Message}"); }
+                continue;
+            }
             if (agreementsByEmployeeId.TryGetValue(portalUser.Id, out var agreement))
             {
                 agreement.AgreedLeaveDays = row.AgreedLeaveDays.Value;
@@ -836,7 +884,7 @@ public class LeaveService : ILeaveService
                 agreementsByEmployeeId[portalUser.Id] = agreement;
             }
 
-            await RecalculateEmployeeAnnualBalanceAsync(portalUser, DateTime.Today);
+            await RecalculateEmployeeAnnualBalanceAsync(portalUser, LeaveAccountingRules.Now.Date);
 
             updatedCount++;
         }
@@ -858,12 +906,18 @@ public class LeaveService : ILeaveService
 
     public async Task<OperationResultModel> UpdateLeaveAgreementAsync(AdminLeaveAgreementUpdateModel model)
     {
-        if (model.AgreedLeaveDays < 0)
+        if (_accounting != null)
         {
-            return OperationResultModel.Fail("Mutabık kalınan izin gün değeri negatif olamaz.");
+            try {
+                var entry = await _leaveAgreementRepository.GetByIdAsync(model.Id);
+                if (entry == null || !model.BalanceAsOfDate.HasValue) return OperationResultModel.Fail("Mutabakat ve tarih gerekiyor.");
+                await _accounting.SaveAgreementAsync(entry.EmployeePortalId, model.AgreedLeaveDays, model.BalanceAsOfDate.Value,
+                    model.CurrentYearEarnedDays, model.CurrentYearUsedDays, model.IsSigned, model.CurrentUser);
+                return OperationResultModel.Success("Mutabakat kaydedildi. Değişen içerik yeni belge ve imza gerektirir.");
+            } catch (InvalidOperationException ex) { return OperationResultModel.Fail(ex.Message); }
         }
 
-        if (!model.BalanceAsOfDate.HasValue || model.BalanceAsOfDate.Value.Date > DateTime.Today)
+        if (!model.BalanceAsOfDate.HasValue || model.BalanceAsOfDate.Value.Date > LeaveAccountingRules.Now.Date)
         {
             return OperationResultModel.Fail("Mutabakat tarihi boş bırakılamaz ve bugünden ileri olamaz.");
         }
@@ -890,7 +944,7 @@ public class LeaveService : ILeaveService
 
         if (agreement.EmployeePortal != null)
         {
-            await RecalculateEmployeeAnnualBalanceAsync(agreement.EmployeePortal, DateTime.Today);
+            await RecalculateEmployeeAnnualBalanceAsync(agreement.EmployeePortal, LeaveAccountingRules.Now.Date);
         }
 
         return OperationResultModel.Success($"{BuildPortalName(agreement.EmployeePortal, agreement.EmployeePortalId)} için izin mutabakat kaydı güncellendi.");
@@ -898,6 +952,7 @@ public class LeaveService : ILeaveService
 
     public async Task<OperationResultModel> UpdateLeaveAgreementPdfAsync(AdminLeaveAgreementPdfUpdateModel model)
     {
+        if (_accounting != null) { await _accounting.UploadAgreementPdfAsync(model); return OperationResultModel.Success("PDF yüklendi; belgeyi kontrol ederek imza durumunu işaretleyin."); }
         if (string.IsNullOrWhiteSpace(model.FileName))
         {
             return OperationResultModel.Fail("Yüklenecek PDF dosyası bulunamadı.");
@@ -928,7 +983,7 @@ public class LeaveService : ILeaveService
             .ThenByDescending(x => x.Id)
             .ToList();
         var currentPolicy = policies
-            .Where(x => x.EffectiveFrom.Date <= DateTime.Today)
+            .Where(x => x.EffectiveFrom.Date <= LeaveAccountingRules.Now.Date)
             .OrderByDescending(x => x.EffectiveFrom)
             .FirstOrDefault();
 
@@ -952,7 +1007,7 @@ public class LeaveService : ILeaveService
         var isAuthorized = actor != null && (canViewAllLocations || actor.IsLocationManager);
         var currentPage = query.Page < 1 ? 1 : query.Page;
         var pageSize = query.PageSize <= 0 ? 20 : Math.Min(query.PageSize, 100);
-        var today = DateTime.Today;
+        var today = LeaveAccountingRules.Now.Date;
 
         if (!isAuthorized)
         {
@@ -1090,6 +1145,7 @@ public class LeaveService : ILeaveService
 
     public async Task<OperationResultModel> UpdateSaturdayPolicyAsync(AdminSaturdayPolicyUpdateModel model)
     {
+        if (_accounting != null) return OperationResultModel.Fail("Cumartesi kuralını yeni önizleme ekranından güncelleyin.");
         if (model.EffectiveFrom.Year < 2000)
         {
             return OperationResultModel.Fail("Geçerli bir başlangıç tarihi giriniz.");
@@ -1140,12 +1196,13 @@ public class LeaveService : ILeaveService
         var employees = (await _employeePortalRepository.GetAllAsync(x => !x.IsDeleted)).ToList();
         foreach (var employee in employees)
         {
-            await RecalculateEmployeeAnnualBalanceAsync(employee, DateTime.Today);
+            await RecalculateEmployeeAnnualBalanceAsync(employee, LeaveAccountingRules.Now.Date);
         }
     }
 
     public async Task<bool> RecalculateEmployeeAnnualBalanceAsync(EmployeePortal employeePortal, DateTime asOfDate)
     {
+        if (_accounting != null) { employeePortal.LeaveDays = await _accounting.RefreshAsync(employeePortal.Id, asOfDate); return true; }
         var agreement = (await _leaveAgreementRepository.GetAllAsync(
                 x => x.EmployeePortalId == employeePortal.Id))
             .FirstOrDefault();
@@ -1319,6 +1376,16 @@ public class LeaveService : ILeaveService
 
     public async Task<OperationResultModel> UpdateLeaveStatusWithLogAsync(LeaveStatusUpdateRequestModel request)
     {
+        if (_accounting != null && !_accounting.InTransaction)
+        {
+            var target = await _leaveRepository.GetByIdAsync(request.LeaveId);
+            if (target == null) return OperationResultModel.Fail("İzin bulunamadı.");
+            try { return await _accounting.WithEmployeeAsync(target.EmployeeId, async _ => {
+                var outcome = await UpdateLeaveStatusWithLogAsync(request);
+                if (!outcome.IsSuccess) throw new InvalidOperationException(outcome.Message);
+                return outcome;
+            }); } catch (InvalidOperationException ex) { return OperationResultModel.Fail(ex.Message); }
+        }
         var leave = (await _leaveRepository.GetAllAsync(x => x.Id == request.LeaveId, x => x.LeaveType)).FirstOrDefault();
         var employeePortal = leave != null ? await _employeePortalRepository.GetByIdAsync(leave.EmployeeId) : null;
         var employeeName = BuildPortalName(employeePortal, leave?.EmployeeId);
@@ -1396,7 +1463,7 @@ public class LeaveService : ILeaveService
 
                 if ((request.Status == (int)LeaveStatus.Approved || request.Status == (int)LeaveStatus.Rejected) && leave != null && employeePortal != null)
                 {
-                    await _workflowNotificationService.NotifyLeaveRequestDecisionAsync(new LeaveRequestDecisionNotificationModel
+                    await NotifyAfterCommitAsync(() => _workflowNotificationService.NotifyLeaveRequestDecisionAsync(new LeaveRequestDecisionNotificationModel
                     {
                         LeaveId = leave.Id,
                         EmployeeName = employeeName,
@@ -1414,7 +1481,7 @@ public class LeaveService : ILeaveService
                             : new List<WorkflowNotificationRecipientModel>(),
                         TriggeredByUser = currentUser,
                         IpAddress = string.IsNullOrWhiteSpace(request.IpAddress) ? "unknown" : request.IpAddress
-                    });
+                    }));
                 }
 
                 var successMessage = isManagerStage && request.Status == (int)LeaveStatus.Approved
@@ -1451,7 +1518,7 @@ public class LeaveService : ILeaveService
             .OrderByDescending(x => x.CreatedDate)
             .ToList();
         var employeePortals = await _employeePortalRepository.GetAllAsync();
-        var today = DateTime.Today;
+        var today = LeaveAccountingRules.Now.Date;
 
         var portalUserNames = employeePortals.ToDictionary(x => x.Id, x => BuildPortalName(x));
 
@@ -1486,6 +1553,8 @@ public class LeaveService : ILeaveService
 
     public async Task<BulkLeaveUploadResultModel> BulkUploadLeaveDaysAsync(BulkLeaveUploadRequestModel request)
     {
+        if ((await _approvalWorkflowService.GetActorAsync(request.CurrentUser))?.IsAdministrator != true)
+            return CreateBulkLeaveResult(false, "danger", "Yalnız Admin izin günü ekleyebilir.", new(), new());
         List<BulkLeaveImportRow> importRows;
         try
         {
@@ -1507,6 +1576,9 @@ public class LeaveService : ILeaveService
             .GroupBy(x => x.Email.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
 
+        var batchHash = LeaveAccountingService.ImportFingerprint(importRows.Select(x => (x.Email, x.Days, x.Description)));
+        if (_accounting != null) await _accounting.SaveImportBatchAsync(batchHash, System.Text.Json.JsonSerializer.Serialize(importRows), null, request.CurrentUser);
+        var duplicateEmails = importRows.GroupBy(x=>x.Email.Trim(),StringComparer.OrdinalIgnoreCase).Where(x=>x.Count()>1).Select(x=>x.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var processedEmails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var errorRows = new List<BulkLeaveUploadErrorRowModel>();
         var updatedUsers = new List<BulkLeaveUpdatedUserModel>();
@@ -1537,7 +1609,7 @@ public class LeaveService : ILeaveService
                 continue;
             }
 
-            if (processedEmails.Contains(row.Email))
+            if (duplicateEmails.Contains(row.Email) || processedEmails.Contains(row.Email))
             {
                 errorRows.Add(CreateBulkLeaveError(row, "Aynı Excel içinde bu e-posta adresi daha önce işlendi."));
                 continue;
@@ -1550,10 +1622,19 @@ public class LeaveService : ILeaveService
             }
 
             var oldLeaveDays = portalUser.LeaveDays;
-            portalUser.LeaveDays += row.Days.Value;
-            portalUser.UpdateDate = DateTime.Now;
-
-            _employeePortalRepository.Update(portalUser);
+            if (_accounting != null)
+            {
+                try { if (!await _accounting.ImportRowAsync(portalUser.Id, row.Days.Value, row.Description ?? "", request.CurrentUser, batchHash, row.Email.Trim().ToLowerInvariant()))
+                    { errorRows.Add(CreateBulkLeaveError(row, "Bu yükleme satırı önceden işlendi; tekrar gün eklenmedi.")); continue; } }
+                catch (InvalidOperationException ex) { errorRows.Add(CreateBulkLeaveError(row, ex.Message)); continue; }
+                portalUser.LeaveDays = (await _employeePortalRepository.GetByIdAsync(portalUser.Id)).LeaveDays;
+            }
+            else
+            {
+                portalUser.LeaveDays += row.Days.Value;
+                portalUser.UpdateDate = DateTime.Now;
+                _employeePortalRepository.Update(portalUser);
+            }
             processedEmails.Add(row.Email);
 
             updatedUsers.Add(new BulkLeaveUpdatedUserModel
@@ -1574,11 +1655,14 @@ public class LeaveService : ILeaveService
             _ => "Toplu izin yükleme işlemi tamamlanamadı. Hatalı satırları kontrol ediniz."
         };
 
-        return CreateBulkLeaveResult(success, level, message, updatedUsers, errorRows);
+        var result = CreateBulkLeaveResult(success, level, message, updatedUsers, errorRows);
+        if (_accounting != null) await _accounting.SaveImportBatchAsync(batchHash, "", System.Text.Json.JsonSerializer.Serialize(result), request.CurrentUser);
+        return result;
     }
 
     private async Task<decimal> CalculateRequestedDaysWithHolidaysAsync(DateTime startDate, DateTime endDate)
     {
+        if (_accounting != null) return await _accounting.CalculateDaysAsync(startDate, endDate);
         var holidayIntervals = await GetHolidayIntervalsAsync(startDate, endDate);
         var saturdayPolicies = (await GetSaturdayPoliciesAsync())
             .Select(x => new SaturdayLeavePolicy(x.EffectiveFrom, x.CountSaturday))

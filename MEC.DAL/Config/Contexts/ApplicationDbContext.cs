@@ -64,6 +64,17 @@ namespace MEC.DAL.Config.Contexts
         public DbSet<LeaveAgreement> LeaveAgreements { get; set; }
         public DbSet<LeavePolicySetting> LeavePolicySettings { get; set; }
         public DbSet<OvertimeRequest> OvertimeRequests { get; set; }
+        public DbSet<LeaveAccount> LeaveAccounts { get; set; }
+        public DbSet<LeaveMovement> LeaveMovements { get; set; }
+        public DbSet<LeaveAccrual> LeaveAccruals { get; set; }
+        public DbSet<LeaveCharge> LeaveCharges { get; set; }
+        public DbSet<LeaveCancellation> LeaveCancellations { get; set; }
+        public DbSet<LeaveImportBatch> LeaveImportBatches { get; set; }
+        public DbSet<LeaveImportRow> LeaveImportRows { get; set; }
+        public DbSet<LeaveAgreementVersion> LeaveAgreementVersions { get; set; }
+        public DbSet<LeaveJobResult> LeaveJobResults { get; set; }
+        public DbSet<LeaveCalendar> LeaveCalendars { get; set; }
+        public DbSet<LeaveCalendarVersion> LeaveCalendarVersions { get; set; }
 
         // Çakışmayı önlemek için sınıfı tam adıyla (MEC.Domain.Entity.Leave.Leave) belirtiyoruz
         public DbSet<MEC.Domain.Entity.Leave.Leave> Leaves { get; set; }

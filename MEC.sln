@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MEC.Portal", "MEC.Portal\ME
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MEC.PDKS", "MEC.PDKS\MEC.PDKS.csproj", "{C67B56F7-8BB7-4A2F-BA64-6CE32165085B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MEC.LeaveAccountingTests", "MEC.LeaveAccountingTests\MEC.LeaveAccountingTests.csproj", "{182ED253-697B-4208-BF2F-C65365A036A5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -133,6 +135,18 @@ Global
 		{C67B56F7-8BB7-4A2F-BA64-6CE32165085B}.Release|x64.Build.0 = Release|Any CPU
 		{C67B56F7-8BB7-4A2F-BA64-6CE32165085B}.Release|x86.ActiveCfg = Release|Any CPU
 		{C67B56F7-8BB7-4A2F-BA64-6CE32165085B}.Release|x86.Build.0 = Release|Any CPU
+		{182ED253-697B-4208-BF2F-C65365A036A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{182ED253-697B-4208-BF2F-C65365A036A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{182ED253-697B-4208-BF2F-C65365A036A5}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{182ED253-697B-4208-BF2F-C65365A036A5}.Debug|x64.Build.0 = Debug|Any CPU
+		{182ED253-697B-4208-BF2F-C65365A036A5}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{182ED253-697B-4208-BF2F-C65365A036A5}.Debug|x86.Build.0 = Debug|Any CPU
+		{182ED253-697B-4208-BF2F-C65365A036A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{182ED253-697B-4208-BF2F-C65365A036A5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{182ED253-697B-4208-BF2F-C65365A036A5}.Release|x64.ActiveCfg = Release|Any CPU
+		{182ED253-697B-4208-BF2F-C65365A036A5}.Release|x64.Build.0 = Release|Any CPU
+		{182ED253-697B-4208-BF2F-C65365A036A5}.Release|x86.ActiveCfg = Release|Any CPU
+		{182ED253-697B-4208-BF2F-C65365A036A5}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

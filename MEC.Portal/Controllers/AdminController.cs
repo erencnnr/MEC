@@ -274,6 +274,7 @@ namespace MEC.Portal.Controllers
             var result = await _leaveService.UpdateLeaveAgreementAsync(new AdminLeaveAgreementUpdateModel
             {
                 Id = id,
+                CurrentUser = User.Identity?.Name ?? "",
                 AgreedLeaveDays = agreedLeaveDays,
                 BalanceAsOfDate = balanceAsOfDate,
                 CurrentYearEarnedDays = currentYearEarnedDays,
@@ -428,6 +429,7 @@ namespace MEC.Portal.Controllers
             var result = await _leaveService.UpdateLeaveAgreementPdfAsync(new AdminLeaveAgreementPdfUpdateModel
             {
                 Id = id,
+                CurrentUser = User.Identity?.Name ?? "",
                 FileName = fileName,
                 OriginalFileName = Path.GetFileName(file.FileName),
                 ContentType = string.IsNullOrWhiteSpace(file.ContentType) ? "application/pdf" : file.ContentType,
@@ -561,6 +563,7 @@ namespace MEC.Portal.Controllers
 
             var result = await _employeePortalService.UpdatePortalUserAsync(new PortalUserEditModel
             {
+                CurrentUser = User.Identity?.Name ?? "",
                 Id = model.Id,
                 FirstName = model.FirstName,
                 LastName = model.LastName,

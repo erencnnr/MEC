@@ -1,3 +1,5 @@
+> Yeni izin hesabı sürümü için güncel geçiş ve hesaplama rehberi: [leave-accounting-deployment.md](leave-accounting-deployment.md). Bu belgenin eski hesaplama/geçiş açıklamaları yerine yeni rehber uygulanır.
+
 # İzin job'ı ve okul müdürü ayarlarının yayına alınması
 
 Bu bilgisayara görev kurulmaz. Aşağıdaki adımlar portalın yayınlanacağı Windows sunucusunda uygulanır.

@@ -1,0 +1,6 @@
+@model List<MEC.Domain.Entity.Leave.LeaveJobResult>
+@{
+    ViewData["SettingsSection"] = "jobs"; ViewData["Title"]="İzin job sonuçları"; Layout="~/Views/Shared/_SettingsLayout.cshtml"; }
+<link rel="stylesheet" href="~/css/leave-accounting.css" /><section class="leave-accounting"><h1>İzin job sonuçları</h1><p>Son 300 personel işlemi. Hatalı kişiler sonraki çalıştırmada tekrar denenir.</p><div class="accounting-table"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Sonuç</th><th>Açıklama</th></tr></thead><tbody>
+@foreach(var row in Model){<tr><td>@row.BusinessDate.ToString("dd.MM.yyyy")</td><td><a href="/Admin/LeaveAccounts/@row.EmployeeId">@row.EmployeeId</a></td><td>@(row.Success?"Tamamlandı":"Başarısız")</td><td>@row.Error</td></tr>}
+</tbody></table></div></section>

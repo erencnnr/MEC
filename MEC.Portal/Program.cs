@@ -84,6 +84,8 @@ try
     builder.Services.AddScoped<IWorkflowNotificationService, SmtpWorkflowNotificationService>();
     builder.Services.AddScoped<ILeaveService, LeaveService>();
     builder.Services.AddScoped<MEC.Application.Service.LeaveService.AnnualLeaveAccrualJob>();
+    builder.Services.AddScoped<MEC.Application.Service.LeaveService.LeaveAccountingService>();
+    builder.Services.AddHttpClient<MEC.Application.Service.LeaveService.LeaveCalendarService>();
     builder.Services.AddScoped<PortalCookieEvents>();
     builder.Services.AddScoped<IOvertimeService, OvertimeService>();
     builder.Services.AddScoped<IApiLogService, ApiLogService>();
@@ -128,6 +130,18 @@ try
         var today = TurkeyTime.GetDate(DateTime.UtcNow);
         await scope.ServiceProvider.GetRequiredService<MEC.Application.Service.LeaveService.AnnualLeaveAccrualJob>()
             .RunAsync(today);
+        return;
+    }
+
+    if (args.Contains("--initialize-leave-accounts", StringComparer.OrdinalIgnoreCase))
+    {
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var accounting = scope.ServiceProvider.GetRequiredService<MEC.Application.Service.LeaveService.LeaveAccountingService>();
+        var ids = await db.EmployeePortals.AsNoTracking().OrderBy(x => x.Id).Select(x => x.Id).ToListAsync();
+        foreach (var id in ids)
+            await accounting.WithEmployeeAsync(id, async employee => { await accounting.EnsureAccountAsync(employee); return true; });
+        app.Logger.LogInformation("İzin açılışları tamamlandı: {Count}", ids.Count);
         return;
     }
 

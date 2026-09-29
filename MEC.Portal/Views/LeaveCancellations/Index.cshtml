@@ -1,0 +1,76 @@
+@using MEC.Application.Service.LeaveService
+@using Microsoft.AspNetCore.WebUtilities
+@using System.Globalization
+@model CancellationListPage
+@{
+    ViewData["Title"] = "İptal Talepleri";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    var listUrl = $"{Context.Request.Path}{Context.Request.QueryString}";
+    string PageUrl(int page) => QueryHelpers.AddQueryString("/Admin/LeaveCancellations", new Dictionary<string, string?> {
+        ["search"] = Model.Filter.Search, ["status"] = Model.Filter.Status,
+        ["from"] = Model.Filter.From?.ToString("yyyy-MM-dd"), ["to"] = Model.Filter.To?.ToString("yyyy-MM-dd"), ["page"] = page.ToString()
+    });
+}
+<link rel="stylesheet" href="~/css/leave-cancellations.css" asp-append-version="true" />
+<section class="leave-history-page cancellation-page">
+    <div class="leave-history-shell">
+        <div class="leave-history-topbar">
+            <div><span class="leave-history-topbar__eyebrow">Yönetici işlemleri</span><h1>İptal Talepleri</h1>
+                <p>Personelin iptal talebini incelemek ve karar vermek için satırına tıklayın.</p></div>
+        </div>
+        <form class="cancellation-filters" method="get" action="/Admin/LeaveCancellations">
+            <div class="cancellation-search"><label for="search">Personel</label><input id="search" name="search" value="@Model.Filter.Search" maxlength="100" placeholder="Ad, soyad veya e-posta" /></div>
+            <div><label for="status">Durum</label><select id="status" name="status">
+                <option value="All" selected="@(Model.Filter.Status == "All")">Tümü</option>
+                @foreach (var status in new[] { "Pending", "Approved", "Rejected", "Expired" }) {
+                    <option value="@status" selected="@(Model.Filter.Status == status)">@CancellationDisplay.Status(status)</option>
+                }
+            </select></div>
+            <div><label for="from">İzin başlangıcı, en erken</label><input id="from" name="from" type="date" value="@Model.Filter.From?.ToString("yyyy-MM-dd")" /></div>
+            <div><label for="to">İzin başlangıcı, en geç</label><input id="to" name="to" type="date" value="@Model.Filter.To?.ToString("yyyy-MM-dd")" /></div>
+            <div class="cancellation-filter-actions"><button class="cancellation-button" type="submit">Filtrele</button><a href="/Admin/LeaveCancellations" class="cancellation-button cancellation-button--secondary">Temizle</a></div>
+        </form>
+        <div asp-validation-summary="All" class="cancellation-validation" role="alert"></div>
+        @if (!Model.Items.Any()) {
+            <div class="leave-history-empty"><h2>Kayıt bulunamadı</h2><p>Seçtiğiniz filtrelere uygun iptal talebi bulunmuyor.</p></div>
+        } else {
+            <div class="leave-history-table-card">
+                <div class="leave-history-table-card__meta"><span>@Model.TotalCount talep</span><span>Sayfa @Model.Filter.Page / @Model.TotalPages</span></div>
+                <div class="table-responsive" tabindex="0" role="region" aria-label="İptal talepleri tablosu">
+                    <table class="table leave-history-table align-middle mb-0"><thead><tr><th>Personel</th><th>İzin türü</th><th>İzin tarihleri</th><th>Gün</th><th>Talep tarihi</th><th>Durum</th><th>İşlem</th></tr></thead>
+                        <tbody>@foreach (var item in Model.Items) {
+                            var detailUrl = QueryHelpers.AddQueryString($"/Admin/LeaveCancellations/{item.LeaveId}", "returnUrl", listUrl);
+                            <tr class="cancellation-row" data-cancellation-href="@detailUrl">
+                                <td><a class="cancellation-person" href="@detailUrl">@item.EmployeeName</a><span class="cancellation-subtext">@item.Email</span></td>
+                                <td>@item.LeaveType<span class="cancellation-subtext">İzin #@item.LeaveId</span></td>
+                                <td>@item.StartDate.ToString("dd.MM.yyyy HH:mm")<span class="cancellation-subtext">@item.EndDate.ToString("dd.MM.yyyy HH:mm")</span></td>
+                                <td>@item.Days.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR"))</td>
+                                <td>@CancellationDisplay.Time(item.RequestedAt)</td>
+                                <td><span class="cancellation-status @(item.Status == "Pending" ? "is-pending" : "")">@CancellationDisplay.Status(item.Status)</span></td>
+                                <td><a href="@detailUrl" aria-label="@item.EmployeeName için iptal talebini incele">İncele</a></td>
+                            </tr>
+                        }</tbody>
+                    </table>
+                </div>
+            </div>
+            @if (Model.TotalPages > 1) {
+                <nav class="cancellation-pagination" aria-label="İptal talepleri sayfaları">
+                    @if (Model.Filter.Page > 1) { <a class="cancellation-button cancellation-button--secondary" href="@PageUrl(Model.Filter.Page - 1)">Önceki</a> }
+                    <span>Sayfa @Model.Filter.Page / @Model.TotalPages</span>
+                    @if (Model.Filter.Page < Model.TotalPages) { <a class="cancellation-button cancellation-button--secondary" href="@PageUrl(Model.Filter.Page + 1)">Sonraki</a> }
+                </nav>
+            }
+        }
+    </div>
+</section>
+@section Scripts {
+    <script>
+        document.querySelectorAll('[data-cancellation-href]').forEach(function (row) {
+            row.addEventListener('click', function (event) {
+                if (event.target.closest('a, button, input, select') || window.getSelection().toString()) return;
+                if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                window.location.assign(row.dataset.cancellationHref);
+            });
+        });
+    </script>
+}

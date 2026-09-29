@@ -1,62 +1,45 @@
-using MEC.Application.Abstractions.Service.LeaveService;
 using MEC.DAL.Config.Contexts;
 using MEC.Domain.Common;
+using MEC.Domain.Entity.Leave;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-
 namespace MEC.Application.Service.LeaveService;
-
-public sealed class AnnualLeaveAccrualJob(
-    ApplicationDbContext db,
-    ILeaveService leaveService,
-    ILogger<AnnualLeaveAccrualJob> logger)
+public sealed class AnnualLeaveAccrualJob(ApplicationDbContext db, LeaveAccountingService accounting, ILogger<AnnualLeaveAccrualJob> logger)
 {
     public async Task<int> RunAsync(DateTime today, CancellationToken cancellationToken = default)
     {
-        today = today.Date;
-        var ids = await db.EmployeePortals.AsNoTracking()
-            .Where(x => !x.IsDeleted && x.HireDate.HasValue && x.HireDate.Value.Year > 1900 &&
-                        (!x.AnnualLeaveProcessedThrough.HasValue || x.AnnualLeaveProcessedThrough < today))
-            .Select(x => x.Id).ToListAsync(cancellationToken);
-        var updated = 0;
+        var runId = Guid.NewGuid().ToString("N");
+        await accounting.ExpireCancellationsAsync();
+        var ids = await db.EmployeePortals.AsNoTracking().Where(x => !x.IsDeleted).OrderBy(x => x.Id).Select(x => x.Id).ToListAsync(cancellationToken);
+        var updated = 0; var failures = 0;
         foreach (var id in ids)
         {
-            // Lock and checkpoint are committed together, including when two job processes overlap.
-            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
-            var employee = (await db.EmployeePortals
-                .FromSqlInterpolated($"SELECT * FROM employee_portal WHERE Id = {id} FOR UPDATE")
-                .ToListAsync(cancellationToken)).Single();
-            if (employee.IsDeleted || !employee.HireDate.HasValue || employee.HireDate.Value.Year <= 1900 ||
-                employee.AnnualLeaveProcessedThrough >= today)
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = new LeaveJobResult { RunId = runId, EmployeeId = id, BusinessDate = today.Date, CreatedDate = DateTime.UtcNow };
+            try
             {
-                await transaction.CommitAsync(cancellationToken);
-                db.ChangeTracker.Clear();
-                continue;
+                await accounting.WithEmployeeAsync(id, async employee =>
+                {
+                    if (employee.IsDeleted) return false;
+                    var before = employee.LeaveDays;
+                    var account = await accounting.EnsureAccountAsync(employee);
+                    await accounting.AccrueAsync(employee, account, today, "annual-job");
+                    if (before != employee.LeaveDays) updated++;
+                    return true;
+                });
+                result.Success = true;
             }
-
-            var previousBalance = employee.LeaveDays;
-            var reconciled = await leaveService.RecalculateEmployeeAnnualBalanceAsync(employee, today);
-            if (!reconciled)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                // On first deployment the stored balance already includes historical rights.
-                // Start from yesterday; subsequent runs also catch up missed anniversaries.
-                employee.LeaveDays += AnnualLeaveAccrualCalculator.PendingDays(employee, today);
+                failures++; db.ChangeTracker.Clear();
+                result.Error = ex.GetBaseException().Message[..Math.Min(2000, ex.GetBaseException().Message.Length)];
+                logger.LogError(ex, "Annual leave failed for employee {EmployeeId}; continuing", id);
             }
-
-            employee.AnnualLeaveProcessedThrough = today;
-            employee.UpdateDate = DateTime.UtcNow;
-            await db.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-            if (employee.LeaveDays != previousBalance)
-            {
-                updated++;
-                logger.LogInformation("Annual leave: employee {EmployeeId}, date {Date}, balance {Before} -> {After}",
-                    id, today, previousBalance, employee.LeaveDays);
-            }
-            db.ChangeTracker.Clear();
+            db.LeaveJobResults.Add(result);
+            await db.SaveChangesAsync(cancellationToken); db.ChangeTracker.Clear();
         }
-        logger.LogInformation("Annual leave job finished: {Checked} checked, {Updated} balances changed, date {Date}",
-            ids.Count, updated, today);
+        logger.LogInformation("Annual leave {Run}: {Checked} checked, {Updated} updated, {Failed} failed", runId, ids.Count, updated, failures);
+        if (failures > 0) throw new InvalidOperationException($"{failures} personelin izin hesabı tamamlanamadı. Job sonuçlarını kontrol edin.");
         return updated;
     }
 }

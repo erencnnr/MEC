@@ -1,0 +1,41 @@
+@using System.Globalization
+@model CancellationDetailViewModel
+@{
+    ViewData["Title"] = "İptal Talebi Detayı";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    var item = Model.Item;
+}
+<link rel="stylesheet" href="~/css/leave-cancellations.css" asp-append-version="true" />
+<section class="leave-history-page cancellation-page"><div class="leave-history-shell">
+    <a class="cancellation-back" href="@Model.ReturnUrl">İptal taleplerine dön</a>
+    <div class="leave-history-topbar"><div><span class="leave-history-topbar__eyebrow">İzin #@item.LeaveId</span>
+        <h1>İptal Talebi</h1><p>@item.EmployeeName adlı personelin talebini inceleyin.</p></div>
+        <span class="cancellation-status @(item.Status == "Pending" ? "is-pending" : "")">@CancellationDisplay.Status(item.Status)</span>
+    </div>
+    @if (TempData["AccountingMessage"] is string message) { <div class="cancellation-notice" role="status">@message</div> }
+    <div class="cancellation-detail-grid">
+        <section class="cancellation-panel"><h2>Personel ve izin bilgileri</h2><dl class="cancellation-facts">
+            <div><dt>Personel</dt><dd>@item.EmployeeName</dd></div><div><dt>E-posta</dt><dd>@item.Email</dd></div>
+            <div><dt>İzin türü</dt><dd>@item.LeaveType</dd></div><div><dt>İzin süresi</dt><dd>@item.Days.ToString("0.##", CultureInfo.GetCultureInfo("tr-TR")) gün</dd></div>
+            <div><dt>Başlangıç</dt><dd>@item.StartDate.ToString("dd.MM.yyyy HH:mm")</dd></div><div><dt>Bitiş</dt><dd>@item.EndDate.ToString("dd.MM.yyyy HH:mm")</dd></div>
+        </dl></section>
+        <section class="cancellation-panel"><h2>İptal gerekçesi</h2><p class="cancellation-reason">@item.Reason</p>
+            <dl class="cancellation-facts"><div><dt>Talep tarihi</dt><dd>@CancellationDisplay.Time(item.RequestedAt)</dd></div><div><dt>Talep eden</dt><dd>@item.RequestedBy</dd></div></dl>
+        </section>
+    </div>
+    <section class="cancellation-panel cancellation-decision"><h2>İptal kararı</h2>
+        @if (item.Status == "Pending") {
+            <p>Kabul ederseniz izin iptal edilir; yıllık izin bakiyesinden düşülmüş günler bir kez iade edilir. Reddederseniz izin onaylı kalır.</p>
+            <form method="post" action="/Admin/LeaveCancellations/@item.LeaveId/Decision">
+                @Html.AntiForgeryToken()<input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                <button type="submit" name="approve" value="true" class="cancellation-button">İptal talebini kabul et</button>
+                <button type="submit" name="approve" value="false" class="cancellation-button cancellation-button--secondary">İptal talebini reddet</button>
+            </form>
+        } else if (item.Status == "Expired") {
+            <p>İzin başlamış veya artık onaylı durumda değil. Bu talep için iptal kararı verilemez.</p>
+        } else {
+            <p>Bu talep sonuçlandırılmış. Yeniden karar verilemez.</p>
+            <dl class="cancellation-facts"><div><dt>Karar veren</dt><dd>@item.DecidedBy</dd></div><div><dt>Karar tarihi</dt><dd>@CancellationDisplay.Time(item.DecisionDate)</dd></div></dl>
+        }
+    </section>
+</div></section>

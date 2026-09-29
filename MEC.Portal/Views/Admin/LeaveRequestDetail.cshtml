@@ -92,6 +92,7 @@
 
             </div>
 
+            @await Component.InvokeAsync("LeaveAccounting", new { leaveId = item.Id })
             <div class="leave-detail-reason">
                 <span>Açıklama</span>
                 <div class="leave-detail-reason__box">
